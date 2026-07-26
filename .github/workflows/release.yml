@@ -1,0 +1,282 @@
+# Tag-driven releases. The tag string alone decides the channel:
+#
+#   v1.2.0          -> GitHub Release     ("Latest")
+#   v1.2.0-beta.1   -> GitHub Pre-release (any '-' suffix = prerelease, per semver)
+#
+# Release ritual: bump TELEMATRIX_VERSION in CMakeLists.txt -> commit -> tag -> push.
+# `version-gate` fails the run if the tag and TELEMATRIX_VERSION disagree, because that
+# version feeds every package filename (CPack, AppImage, Info.plist) — a mismatched tag
+# would otherwise publish e.g. `v1.1.0` carrying packages named `1.0.0`.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Least privilege: only the `publish` job below escalates to contents: write.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # never cancel a run mid-notarization
+
+jobs:
+  version-gate:
+    name: Verify tag matches TELEMATRIX_VERSION
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare tag to CMakeLists.txt
+        run: |
+          # Read the tag from the GITHUB_REF_NAME env var rather than interpolating it
+          # into the script — no chance of shell injection via the ref.
+          tag="${GITHUB_REF_NAME#v}"
+          cmake_version="$(grep -oP 'set\(TELEMATRIX_VERSION "\K[^"]+' CMakeLists.txt)"
+          echo "tag:        $tag"
+          echo "CMakeLists: $cmake_version"
+          if [ "$tag" != "$cmake_version" ]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' does not match TELEMATRIX_VERSION '$cmake_version' in CMakeLists.txt. Bump the version, commit, then re-tag."
+            exit 1
+          fi
+          echo "OK: tag and TELEMATRIX_VERSION agree."
+
+  tests:
+    needs: version-gate
+    uses: ./.github/workflows/_reusable-tests.yml
+
+  build:
+    needs: tests   # gate the signed package build on green tests
+    uses: ./.github/workflows/_reusable-build.yml
+    with:
+      publish: true    # sign + notarize
+    secrets: inherit   # macOS Developer ID cert + notarytool API key
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    # 24.04, not 22.04: minisign is not packaged for jammy at all (it first
+    # entered Ubuntu in noble), so `apt-get install minisign` fails there and
+    # takes every release down with it.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write   # create the release + attach assets
+    steps:
+      - name: Download every platform's artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: telematrix-*
+          merge-multiple: true
+          path: dist
+
+      - name: Normalize prerelease installer filename
+        # CPack rewrites "1.2.0-beta.1" to "1.2.0~beta.1" for the whole package
+        # set, because RPM forbids '-' in a Version and dpkg would sort the beta
+        # ABOVE the final. That is right for deb/rpm — but the Windows installer
+        # inherits the '~' into its *filename*, GitHub mangles special characters
+        # on asset upload, and the manifest URL then 404s for every pre-release.
+        # Only the .exe is renamed; deb/rpm keep the '~' their version fields
+        # need (the package version lives in their metadata, not the filename).
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for f in dist/*'~'*.exe; do
+            target="${f//\~/-}"
+            echo ">> $f -> $target"
+            mv -- "$f" "$target"
+          done
+
+      # ---- Auto-update: sign the updater assets and build the manifest --------
+      #
+      # All of this lives in the publish job on purpose: the assets are already
+      # gathered here, so the signing key is installed once, exposed to one step,
+      # and never handed to the third-party release action.
+      - name: Install minisign
+        run: |
+          sudo apt-get update && sudo apt-get install -y minisign
+          minisign -v
+
+      - name: Detect signing key
+        id: signing
+        # Resolved into a step output rather than testing `secrets.*` directly in
+        # each `if:` — the secret never reaches a shell command line, and one
+        # place decides whether this release ships signatures.
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: |
+          if [ -n "${MINISIGN_SECRET_KEY:-}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::MINISIGN_SECRET_KEY is not set — this release ships without update signatures, so clients stay notify-only."
+          fi
+
+      - name: Sign updater assets
+        # No secret key configured => skip signing. The release still publishes;
+        # clients simply find no `minisig` in the manifest and stay notify-only.
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          key="$RUNNER_TEMP/minisign.key"
+          umask 077
+          printf '%s\n' "$MINISIGN_SECRET_KEY" > "$key"
+          trap 'shred -u "$key" 2>/dev/null || rm -f "$key"' EXIT
+
+          shopt -s nullglob
+          # Only the three updater assets are signed — the dmg/deb/rpm are
+          # first-install artifacts the updater never fetches.
+          for asset in dist/*-macos-*-app.tar.gz dist/*.exe dist/*.AppImage; do
+            echo ">> signing $asset"
+            # -H forces a PREHASHED signature. The client verifies by streaming
+            # (minisign-verify's verify_stream), which only accepts prehashed —
+            # so this flag is what keeps a 200MB installer out of RAM.
+            #
+            # -t is the TRUSTED comment: it is covered by the global signature.
+            # -c (untrusted) is NOT covered and is freely rewritable, so using it
+            # here would silently void the rollback protection. Never swap these.
+            printf '%s\n' "$MINISIGN_PASSWORD" | minisign -S -H \
+              -s "$key" \
+              -t "version=$version" \
+              -m "$asset"
+          done
+
+      - name: Verify the signatures we just made
+        # Fail the release rather than ship assets the client will reject. This
+        # catches a -t -> -c regression (the trusted-comment grep below) and a
+        # key/password mismatch (the -V check).
+        #
+        # It does NOT catch a dropped -H: `minisign -V` accepts prehashed and
+        # legacy signatures alike, while the client accepts prehashed only. That
+        # combination would pass here and fail on every client. Mitigated by
+        # minisign >= 0.10 prehashing by default, and it would surface loudly in
+        # the staging release the runbook asks for.
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          MINISIGN_PUBLIC_KEY: ${{ vars.MINISIGN_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          shopt -s nullglob
+          found=0
+          # Hard failure, not a warning: this step exists to stop assets the
+          # client will reject from ever being published. A rotated or
+          # mismatched keypair with the variable missing would otherwise ship a
+          # release that every single client refuses.
+          if [ -z "${MINISIGN_PUBLIC_KEY:-}" ]; then
+            echo "::error::MINISIGN_PUBLIC_KEY repository variable is unset, so the signatures cannot be self-checked. Set it to the public key matching MINISIGN_SECRET_KEY (see docs/autoupdate-setup.md)."
+            exit 1
+          fi
+          for sig in dist/*.minisig; do
+            asset="${sig%.minisig}"
+            found=1
+            minisign -V -P "$MINISIGN_PUBLIC_KEY" -m "$asset"
+            # The trusted comment is the half that carries the version binding.
+            comment="$(head -3 "$sig" | tail -1)"
+            case "$comment" in
+              *"version=$version"*) echo "OK: $(basename "$asset") bound to $version" ;;
+              *) echo "::error::$sig trusted comment lacks version=$version (got: $comment). Was it signed with -c instead of -t?"; exit 1 ;;
+            esac
+          done
+          if [ "$found" = 0 ]; then
+            echo "::error::no .minisig files produced — the updater assets are missing"
+            exit 1
+          fi
+
+      - name: Build update manifest
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          python3 - "$version" "$base" <<'PY'
+          import hashlib, json, os, sys
+
+          version, base = sys.argv[1], sys.argv[2]
+          # Filename glob -> manifest platform key. Arch-qualified so adding e.g.
+          # an x86_64 macOS build is a new key, not a schema change.
+          patterns = [
+              ("macos-aarch64",         lambda n: n.endswith("-app.tar.gz") and "macos" in n),
+              ("windows-x86_64",        lambda n: n.endswith(".exe")),
+              ("linux-appimage-x86_64", lambda n: n.endswith(".AppImage")),
+          ]
+
+          platforms = {}
+          for key, matches in patterns:
+              for name in sorted(os.listdir("dist")):
+                  if not matches(name):
+                      continue
+                  path = os.path.join("dist", name)
+                  sig = path + ".minisig"
+                  if not os.path.exists(sig):
+                      # Unsigned asset: leaving it out keeps clients notify-only
+                      # rather than offering a download they will refuse.
+                      print(f"skipping {name}: no signature")
+                      continue
+                  digest = hashlib.sha256()
+                  with open(path, "rb") as f:
+                      for chunk in iter(lambda: f.read(1 << 20), b""):
+                          digest.update(chunk)
+                  platforms[key] = {
+                      "url": f"{base}/{name}",
+                      "size": os.path.getsize(path),
+                      "sha256": digest.hexdigest(),
+                      "minisig": open(sig).read(),
+                  }
+                  break
+
+          manifest = {
+              "version": version,
+              "pub_date": os.environ.get("PUB_DATE", ""),
+              # No "notes": GitHub's generated notes only exist after the release
+              # is created, i.e. after this file has to be assembled.
+              "page": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/tag/v{version}",
+              "platforms": platforms,
+          }
+          with open("dist/latest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+          print(json.dumps(manifest, indent=2)[:2000])
+
+          # A silently-absent platform is the worst failure mode here: the
+          # release looks fine and that platform's users simply never see the
+          # update. Every build job runs on a release, so anything missing is a
+          # real breakage (a failed tar step, a renamed artifact) and must stop
+          # the release rather than ship a hole.
+          if os.environ.get("EXPECT_SIGNED") == "true":
+              missing = [key for key, _ in patterns if key not in platforms]
+              if missing:
+                  print(f"::error::update manifest is missing: {', '.join(missing)}. "
+                        "An updater asset failed to build or was renamed — those users "
+                        "would silently never receive updates.")
+                  sys.exit(1)
+          PY
+        env:
+          PUB_DATE: ${{ github.event.head_commit.timestamp }}
+          EXPECT_SIGNED: ${{ steps.signing.outputs.enabled }}
+
+      - name: Checksums
+        # Written outside dist/ first so the glob can't race the file into itself.
+        # Runs AFTER signing and manifest assembly so it covers the .minisig files
+        # and latest.json too.
+        run: |
+          cd dist
+          shasum -a 256 -- * > "$RUNNER_TEMP/SHA256SUMS"
+          mv "$RUNNER_TEMP/SHA256SUMS" .
+          cat SHA256SUMS
+
+      - name: Publish release
+        # ONE publish for the whole tag. (Previously each platform job called this
+        # action concurrently on the same tag, racing to create/update the release.)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          # Any '-' in the tag (-beta.N, -rc.N, -alpha.N) => GitHub pre-release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true

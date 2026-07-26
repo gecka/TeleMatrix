@@ -1,0 +1,11 @@
+# Pin the Apple deployment target for every cargo invocation (cmake-driven or a
+# direct `cargo build`/`cargo test`). Without this, C objects compiled by build
+# scripts via the `cc` crate (e.g. blake3's NEON code) are built for the host's
+# macOS version and then linked against the older C++ deployment target, which
+# produces:
+#   ld: warning: object file (...blake3_neon.o) was built for newer 'macOS'
+#       version (26.5) than being linked (15.0)
+#
+# Keep this value in sync with CMAKE_OSX_DEPLOYMENT_TARGET in ../CMakeLists.txt.
+[env]
+MACOSX_DEPLOYMENT_TARGET = "15.0"

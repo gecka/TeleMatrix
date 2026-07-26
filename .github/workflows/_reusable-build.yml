@@ -1,0 +1,505 @@
+# Reusable platform builds: Linux (.deb/.rpm/.AppImage), macOS (.dmg), Windows (NSIS).
+# Called by ci.yml (publish=false — unsigned, artifacts only) and release.yml
+# (publish=true — signed + notarized). Both callers run the SAME build path, so a
+# tag build is a re-run of something already proven green on main.
+#
+# This workflow only ever UPLOADS ARTIFACTS. Creating the GitHub Release is the
+# caller's job (release.yml has a single `publish` job) — three platform jobs each
+# calling action-gh-release used to race on the same tag.
+name: _reusable-build
+
+on:
+  workflow_call:
+    inputs:
+      publish:
+        description: 'Sign + notarize (tag builds). Unsigned when false.'
+        type: boolean
+        default: false
+    secrets:
+      # All optional: only consumed when publish=true (release.yml passes
+      # `secrets: inherit`). ci.yml calls this workflow without secrets at all, and
+      # the steps that read them are gated behind `if: inputs.publish`.
+      MACOS_CERT_P12_BASE64:
+        required: false
+      MACOS_CERT_PASSWORD:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      MACOS_SIGN_IDENTITY:
+        required: false
+      NOTARY_API_KEY_P8_BASE64:
+        required: false
+      NOTARY_API_KEY_ID:
+        required: false
+      NOTARY_API_ISSUER_ID:
+        required: false
+      # Windows Authenticode via SignPath Foundation. Unset until the one-time
+      # application is approved; the signing steps skip with a warning.
+      SIGNPATH_API_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (.deb + .rpm + .AppImage)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # 8 desktop-app/GSL/expected submodules under lib/
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential g++-12 ninja-build pkg-config patchelf \
+            libssl-dev libdbus-1-dev nasm rpm \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+            libgl1-mesa-dev libxkbcommon-dev libvulkan-dev \
+            file desktop-file-utils
+          # libav*-dev: ffmpeg-next (video thumbnails); the Rust staticlib links
+          # libav, and CMake links libav{codec,format,util,swscale} via pkg-config.
+          # build-essential: gcc/make for Rust bundled C deps (sqlite/sqlcipher)
+          # g++-12: project requires gcc >= 12 (ubuntu-22.04 default is 11)
+          # libssl-dev: rusqlite bundled-sqlcipher ; libdbus-1-dev: keyring (Secret Service)
+          # nasm: aws-lc-rs/ring asm (rustls crypto provider) ; rpm: rpmbuild for CPack RPM
+          # libgl1-mesa-dev/libxkbcommon-dev/libvulkan-dev/patchelf: Qt build + Linux deploy
+          # file + desktop-file-utils: linuxdeploy (binary sniffing + .desktop validation)
+          #   for the AppImage step. patchelf (above) is also used by the AppImage verify.
+
+      - name: Install Qt (pinned via aqtinstall)
+        uses: jurplel/install-qt-action@v4
+        with:
+          # Match the local/dev Qt version. The code uses Qt 6.9+ APIs (e.g.
+          # QImage::flipped); an older CI Qt fails to compile. Bump this in step
+          # with the Qt you develop against.
+          version: '6.10.1'
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: qtmultimedia       # Core/Gui/Widgets/Concurrent + LinguistTools are in base
+          cache: true
+
+      - name: Install Rust toolchain
+        # Pinned to match rust-toolchain.toml (keep both in sync). matrix-sdk-ui
+        # 0.18 requires rustc >= 1.93; pinned to 1.96.0. Avoid floating `@stable`
+        # which previously overflowed the default recursion_limit compiling
+        # matrix-sdk's sync() future on linux.
+        uses: dtolnay/rust-toolchain@1.96.0
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust
+            rust/cbindgen_runner
+
+      - name: Cache C++ objects (ccache)
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: linux-release
+          max-size: 1G
+
+      - name: Configure (CMake, Release)
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=gcc-12
+          -DCMAKE_CXX_COMPILER=g++-12
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build TeleMatrix
+        run: cmake --build build -j"$(nproc)" --target TeleMatrix
+
+      - name: Package (.deb + .rpm)
+        working-directory: build
+        run: cpack -G "DEB;RPM"
+
+      - name: Package AppImage
+        # Folded into this job so the single TeleMatrix compile above is reused (the
+        # target DEPENDS on the already-built binary — no recompile). The script
+        # downloads linuxdeploy + plugin-qt + appimagetool on first use and self-sets
+        # APPIMAGE_EXTRACT_AND_RUN=1 (the ubuntu-22.04 runner has no libfuse2). It
+        # verifies the FFmpeg media plugin + its libav deps are bundled and fails if
+        # not — the AppImage equivalent of the macOS "Verify FFmpeg" gate.
+        run: cmake --build build --target package_appimage
+
+      - name: Collect packages
+        run: |
+          mkdir -p dist
+          cp build/*.deb build/*.rpm build/*.AppImage dist/
+          ls -l dist
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: telematrix-linux-packages
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  macos:
+    name: macOS (Apple Silicon .dmg)
+    runs-on: macos-14    # Apple Silicon (arm64). arm64-only — see the FFmpeg note below.
+    timeout-minutes: 90
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # desktop-app/GSL/expected submodules under lib/
+
+      - name: Install create-dmg + FFmpeg (libav for ffmpeg-next)
+        run: brew install create-dmg ffmpeg pkg-config
+        # arm64-only build: brew's arm64 ffmpeg covers the single (arm64) slice.
+        # To restore a UNIVERSAL (arm64+x86_64) build, set CMAKE_OSX_ARCHITECTURES
+        # back to "arm64;x86_64" in the Configure steps AND provide an x86_64 libav
+        # for the x86_64 ffmpeg-next slice (e.g. an x86_64 Homebrew prefix) — the
+        # arm64 brew install here does not cover it.
+
+      - name: Install Qt (pinned via aqtinstall)
+        uses: jurplel/install-qt-action@v4
+        with:
+          # Match the local/dev + other CI Qt version. Qt 6 macOS frameworks are
+          # universal (arm64+x86_64), so clang_64 covers both slices.
+          version: '6.10.1'
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtmultimedia       # Core/Gui/Widgets/Concurrent + LinguistTools are in base
+          cache: true
+
+      - name: Install Rust toolchain (pinned)
+        # Pinned to match rust-toolchain.toml (1.96.0). arm64-only build, so only the
+        # aarch64 target is needed; add x86_64-apple-darwin back if the universal
+        # (lipo) build is ever restored.
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust
+            rust/cbindgen_runner
+
+      - name: Cache C++ objects (ccache)
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: macos-release
+          max-size: 1G
+
+      # --- Signing prep: publish builds only (secrets are unavailable to fork PRs) ---
+      - name: Import Developer ID certificate
+        if: inputs.publish
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          p12-password: ${{ secrets.MACOS_CERT_PASSWORD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: Create notarytool profile (App Store Connect API key)
+        if: inputs.publish
+        env:
+          NOTARY_API_KEY_P8_BASE64: ${{ secrets.NOTARY_API_KEY_P8_BASE64 }}
+          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          echo "$NOTARY_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          xcrun notarytool store-credentials ci-notary \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$NOTARY_API_KEY_ID" \
+            --issuer "$NOTARY_API_ISSUER_ID"
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+      # --- Configure ----------------------------------------------------------
+      - name: Configure (signed — publish)
+        if: inputs.publish
+        env:
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="arm64"
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DTELEMATRIX_CODESIGN_IDENTITY="$MACOS_SIGN_IDENTITY"
+          -DTELEMATRIX_NOTARIZE_PROFILE="ci-notary"
+
+      - name: Configure (unsigned — CI / dispatch)
+        if: ${{ !inputs.publish }}
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="arm64"
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      # --- Build + package ----------------------------------------------------
+      - name: Build TeleMatrix (arm64)
+        run: cmake --build build --target TeleMatrix
+
+      - name: Verify FFmpeg media backend is bundled
+        # The video-streaming feature needs Qt's FFmpeg multimedia backend; the
+        # AVFoundation-only backend can't play the loopback http stream (the app
+        # then falls back to a full download). Official Qt (aqtinstall) ships
+        # libffmpegmediaplugin.dylib — assert macdeployqt bundled it, and that its
+        # libav deps resolve inside the .app rather than to a build-host path.
+        run: |
+          APP="build/TeleMatrix.app"
+          PLUGIN="$APP/Contents/PlugIns/multimedia/libffmpegmediaplugin.dylib"
+          echo "Bundled multimedia plugins:"; ls -1 "$APP/Contents/PlugIns/multimedia/" || true
+          if [ ! -f "$PLUGIN" ]; then
+            echo "ERROR: libffmpegmediaplugin.dylib not bundled — video streaming unavailable on macOS."
+            exit 1
+          fi
+          echo "OK: FFmpeg media backend bundled."
+          otool -L "$PLUGIN"
+          if otool -L "$PLUGIN" | grep -qiE "/opt/homebrew|/usr/local/(opt|Cellar)"; then
+            echo "ERROR: FFmpeg backend links a build-host libav path — not self-contained."
+            exit 1
+          fi
+
+      # --- Notarize + staple the .app itself, BEFORE the dmg is built ----------
+      #
+      # package_dmg notarizes the .dmg, which is enough for a first install but
+      # useless to the updater: it ships a tar.gz of the bundle, and an unstapled
+      # bundle needs a Gatekeeper round-trip on first launch. Stapling here costs
+      # a second notarytool submission and also means the dmg carries an
+      # already-stapled app.
+      - name: Notarize and staple the .app
+        if: inputs.publish
+        run: |
+          set -euo pipefail
+          APP="build/TeleMatrix.app"
+          ZIP="$RUNNER_TEMP/TeleMatrix-app.zip"
+          # ditto, not zip: preserves symlinks, resource forks and the signature.
+          /usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
+          xcrun notarytool submit "$ZIP" --keychain-profile ci-notary --wait
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          rm -f "$ZIP"
+
+      - name: Package .dmg
+        run: cmake --build build --target package_dmg
+
+      - name: Collect dmg
+        # Versioned filename (TeleMatrix-<version>-arm64.dmg) — glob, don't hardcode.
+        run: |
+          mkdir -p dist
+          cp build/TeleMatrix-*.dmg dist/
+          ls -l dist
+
+      - name: Pack the .app for the updater
+        if: inputs.publish
+        # The updater swaps a bundle, so it needs the .app — not the .dmg, which
+        # stays the first-install download.
+        #
+        # COPYFILE_DISABLE=1 is load-bearing: without it bsdtar writes AppleDouble
+        # `._*` entries that extract as junk files inside the bundle and break the
+        # code-signature seal.
+        run: |
+          set -euo pipefail
+          version="$(grep -oE 'set\(TELEMATRIX_VERSION "[^"]+"' CMakeLists.txt | sed -E 's/.*"([^"]+)"/\1/')"
+          out="dist/TeleMatrix-${version}-macos-aarch64-app.tar.gz"
+          COPYFILE_DISABLE=1 tar czf "$out" -C build TeleMatrix.app
+          ls -l "$out"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: telematrix-macos-dmg
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows (NSIS installer)
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      # Give vcpkg an explicit, cacheable binary-package dir. Without this, FFmpeg
+      # is COMPILED FROM SOURCE on every single run (~30+ min).
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # desktop-app/GSL/expected submodules under lib/
+
+      - name: Install NASM + NSIS
+        # NASM: rustls' aws-lc-rs assembly + the vendored OpenSSL (SQLCipher) build.
+        # NSIS: the CPack NSIS installer generator.
+        # (Strawberry Perl, needed by openssl-src, is preinstalled on windows-2022.)
+        run: choco install nasm nsis -y --no-progress
+
+      - name: Add NASM to PATH
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_PATH -Value 'C:\Program Files\NASM'
+
+      - name: Set up MSVC environment
+        # Puts cl.exe/link.exe/nmake on PATH so the Rust `cc`/`openssl-src` builds
+        # (SQLCipher + vendored OpenSSL) find the MSVC toolchain.
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Prepare vcpkg binary cache dir
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
+
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}\vcpkg-cache
+          # Bump the -vN suffix to force a rebuild of the cached FFmpeg packages.
+          key: vcpkg-ffmpeg-x64-windows-v1
+
+      - name: Install FFmpeg (libav) via vcpkg
+        shell: pwsh
+        run: |
+          # The Rust staticlib (ffmpeg-next, video thumbnails) links libav, and
+          # CMake resolves it via pkg_check_modules(FFMPEG). vcpkg ships .pc files,
+          # so the cross-platform pkg-config link works unchanged. With the binary
+          # cache above, a cache hit unpacks prebuilt FFmpeg instead of compiling it.
+          vcpkg install "ffmpeg[core,avcodec,avformat,swresample,swscale]:x64-windows"
+          choco install pkgconfiglite -y --no-progress
+          # VCPKG_ROOT/VCPKGRS_DYNAMIC let ffmpeg-sys-next (cargo) fall back to vcpkg.
+          # NOTE: PKG_CONFIG_PATH is set INLINE at the Configure/Build steps, not here —
+          # the later "Install Qt" action (aqtinstall/Python) overwrites PKG_CONFIG_PATH
+          # via GITHUB_ENV, so a value set here would be lost before CMake runs.
+          @(
+            "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT",
+            "VCPKGRS_DYNAMIC=1"
+          ) | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install Qt (pinned via aqtinstall)
+        uses: jurplel/install-qt-action@v4
+        with:
+          # Match the local/dev + Linux CI Qt version (uses Qt 6.9+ APIs).
+          version: '6.10.1'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtmultimedia       # Core/Gui/Widgets/Concurrent + LinguistTools are in base
+          cache: true
+
+      - name: Install Rust toolchain (MSVC, pinned)
+        # Pinned to match rust-toolchain.toml (1.96.0); host triple is MSVC on this runner.
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust
+            rust/cbindgen_runner
+
+      - name: Configure (CMake, Visual Studio 2022)
+        shell: pwsh
+        run: |
+          # The Qt install action (aqtinstall/Python) overwrites PKG_CONFIG_PATH via
+          # GITHUB_ENV, dropping the vcpkg FFmpeg pkgconfig dir set earlier. Re-assert
+          # it here so pkg_check_modules(FFMPEG) resolves libav{codec,format,util,swscale}.
+          $env:PKG_CONFIG_PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\lib\pkgconfig"
+          cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build TeleMatrix
+        shell: pwsh
+        run: |
+          # Same fix: the Rust staticlib's ffmpeg-sys-next resolves libav via pkg-config too.
+          $env:PKG_CONFIG_PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\lib\pkgconfig"
+          cmake --build build --config Release --target TeleMatrix
+
+      # Regression guard: the installed tree must carry the Qt runtime DLLs +
+      # platform plugin FLAT next to the exe. (qt_generate_deploy_app_script used
+      # to deploy them into a `bin\` subdir while the exe sat at the root, so the
+      # installed app failed to start with "Qt6Widgets.dll not found".)
+      - name: Verify Qt is bundled next to the exe
+        shell: pwsh
+        run: |
+          cmake --install build --config Release --prefix install_check
+          foreach ($f in 'TeleMatrix.exe','Qt6Widgets.dll','Qt6Core.dll','platforms/qwindows.dll') {
+            if (!(Test-Path "install_check/$f")) { throw "missing in install tree: $f" }
+          }
+          Write-Host "OK: Qt bundled flat next to TeleMatrix.exe"
+
+      - name: Package (NSIS installer)
+        working-directory: build
+        run: cpack -G NSIS -C Release
+
+      - name: Collect installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item build/*.exe dist/
+          Get-ChildItem dist
+
+      # --- Authenticode signing via SignPath Foundation -----------------------
+      #
+      # Without this the installer is unsigned and SmartScreen shows exactly the
+      # warning one-click updating exists to remove. minisign (in release.yml)
+      # runs afterwards, so it covers the Authenticode-signed bytes.
+      #
+      # Requires a one-time SignPath Foundation application — free for OSS, and
+      # this project qualifies (GPL-3.0, public repo, CI-origin builds). See
+      # docs/signing-and-ci.md. Until it is approved the secret is unset and this
+      # step is skipped, so CI keeps working and updates still function; they
+      # just carry a SmartScreen warning.
+      - name: Detect SignPath configuration
+        id: signpath
+        if: inputs.publish
+        shell: bash
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        run: |
+          if [ -n "${SIGNPATH_API_TOKEN:-}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SIGNPATH_API_TOKEN is not set — the Windows installer ships unsigned and SmartScreen will warn on download."
+          fi
+
+      - name: Upload unsigned installer for signing
+        if: inputs.publish && steps.signpath.outputs.enabled == 'true'
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          # Deliberately OUTSIDE the `telematrix-*` glob the publish job
+          # downloads with merge-multiple. This artifact holds the same exe
+          # basename as the signed one, so if it matched, whichever won the
+          # flatten would ship — and the manifest hashes are computed after the
+          # merge, so an unsigned installer would verify perfectly green.
+          name: intermediate-windows-unsigned
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign with SignPath
+        if: inputs.publish && steps.signpath.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          # Overwrite dist/ with the signed exe so the canonical artifact below
+          # publishes signed bytes under the name the release job globs for.
+          output-artifact-directory: dist
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: telematrix-windows-installer
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14

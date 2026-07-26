@@ -1,0 +1,117 @@
+# Reusable test suite: Rust (cargo test) + C++ (Qt Test / ctest).
+# Called by ci.yml (PRs + pushes to main) and by release.yml (release gate), so the
+# job definitions live here once. Not triggered directly.
+name: _reusable-tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-tests:
+    name: Rust tests (cargo test)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev libdbus-1-dev nasm \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+          # libssl-dev: rusqlite bundled-sqlcipher ; libdbus-1-dev: keyring
+          # nasm: aws-lc-rs/ring asm (rustls crypto provider)
+          # libav*-dev: ffmpeg-next (video thumbnails) — ffmpeg-sys-next links libav.
+          # ubuntu-22.04 ships FFmpeg 4.4; ffmpeg-next 8.1 supports FFmpeg >= 3.4.
+
+      - name: Install Rust toolchain
+        # Match rust-toolchain.toml; add rustfmt/clippy for the advisory steps.
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          # Same workspace set as _reusable-build.yml, so the two share cache entries.
+          workspaces: |
+            rust
+            rust/cbindgen_runner
+
+      # IMPORTANT: plain `cargo test` uses the unwinding `dev` profile. Never run
+      # tests under `--release`/`dev-ffi` — those set panic=abort, which breaks
+      # the libtest harness. The matrix-sdk `testing` feature (MatrixMockServer +
+      # wiremock) is a dev-dependency, so it is enabled automatically here and is
+      # NOT compiled into the shipped staticlib (`cargo build`).
+      - name: Run tests
+        working-directory: rust
+        run: cargo test
+
+      # Gating: the tree is rustfmt/clippy clean, so these block on regressions
+      # rather than just annotating. The toolchain is pinned to 1.96.0 above
+      # (matching local dev), so lint results are reproducible across machines.
+      - name: Format check
+        working-directory: rust
+        run: cargo fmt --check
+
+      - name: Clippy (deny warnings)
+        working-directory: rust
+        run: cargo clippy --all-targets -- -D warnings
+
+  cpp-tests:
+    name: C++ tests (Qt Test / ctest)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential g++-12 ninja-build pkg-config \
+            libssl-dev libdbus-1-dev \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+            libgl1-mesa-dev libxkbcommon-dev libvulkan-dev
+          # libssl-dev/libdbus-1-dev: required by the CMake configure step
+          # (find_package OpenSSL + pkg_check_modules dbus-1), even though the
+          # test runners link only telematrix_core (no Rust staticlib).
+          # libav*-dev: the CMake configure also runs pkg_check_modules(FFMPEG)
+          # for the app target, so it must resolve even in this tests-only build.
+
+      - name: Install Qt (pinned via aqtinstall)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.1'
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: qtmultimedia
+          cache: true
+
+      - name: Configure (CMake, Debug, tests on)
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=gcc-12
+          -DCMAKE_CXX_COMPILER=g++-12
+          -DTELEMATRIX_BUILD_TESTS=ON
+
+      # Builds only the test runners (telematrix_core OBJECT lib + tst_*); the
+      # Rust staticlib and the full app are NOT built here.
+      - name: Build C++ tests
+        run: cmake --build build -j"$(nproc)" --target telematrix_cpp_tests
+
+      - name: Run ctest (headless)
+        working-directory: build
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --output-on-failure

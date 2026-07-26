@@ -1,0 +1,815 @@
+cmake_minimum_required(VERSION 3.20)
+set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0")
+project(TeleMatrix LANGUAGES CXX)
+
+# Single-source application version. Consumed by the macOS bundle props, CPack,
+# and a compile definition the C++ reads for the about page / QApplication.
+# The release date feeds the AppStream metainfo (GNOME Software / KDE Discover).
+#
+# Don't hand-edit these: `scripts/release.sh <version>` bumps both, commits, tags and
+# pushes. release.yml refuses to publish a tag that disagrees with TELEMATRIX_VERSION.
+set(TELEMATRIX_VERSION "0.9.0")
+set(TELEMATRIX_RELEASE_DATE "2026-07-26")
+
+# Objective-C++ only exists on Apple platforms; the .mm sources are added
+# conditionally further down.
+if (APPLE)
+    enable_language(OBJCXX)
+endif()
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia Concurrent Network Svg Test)
+find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
+
+# Video streaming needs Qt's FFmpeg multimedia backend: the AVFoundation-only
+# `darwin` backend can't play the loopback http stream from media_stream/, so the
+# app silently falls back to downloading whole files before playing. Homebrew's
+# qtmultimedia ships only libdarwinmediaplugin.dylib, and nothing catches that
+# until runtime — fail here rather than produce a quietly degraded build.
+#
+# QT6_INSTALL_PREFIX/QT6_INSTALL_PLUGINS come from Qt6's QtInstallPaths.cmake,
+# which both layouts provide (Homebrew says "share/qt/plugins", the official
+# installer says "plugins"). Plain EXISTS, not find_program/find_file: a cached
+# NOTFOUND would survive installing the plugin and re-configuring.
+# Linux is covered post-build by cmake/package_appimage.sh.
+if (APPLE)
+    set(TELEMATRIX_QT_FFMPEG_PLUGIN
+        "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_PLUGINS}/multimedia/libffmpegmediaplugin.dylib")
+    if (NOT EXISTS "${TELEMATRIX_QT_FFMPEG_PLUGIN}")
+        message(FATAL_ERROR
+            "Qt at ${QT6_INSTALL_PREFIX} has no FFmpeg multimedia backend.\n"
+            "  expected: ${TELEMATRIX_QT_FFMPEG_PLUGIN}\n"
+            "Homebrew's qt does not ship it, so video would fall back to a full "
+            "download instead of streaming. Install official Qt ${Qt6_VERSION} "
+            "(online installer or aqtinstall) and re-configure against it:\n"
+            "  rm -rf build\n"
+            "  cmake -S . -B build -DCMAKE_PREFIX_PATH=\"$ENV{HOME}/Qt/${Qt6_VERSION}/macos\"")
+    endif()
+endif()
+
+# Rust static library.
+# Keep this in sync with C++ by rebuilding when Rust sources change.
+# MSVC emits telematrix_protocol.lib; Unix toolchains emit libtelematrix_protocol.a.
+#
+# Match the cargo profile to CMAKE_BUILD_TYPE so a Debug C++ build links a debug
+# (unoptimized, debuggable) Rust staticlib and every other build type links the
+# optimized release one. Debug uses the `dev-ffi` profile (a debuggable dev build
+# with panic=abort — see rust/Cargo.toml); Release, RelWithDebInfo, MinSizeRel
+# and an empty/unspecified type all use --release. Both abort on panic, so a
+# panic never unwinds across the FFI boundary regardless of build type, and the
+# debug staticlib carries no unwind tables (avoids the __eh_frame > 16 MB ld
+# warning). `cargo test` keeps using the plain unwinding `dev` profile.
+set(CARGO_BUILD_COMMAND cargo build)
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    list(APPEND CARGO_BUILD_COMMAND --profile dev-ffi)
+    set(CARGO_TARGET_SUBDIR "dev-ffi")
+else()
+    list(APPEND CARGO_BUILD_COMMAND --release)
+    set(CARGO_TARGET_SUBDIR "release")
+endif()
+if (WIN32)
+    set(RUST_LIB_PATH "${CMAKE_SOURCE_DIR}/rust/target/${CARGO_TARGET_SUBDIR}/telematrix_protocol.lib")
+else()
+    set(RUST_LIB_PATH "${CMAKE_SOURCE_DIR}/rust/target/${CARGO_TARGET_SUBDIR}/libtelematrix_protocol.a")
+endif()
+set(PROTOCOL_BINDINGS_DIR "${CMAKE_BINARY_DIR}/generated/protocol")
+set(PROTOCOL_FFI_HEADER "${PROTOCOL_BINDINGS_DIR}/protocol_ffi.h")
+file(GLOB_RECURSE TELEMATRIX_RUST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/rust/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/rust/Cargo.toml"
+    "${CMAKE_SOURCE_DIR}/rust/Cargo.lock"
+    "${CMAKE_SOURCE_DIR}/rust/cbindgen.toml"
+    "${CMAKE_SOURCE_DIR}/rust/cbindgen_runner/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/rust/cbindgen_runner/Cargo.toml"
+)
+# Environment for the cargo build. The macOS deployment target is only
+# meaningful (and only set) on Apple.
+set(CARGO_BUILD_ENV "TELEMATRIX_BINDINGS_DIR=${PROTOCOL_BINDINGS_DIR}")
+if (APPLE)
+    list(APPEND CARGO_BUILD_ENV "MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+endif()
+
+# Assemble the Rust build step(s). When the C++ build targets multiple macOS
+# architectures (CMAKE_OSX_ARCHITECTURES="arm64;x86_64") the single-arch host
+# staticlib can't be linked, so build cargo for each arch and `lipo` the results
+# into the universal RUST_LIB_PATH. Single-arch / non-mac builds are unchanged.
+list(LENGTH CMAKE_OSX_ARCHITECTURES _tm_narch)
+if (APPLE AND _tm_narch GREATER 1)
+    set(_tm_rust_steps "")
+    set(_tm_lipo_inputs "")
+    foreach (_arch IN LISTS CMAKE_OSX_ARCHITECTURES)
+        if (_arch STREQUAL "arm64")
+            set(_triple "aarch64-apple-darwin")
+        elseif (_arch STREQUAL "x86_64")
+            set(_triple "x86_64-apple-darwin")
+        else()
+            message(FATAL_ERROR "Unsupported CMAKE_OSX_ARCHITECTURES value for the Rust staticlib: ${_arch}")
+        endif()
+        list(APPEND _tm_rust_steps
+            COMMAND ${CMAKE_COMMAND} -E env ${CARGO_BUILD_ENV} ${CARGO_BUILD_COMMAND} --target ${_triple})
+        list(APPEND _tm_lipo_inputs
+            "${CMAKE_SOURCE_DIR}/rust/target/${_triple}/${CARGO_TARGET_SUBDIR}/libtelematrix_protocol.a")
+    endforeach()
+    list(APPEND _tm_rust_steps
+        COMMAND lipo -create ${_tm_lipo_inputs} -output "${RUST_LIB_PATH}")
+else()
+    set(_tm_rust_steps
+        COMMAND ${CMAKE_COMMAND} -E env ${CARGO_BUILD_ENV} ${CARGO_BUILD_COMMAND})
+endif()
+
+# Rust staticlib. RUST_LIB_PATH lives in cargo's own target dir, OUTSIDE the
+# CMake build tree, so blowing away `build/` costs a C++ recompile rather than a
+# full (slow, disk-hungry) Rust rebuild.
+add_custom_command(
+    OUTPUT "${RUST_LIB_PATH}"
+    ${_tm_rust_steps}
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/rust"
+    DEPENDS ${TELEMATRIX_RUST_SOURCES}
+    COMMENT "Building Rust protocol library"
+    VERBATIM
+)
+
+# C FFI header — a SEPARATE custom command from the staticlib above. The header
+# is a per-build-tree output while RUST_LIB_PATH is not, so a single multi-output
+# command keyed (by the Makefile generator) on the shared lib would skip the
+# header whenever cargo considered the lib up to date — leaving the tree without
+# a header a clean had just deleted, and stale when a new FFI export is added.
+# `cargo run` ALWAYS executes the binary, so the header is rebuilt whenever this
+# fires.
+# DEPENDS on RUST_LIB_PATH only to order it after the lib build (avoid two
+# concurrent cargo invocations), not for staleness — the header's own timestamp
+# vs. the Rust sources governs regeneration.
+add_custom_command(
+    OUTPUT "${PROTOCOL_FFI_HEADER}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROTOCOL_BINDINGS_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E env
+        "TELEMATRIX_CRATE_DIR=${CMAKE_SOURCE_DIR}/rust"
+        "TELEMATRIX_BINDINGS_DIR=${PROTOCOL_BINDINGS_DIR}"
+        cargo run --quiet --manifest-path cbindgen_runner/Cargo.toml
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/rust"
+    DEPENDS ${TELEMATRIX_RUST_SOURCES} "${RUST_LIB_PATH}"
+    COMMENT "Generating C FFI header"
+    VERBATIM
+)
+add_custom_target(telematrix_protocol_build DEPENDS "${RUST_LIB_PATH}" "${PROTOCOL_FFI_HEADER}")
+
+add_library(telematrix_protocol STATIC IMPORTED GLOBAL)
+set_target_properties(telematrix_protocol PROPERTIES IMPORTED_LOCATION "${RUST_LIB_PATH}")
+add_dependencies(telematrix_protocol telematrix_protocol_build)
+
+# Reusable "core" of pure, runtime-light translation units (no QtWidgets, no
+# ProtocolBridge/Rust FFI). Compiled once as an OBJECT library so both the
+# TeleMatrix executable and the unit-test runners (tests/) link the SAME objects
+# without recompiling. Members are deliberately limited to TUs that depend only
+# on Qt6::Core/Gui (+ the header-only protocol_types.h/timeline_item_content.h)
+# so the test binaries stay small and headless-friendly.
+add_library(telematrix_core OBJECT
+    src/protocol/timeline_item_content.h
+    src/protocol/timeline_item_content.cpp
+    src/protocol/ffi_conversions.h
+    src/protocol/ffi_conversions.cpp
+    src/dialogs/room_directory_filter.h
+    src/dialogs/room_directory_filter.cpp
+    src/dialogs/saved_messages.h
+    src/dialogs/saved_messages.cpp
+    src/protocol/media_retry_policy.h
+    src/protocol/media_retry_policy.cpp
+    src/core/core_settings.h
+    src/core/core_settings.cpp
+    src/core/localization.h
+    src/core/localization.cpp
+    src/app/unread_state_store.h
+    src/app/unread_state_store.cpp
+    src/app/account_index.h
+    src/app/account_index.cpp
+    src/history/history_return_stack.h
+    src/history/history_return_stack.cpp
+    src/history/history_scroll_state.h
+    src/history/history_scroll_state.cpp
+    src/history/history_selection_state.h
+    src/history/history_selection_state.cpp
+    src/history/message_index.h
+    src/history/message_index.cpp
+    src/history/mention_trigger.h
+    src/history/mention_trigger.cpp
+    src/history/compose_html.h
+    src/history/compose_html.cpp
+    src/history/jump_load_controller.h
+    src/history/jump_load_controller.cpp
+    src/history/unread_bar_placement.h
+    src/history/unread_bar_placement.cpp
+    src/history/bubble_corners_cache.h
+    src/history/bubble_corners_cache.cpp
+    src/history/image_recompress.h
+    src/history/image_recompress.cpp
+    src/history/heic_decode.h
+    src/history/heic_decode.cpp
+    src/history/emoji_data.h
+    src/history/emoji_data.cpp
+    src/history/history_video_placeholder.h
+    src/history/history_video_placeholder.cpp
+    src/media/video_container.h
+    src/media/video_rebuffer.h
+    src/media/video_rebuffer.cpp
+    src/media/video_stream_retry.h
+    src/media/video_stream_retry.cpp
+    src/media/video_frame_scaler.h
+    src/media/video_frame_scaler.cpp
+    src/media/video_download_overlay_policy.h
+    src/media/video_download_overlay_policy.cpp
+    src/ui/format_bytes.h
+    src/ui/format_bytes.cpp
+    src/ui/safe_url.h
+    src/ui/safe_url.cpp
+    src/ui/recovery_key_format.cpp
+    src/ui/qr_code_image.h
+    src/ui/qr_code_image.cpp
+    src/ui/widgets/block_format_presence.h
+    src/ui/widgets/block_format_presence.cpp
+    src/theme/theme_parser.h
+    src/theme/theme_parser.cpp
+    src/theme/theme_registry.h
+    src/theme/theme_registry.cpp
+    src/theme/chat_background.h
+    src/theme/chat_background.cpp
+    # Carries the per-theme palettes and doodle patterns, which theme_registry.cpp
+    # and chat_background.cpp read. Lives here rather than on TeleMatrix so the
+    # unit tests can load them too.
+    src/theme/theme_resources.qrc
+    # Pure helpers shared by the platform toast managers; cross-platform so they
+    # are unit-tested on any host.
+    src/window/notifications_win_keys.h
+    src/window/notifications_win_keys.cpp
+    src/window/notifications_linux_registry.h
+    src/window/notifications_linux_registry.cpp
+)
+target_include_directories(telematrix_core PUBLIC ${CMAKE_SOURCE_DIR}/src)
+# Qt6::Svg depends on Gui, not Widgets, so the test runners stay headless.
+target_link_libraries(telematrix_core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg)
+if(APPLE)
+    # Native HEIC/HEIF decode (heic_decode.cpp) via macOS ImageIO. PUBLIC so the
+    # app and the unit-test runners that link this object library resolve it too.
+    target_link_libraries(telematrix_core PUBLIC
+        "-framework ImageIO"
+        "-framework CoreGraphics"
+        "-framework CoreFoundation")
+endif()
+
+add_executable(TeleMatrix
+    src/main.cpp
+    src/app/app_icon.qrc
+    src/protocol/protocol_bridge.h
+    src/protocol/protocol_bridge.cpp
+    src/protocol/media_cache.h
+    src/protocol/media_cache.cpp
+    src/storage/storage_local.h
+    src/storage/storage_local.cpp
+    src/app/app_controller.h
+    src/app/app_controller.cpp
+    src/app/account.h
+    src/app/account.cpp
+    src/app/account_domain.h
+    src/app/account_domain.cpp
+    src/app/tray_icon.h
+    src/app/tray_icon.cpp
+    src/app/single_instance.h
+    src/app/single_instance.cpp
+    # Auto-update. Lives under src/core/ but belongs to the executable, not
+    # telematrix_core: it needs the generated FFI header and TELEMATRIX_VERSION_STR,
+    # neither of which the OBJECT library (and therefore the unit-test runners) has.
+    # The logic worth testing — manifest parsing, semver, signature and version
+    # binding — is all Rust-side and covered by `cargo test`.
+    src/core/update_service.h
+    src/core/update_service.cpp
+    src/core/updater.h
+    src/core/updater.cpp
+    src/app/app_main_window.h
+    src/app/app_main_window.cpp
+    src/app/app_main_widget.h
+    src/app/app_main_widget.cpp
+    src/app/network_monitor.h
+    src/app/network_monitor.cpp
+    src/media/media_view_overlay.h
+    src/media/media_view_overlay.cpp
+    src/dialogs/dialogs_row.h
+    src/dialogs/dialogs_row.cpp
+    src/dialogs/dialogs_layout.h
+    src/dialogs/dialogs_layout.cpp
+    src/dialogs/dialogs_filter_sidebar.h
+    src/dialogs/dialogs_filter_sidebar.cpp
+    src/dialogs/dialogs_main_menu_overlay.h
+    src/dialogs/dialogs_main_menu_overlay.cpp
+    src/dialogs/dialogs_main_menu_panel.h
+    src/dialogs/dialogs_main_menu_panel.cpp
+    src/dialogs/dialogs_folders_box.h
+    src/dialogs/dialogs_folders_box.cpp
+    src/dialogs/dialogs_edit_folder_box.h
+    src/dialogs/dialogs_edit_folder_box.cpp
+    src/dialogs/dialogs_include_chats_box.h
+    src/dialogs/dialogs_include_chats_box.cpp
+    src/dialogs/dialogs_leave_space_box.h
+    src/dialogs/dialogs_leave_space_box.cpp
+    src/dialogs/dialogs_add_account_box.h
+    src/dialogs/dialogs_add_account_box.cpp
+    src/dialogs/dialogs_new_chat_box.h
+    src/dialogs/dialogs_new_chat_box.cpp
+    src/dialogs/dialogs_explore_rooms_box.h
+    src/dialogs/dialogs_explore_rooms_box.cpp
+    src/dialogs/dialogs_room_info_box.h
+    src/dialogs/dialogs_room_info_box.cpp
+    src/dialogs/dialogs_room_create_dialog.h
+    src/dialogs/dialogs_room_create_dialog.cpp
+    src/dialogs/dialogs_member_picker_box.h
+    src/dialogs/dialogs_member_picker_box.cpp
+    src/dialogs/dialogs_invite_users_box.h
+    src/dialogs/dialogs_invite_users_box.cpp
+    src/dialogs/dialogs_chat_search_in.h
+    src/dialogs/dialogs_chat_search_in.cpp
+    src/dialogs/dialogs_inner.h
+    src/dialogs/dialogs_inner.cpp
+    src/dialogs/dialogs_widget.h
+    src/dialogs/dialogs_widget.cpp
+    src/dialogs/dialogs_icons.qrc
+    src/intro/intro_step.h
+    src/intro/intro_step.cpp
+    src/intro/intro_start.h
+    src/intro/intro_start.cpp
+    src/intro/intro_secret_backend.h
+    src/intro/intro_secret_backend.cpp
+    src/intro/intro_create_password.h
+    src/intro/intro_create_password.cpp
+    src/intro/intro_vault_unlock.h
+    src/intro/intro_vault_unlock.cpp
+    src/intro/intro_login.h
+    src/intro/intro_login.cpp
+    src/intro/intro_register.h
+    src/intro/intro_register.cpp
+    src/intro/intro_constants.h
+    src/intro/intro_forgot_password.h
+    src/intro/intro_forgot_password.cpp
+    src/intro/intro_verify_choice.h
+    src/intro/intro_verify_choice.cpp
+    src/intro/intro_verify_emoji.h
+    src/intro/intro_verify_emoji.cpp
+    src/intro/intro_verify_qr.h
+    src/intro/intro_verify_qr.cpp
+    src/intro/intro_verify_recovery_key.h
+    src/intro/intro_verify_recovery_key.cpp
+    src/intro/intro_verify_success.h
+    src/intro/intro_verify_success.cpp
+    src/intro/intro_setup_encryption.h
+    src/intro/intro_setup_encryption.cpp
+    src/intro/intro_widget.h
+    src/intro/intro_widget.cpp
+    src/intro/intro_widgets.h
+    src/intro/intro_widgets.cpp
+    src/intro/intro_colors.h
+    src/intro/intro_colors.cpp
+    src/history/history_message.h
+    src/history/history_message.cpp
+    src/history/history_message_layout.h
+    src/history/history_message_layout.cpp
+    src/history/media/history_view_audio.h
+    src/history/media/history_view_audio.cpp
+    src/history/media/history_view_poll.h
+    src/history/media/history_view_poll.cpp
+    src/history/history_large_emoji.h
+    src/history/history_large_emoji.cpp
+    src/history/history_list.h
+    src/history/history_list.cpp
+    src/history/history_down_button.h
+    src/history/history_down_button.cpp
+    src/history/history_pinned_bar.h
+    src/history/history_pinned_bar.cpp
+    src/history/history_draft_state.h
+    src/history/history_draft_state.cpp
+    src/history/history_typing_state.h
+    src/history/history_typing_state.cpp
+    src/history/history_pinned_state.h
+    src/history/history_pinned_state.cpp
+    src/history/history_media_request_state.h
+    src/history/history_media_request_state.cpp
+    src/history/history_pending_local_media.h
+    src/history/history_pending_local_media.cpp
+    src/history/history_read_receipt_state.h
+    src/history/history_read_receipt_state.cpp
+    src/history/history_audio_playback_state.h
+    src/history/history_audio_playback_state.cpp
+    src/history/history_video_thumbnail_probe_state.h
+    src/history/history_video_thumbnail_probe_state.cpp
+    src/history/history_inline_video.h
+    src/history/history_inline_video.cpp
+    src/history/history_input.h
+    src/history/history_input.cpp
+    src/history/history_voice_recorder.h
+    src/history/history_voice_recorder.cpp
+    src/history/mention_autocomplete.h
+    src/history/mention_autocomplete.cpp
+    src/history/history_confirm_dialog.h
+    src/history/history_confirm_dialog.cpp
+    src/history/history_forward_dialog.h
+    src/history/history_forward_dialog.cpp
+    src/history/history_emoji_picker.h
+    src/history/history_emoji_picker.cpp
+    src/history/history_popup_menu_style.h
+    src/history/history_popup_menu_style.cpp
+    src/history/history_attach_popup.h
+    src/history/history_attach_popup.cpp
+    src/history/history_prepared_upload.h
+    src/history/history_prepared_upload.cpp
+    src/history/history_send_files_dialog.h
+    src/history/history_send_files_dialog.cpp
+    src/history/room_settings_widget.h
+    src/history/room_settings_widget.cpp
+    src/history/history_menu_icons.qrc
+    src/history/user_profile_popup.h
+    src/history/user_profile_popup.cpp
+    src/history/trust_shield.h
+    src/history/trust_shield.cpp
+    lib/lib_ui/fonts/fonts.qrc
+    src/history/history_widget.h
+    src/history/history_widget.cpp
+    src/window/notifications_manager.h
+    src/window/notifications_manager.cpp
+    src/window/notifications.qrc
+    # Stub UI widgets (headers for AUTOMOC + .cpp for vtable anchoring)
+    src/ui/toast_widget.h
+    src/ui/toast_widget.cpp
+    src/ui/internal_choice_dialog.h
+    src/ui/internal_choice_dialog.cpp
+    src/ui/layers/layer_stack_widget.h
+    src/ui/layers/layer_stack_widget.cpp
+    src/settings/settings_icons.qrc
+    src/settings/settings_widget.h
+    src/settings/settings_widget.cpp
+    src/settings/settings_page.h
+    src/settings/settings_page.cpp
+    src/settings/settings_common_widgets.h
+    src/settings/settings_common_widgets.cpp
+    src/settings/notifications_settings_page.h
+    src/settings/notifications_settings_page.cpp
+    src/settings/encryption/encryption_settings_page.h
+    src/settings/encryption/encryption_settings_page.cpp
+    src/settings/encryption/encryption_action_row.h
+    src/settings/encryption/encryption_action_row.cpp
+    src/settings/sessions/sessions_settings_page.h
+    src/settings/sessions/sessions_settings_page.cpp
+    src/settings/sessions/current_session_card.h
+    src/settings/sessions/current_session_card.cpp
+    src/settings/sessions/session_row.h
+    src/settings/sessions/session_row.cpp
+    src/settings/sessions/session_loading_overlay.h
+    src/settings/sessions/session_loading_overlay.cpp
+    src/settings/sessions/session_rename_dialog.h
+    src/settings/sessions/session_rename_dialog.cpp
+    src/settings/sessions/session_confirm_dialog.h
+    src/settings/sessions/session_confirm_dialog.cpp
+    src/settings/appearance/appearance_settings_page.h
+    src/settings/appearance/appearance_settings_page.cpp
+    src/settings/appearance/interface_scale_control.h
+    src/settings/appearance/interface_scale_control.cpp
+    src/settings/appearance/theme_selector_panel.h
+    src/settings/appearance/theme_selector_panel.cpp
+    src/settings/preferences/preferences_settings_page.h
+    src/settings/preferences/preferences_settings_page.cpp
+    src/settings/help/help_about_settings_page.h
+    src/settings/help/help_about_settings_page.cpp
+    src/settings/account/account_settings_page.h
+    src/settings/account/account_settings_page.cpp
+    src/settings/account/account_profile_cover.h
+    src/settings/account/account_profile_cover.cpp
+    src/settings/account/account_edit_name_dialog.h
+    src/settings/account/account_edit_name_dialog.cpp
+    src/settings/account/account_change_password_dialog.h
+    src/settings/account/account_change_password_dialog.cpp
+    src/settings/dialogs/interactive_auth_dialog.h
+    src/settings/dialogs/interactive_auth_dialog.cpp
+    src/settings/dialogs/recovery_key_dialog.h
+    src/settings/dialogs/recovery_key_dialog.cpp
+    src/settings/dialogs/reset_identity_dialog.h
+    src/settings/dialogs/reset_identity_dialog.cpp
+    src/settings/dialogs/settings_passphrase_dialog.h
+    src/settings/dialogs/settings_passphrase_dialog.cpp
+    src/settings/dialogs/verify_session_dialog.h
+    src/settings/dialogs/verify_session_dialog.cpp
+    src/ui/rp_widget.h
+    src/ui/rp_widget.cpp
+    src/ui/widgets/input_fields.h
+    src/ui/widgets/input_fields.cpp
+    src/ui/widgets/scroll_area.h
+    src/ui/widgets/scroll_area.cpp
+    src/ui/widgets/labels.h
+    src/ui/widgets/labels.cpp
+    src/ui/widgets/buttons.h
+    src/ui/widgets/buttons.cpp
+    src/ui/widgets/close_button.h
+    src/ui/widgets/close_button.cpp
+    src/ui/widgets/formatted_text_edit.h
+    src/ui/widgets/formatted_text_edit.cpp
+    src/ui/widgets/connecting_widget.h
+    src/ui/widgets/connecting_widget.cpp
+    src/ui/text/quote_paint.h
+    src/ui/text/quote_paint.cpp
+    src/ui/style/runtime_scale.h
+    src/ui/style/runtime_scale.cpp
+    src/ui/style/runtime_font.h
+    src/ui/style/runtime_font.cpp
+    src/ui/style/icon_provider.h
+    src/ui/style/icon_provider.cpp
+    src/ui/input_submit_settings.h
+    src/ui/input_submit_settings.cpp
+    src/ui/platform/ui_utility_mac.h
+    src/ui/platform/confirm_quit_mac.h
+    src/theme/chat_background_style.h
+    src/theme/theme_manager.h
+    src/theme/theme_manager.cpp
+    src/theme/system_theme_watcher.h
+    src/theme/system_theme_watcher.cpp
+)
+
+# Translation files
+set(TS_FILES
+    translations/telematrix_en.ts
+    translations/telematrix_es.ts
+)
+
+# Generate .qm files from .ts files during build and embed via auto-generated .qrc
+qt_add_translations(TeleMatrix
+    TS_FILES ${TS_FILES}
+    RESOURCE_PREFIX /translations
+)
+
+add_dependencies(TeleMatrix telematrix_protocol_build)
+
+# Platform-specific implementations of the native seams (notifications, cursor /
+# colour-space tricks, quit confirmation). On Apple these are Objective-C++; on
+# every other platform they are plain-C++ stubs so the symbols still resolve.
+if (APPLE)
+    target_sources(TeleMatrix PRIVATE
+        src/window/notifications_manager_mac.mm
+        src/window/notification_platform_mac.mm
+        src/ui/platform/ui_utility_mac.mm
+        src/ui/platform/confirm_quit_mac.mm
+    )
+else()
+    target_sources(TeleMatrix PRIVATE
+        src/ui/platform/ui_utility_stub.cpp
+        src/ui/platform/confirm_quit_stub.cpp
+    )
+endif()
+
+# Embed the application icon into the Windows executable.
+if (WIN32)
+    target_sources(TeleMatrix PRIVATE
+        app_icon.rc
+        # Native WinRT toast notifications + the AUMID/Start-Menu-shortcut
+        # bootstrap they require.
+        src/window/notifications_manager_win.cpp
+        src/window/notification_platform_win.cpp
+        src/app/platform/win/app_user_model_id.cpp
+    )
+    # GUI subsystem (no console window); EntryPointPrivate supplies WinMain.
+    set_target_properties(TeleMatrix PROPERTIES WIN32_EXECUTABLE ON)
+    if (TARGET Qt6::EntryPointPrivate)
+        target_link_libraries(TeleMatrix PRIVATE Qt6::EntryPointPrivate)
+    endif()
+endif()
+
+# Native freedesktop.org D-Bus toast notifications on Linux/BSD.
+if (UNIX AND NOT APPLE)
+    find_package(Qt6 REQUIRED COMPONENTS DBus)
+    target_sources(TeleMatrix PRIVATE
+        src/window/notifications_manager_linux.cpp
+        src/window/notification_platform_linux.cpp
+    )
+    target_link_libraries(TeleMatrix PRIVATE Qt6::DBus)
+endif()
+
+# Where the updater fetches its release manifest. Kept as a cache variable so a
+# staging repo can be pointed at (-DTELEMATRIX_UPDATE_MANIFEST_URL=...) without
+# touching code. `releases/latest/download/...` is the stable, CDN-served,
+# rate-limit-free URL, and it only resolves anonymously on a PUBLIC repo.
+set(TELEMATRIX_UPDATE_MANIFEST_URL
+    "https://github.com/gecka/telematrix/releases/latest/download/latest.json"
+    CACHE STRING "URL of the auto-update manifest")
+
+# Application version available to C++.
+target_compile_definitions(TeleMatrix PRIVATE
+    TELEMATRIX_VERSION_STR="${TELEMATRIX_VERSION}"
+    TELEMATRIX_UPDATE_MANIFEST_URL="${TELEMATRIX_UPDATE_MANIFEST_URL}"
+)
+
+target_include_directories(TeleMatrix PRIVATE
+    ${PROTOCOL_BINDINGS_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(TeleMatrix PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Multimedia
+    Qt6::Concurrent
+    Qt6::Network
+    telematrix_protocol
+    telematrix_core
+)
+
+# libav* (FFmpeg) is pulled into the Rust staticlib by ffmpeg-next/ffmpeg-sys-next
+# (video-thumbnail extraction, rust/src/video_thumbnail_service.rs). A Rust staticlib
+# does NOT propagate these to the final C++ link, so link them explicitly. FFmpeg
+# ships pkg-config .pc files on every platform — ensure ffmpeg is visible to
+# pkg-config (macOS: `brew install ffmpeg`; Linux: libav*-dev; Windows: vcpkg/MSYS2
+# + PKG_CONFIG_PATH). CI must likewise expose ffmpeg's pkgconfig dir to the cargo
+# build (the cargo step inherits the environment).
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil libswscale)
+target_link_libraries(TeleMatrix PRIVATE PkgConfig::FFMPEG)
+
+if (APPLE)
+    target_link_libraries(TeleMatrix PRIVATE
+        "-framework Security"
+        "-framework CoreFoundation"
+        "-framework CoreGraphics"
+        "-framework Cocoa"
+        "-framework UserNotifications"
+    )
+elseif (WIN32)
+    # Native system libraries pulled in by the Rust staticlib (matrix-sdk,
+    # tokio, rustls, keyring/Credential-Manager). A Rust staticlib linked into
+    # an MSVC executable does not propagate these automatically; the
+    # authoritative list comes from:
+    #   cargo rustc --release -- --print native-static-libs
+    # Refine this list if the link step reports unresolved externals.
+    # gdi32 is needed by the statically-vendored OpenSSL (SQLCipher) on Windows.
+    target_link_libraries(TeleMatrix PRIVATE
+        ws2_32 userenv advapi32 bcrypt crypt32 ncrypt secur32 ntdll
+        kernel32 user32 shell32 ole32 oleaut32 gdi32
+        # C++/WinRT toast notifications (notifications_manager_win.cpp) plus the
+        # Start-Menu shortcut property store (app_user_model_id.cpp). Needs the
+        # Windows 10 SDK (cppwinrt projection headers).
+        windowsapp shlwapi propsys
+    )
+elseif (UNIX AND NOT APPLE)
+    # Native system libraries pulled in by the Rust staticlib on Linux that a
+    # staticlib does NOT propagate to the final C++ link:
+    #   - dbus-1 : keyring "sync-secret-service" backend (libdbus)
+    #   - crypto : rusqlite "bundled-sqlcipher" links system OpenSSL libcrypto
+    # TLS uses rustls (no native-tls), so libssl is NOT needed.
+    # Authoritative list: cargo rustc --release -- --print native-static-libs
+    # Refine this if the link step reports further unresolved externals.
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(DBUS REQUIRED IMPORTED_TARGET dbus-1)
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(TeleMatrix PRIVATE PkgConfig::DBUS OpenSSL::Crypto)
+endif()
+
+if (APPLE)
+    # CFBundleShortVersionString / CFBundleVersion must be numeric dot-separated
+    # ("1.2.0"); a prerelease suffix ("1.2.0-beta.1") is rejected by Apple's
+    # validation. Strip it for the bundle keys only — the About page still shows the
+    # full TELEMATRIX_VERSION_STR, and the .dmg filename keeps the full string.
+    string(REGEX REPLACE "-.*$" "" TELEMATRIX_BUNDLE_VERSION "${TELEMATRIX_VERSION}")
+
+    set_target_properties(TeleMatrix PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_ICON_FILE "telematrix.icns"
+        MACOSX_BUNDLE_BUNDLE_NAME "TeleMatrix"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "dev.telematrix.TeleMatrix"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${TELEMATRIX_BUNDLE_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${TELEMATRIX_BUNDLE_VERSION}"
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/cmake/TeleMatrixInfo.plist.in"
+    )
+    set_source_files_properties(telematrix.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    target_sources(TeleMatrix PRIVATE telematrix.icns)
+
+    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${Qt6_DIR}/../../../bin")
+    find_program(CREATEDMG_EXECUTABLE create-dmg)
+    set(TELEMATRIX_CODESIGN_IDENTITY "-" CACHE STRING
+        "macOS code-signing identity. Use a stable local identity to avoid repeated Keychain trust prompts in dev builds. Set to a 'Developer ID Application' identity to sign the app + .dmg for distribution.")
+    set(TELEMATRIX_NOTARIZE_PROFILE "" CACHE STRING
+        "xcrun notarytool keychain profile name. When set (and a real Developer ID identity is used), package_dmg notarizes and staples the .dmg. Create one with: xcrun notarytool store-credentials.")
+
+    # macdeployqt notarization-sign flag, computed once and reused by both the
+    # POST_BUILD bundle deploy and the package_dmg target.
+    set(MACDEPLOY_SIGN_ARG "")
+    if (TELEMATRIX_CODESIGN_IDENTITY AND NOT TELEMATRIX_CODESIGN_IDENTITY STREQUAL "-")
+        set(MACDEPLOY_SIGN_ARG "-sign-for-notarization=${TELEMATRIX_CODESIGN_IDENTITY}")
+    endif()
+
+    if (MACDEPLOYQT_EXECUTABLE)
+        set(MACDEPLOY_ARGS -always-overwrite -no-strip)
+        if (MACDEPLOY_SIGN_ARG)
+            list(APPEND MACDEPLOY_ARGS "${MACDEPLOY_SIGN_ARG}")
+        endif()
+
+        add_custom_command(TARGET TeleMatrix POST_BUILD
+            COMMAND "${MACDEPLOYQT_EXECUTABLE}"
+                "$<TARGET_BUNDLE_DIR:TeleMatrix>"
+                ${MACDEPLOY_ARGS}
+            COMMENT "Deploying Qt runtime into TeleMatrix.app bundle"
+            VERBATIM
+        )
+    endif()
+
+    find_program(CODESIGN_EXECUTABLE codesign)
+    if (CODESIGN_EXECUTABLE)
+        # Never fall back to ad-hoc when a real identity was asked for. The keychain
+        # binds our stored secrets to this app's *signing identity* (the item's ACL
+        # requires `certificate leaf[subject.OU] = <team>`), so an ad-hoc bundle —
+        # no team, no certificate — cannot see them at all: the keychain reports the
+        # item as simply absent. A build that quietly downgraded because the signing
+        # key was locked, or because its Keychain prompt was dismissed, therefore
+        # produced an app that could not read its own session. Fail loudly instead.
+        if (TELEMATRIX_CODESIGN_IDENTITY STREQUAL "-")
+            set(TELEMATRIX_CODESIGN_CMD
+                "\"${CODESIGN_EXECUTABLE}\" --force --deep --sign \"-\" --identifier \"dev.telematrix.TeleMatrix\" \"$<TARGET_BUNDLE_DIR:TeleMatrix>\"")
+        else()
+            set(TELEMATRIX_CODESIGN_CMD
+                "\"${CODESIGN_EXECUTABLE}\" --force --deep --sign \"${TELEMATRIX_CODESIGN_IDENTITY}\" --identifier \"dev.telematrix.TeleMatrix\" \"$<TARGET_BUNDLE_DIR:TeleMatrix>\" || { echo 'error: codesign failed with identity ${TELEMATRIX_CODESIGN_IDENTITY}. Unlock your login keychain (and allow codesign to use the signing key) and build again. Refusing to sign ad-hoc: an ad-hoc build cannot read the secrets this app stored under its Developer ID, and would sign you out. To build without the identity, configure with -DTELEMATRIX_CODESIGN_IDENTITY=-' >&2; exit 1; }")
+        endif()
+        add_custom_command(TARGET TeleMatrix POST_BUILD
+            COMMAND /bin/sh -c "${TELEMATRIX_CODESIGN_CMD}"
+            COMMENT "Signing TeleMatrix.app with bundle identifier"
+            VERBATIM
+        )
+    endif()
+
+    if (MACDEPLOYQT_EXECUTABLE AND CREATEDMG_EXECUTABLE)
+        # DMG window + icon geometry, in logical points: app icon (left) -> arrow
+        # -> Applications (right). The window height is a *bounds*, so the 32pt
+        # title bar comes out of it and only ~368pt of the background shows.
+        # tools/dmg/generate_background.py draws the art around these numbers --
+        # change them there too, or the arrow stops pointing at the icons.
+        set(DMG_WINDOW_WIDTH 600)
+        set(DMG_WINDOW_HEIGHT 400)
+        set(DMG_ICON_SIZE 100)
+        set(DMG_TEXT_SIZE 12)
+        set(DMG_APP_ICON_X 150)
+        set(DMG_APP_ICON_Y 175)
+        set(DMG_APPS_DROP_X 450)
+        set(DMG_APPS_DROP_Y 175)
+        set(DMG_BACKGROUND_SOURCE "${CMAKE_SOURCE_DIR}/cmake/dmg_background.png")
+
+        if (NOT EXISTS "${DMG_BACKGROUND_SOURCE}")
+            message(FATAL_ERROR "DMG background image not found: ${DMG_BACKGROUND_SOURCE}")
+        endif()
+
+        # The staging / Qt-deploy / create-dmg / file-icon work lives in a script
+        # so the shell + AppleScript isn't buried in CMake escaping. Inputs are
+        # passed through the environment.
+        # Versioned like every other platform's package (deb/rpm/AppImage/NSIS all
+        # embed the version), so release assets from different tags don't collide.
+        # Arch suffix follows the actual slices built ("arm64", or "arm64-x86_64"
+        # for a universal build), falling back to the host arch when unset.
+        if (CMAKE_OSX_ARCHITECTURES)
+            string(REPLACE ";" "-" TELEMATRIX_DMG_ARCH "${CMAKE_OSX_ARCHITECTURES}")
+        else()
+            set(TELEMATRIX_DMG_ARCH "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+        endif()
+
+        add_custom_target(package_dmg
+            COMMAND ${CMAKE_COMMAND} -E env
+                "APP_BUNDLE=$<TARGET_BUNDLE_DIR:TeleMatrix>"
+                "OUTPUT_DMG=${CMAKE_BINARY_DIR}/TeleMatrix-${TELEMATRIX_VERSION}-${TELEMATRIX_DMG_ARCH}.dmg"
+                "STAGING_DIR=${CMAKE_BINARY_DIR}/dmg_staging"
+                "ICNS=${CMAKE_SOURCE_DIR}/telematrix.icns"
+                "BACKGROUND=${DMG_BACKGROUND_SOURCE}"
+                "MACDEPLOYQT=${MACDEPLOYQT_EXECUTABLE}"
+                "CREATEDMG=${CREATEDMG_EXECUTABLE}"
+                "VOLNAME=TeleMatrix Installer"
+                "WINDOW_W=${DMG_WINDOW_WIDTH}"
+                "WINDOW_H=${DMG_WINDOW_HEIGHT}"
+                "ICON_SIZE=${DMG_ICON_SIZE}"
+                "TEXT_SIZE=${DMG_TEXT_SIZE}"
+                "APP_ICON_X=${DMG_APP_ICON_X}"
+                "APP_ICON_Y=${DMG_APP_ICON_Y}"
+                "APPS_X=${DMG_APPS_DROP_X}"
+                "APPS_Y=${DMG_APPS_DROP_Y}"
+                "SIGN_IDENTITY=${TELEMATRIX_CODESIGN_IDENTITY}"
+                "NOTARIZE_PROFILE=${TELEMATRIX_NOTARIZE_PROFILE}"
+                bash "${CMAKE_SOURCE_DIR}/cmake/package_dmg.sh"
+            DEPENDS TeleMatrix
+            COMMENT "Building stylized DMG (create-dmg + custom file icon)"
+            VERBATIM
+        )
+    endif()
+endif()
+
+# Install rules + CPack packaging for Windows (NSIS) and Linux (DEB/RPM).
+# macOS keeps its bespoke create-dmg flow above; packaging.cmake is a no-op there.
+include("${CMAKE_SOURCE_DIR}/cmake/packaging.cmake")
+
+# C++ unit tests (Qt Test). The runners link the telematrix_core OBJECT library
+# (the same objects the app uses) so they exercise real production code. Run with
+# `ctest` (headless: set QT_QPA_PLATFORM=offscreen). Toggle off for pure package
+# builds with -DTELEMATRIX_BUILD_TESTS=OFF.
+option(TELEMATRIX_BUILD_TESTS "Build the C++ unit-test suite" ON)
+if (TELEMATRIX_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

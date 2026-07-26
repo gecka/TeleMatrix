@@ -1,0 +1,43 @@
+<RCC>
+    <qresource prefix="/dialogs">
+        <file alias="search_from.png">icons/dialogs_search_from.png</file>
+        <file alias="search_from@2x.png">icons/dialogs_search_from@2x.png</file>
+        <file alias="search_from@3x.png">icons/dialogs_search_from@3x.png</file>
+        <file alias="cancel_search.png">icons/dialogs_cancel_search.png</file>
+        <file alias="cancel_search@2x.png">icons/dialogs_cancel_search@2x.png</file>
+        <file alias="cancel_search@3x.png">icons/dialogs_cancel_search@3x.png</file>
+        <file alias="country_dropdown.png">icons/intro_country_dropdown.png</file>
+        <file alias="country_dropdown@2x.png">icons/intro_country_dropdown@2x.png</file>
+        <file alias="country_dropdown@3x.png">icons/intro_country_dropdown@3x.png</file>
+        <file alias="menu_chats.png">icons/chats.png</file>
+        <file alias="menu_chats@2x.png">icons/chats@2x.png</file>
+        <file alias="menu_chats@3x.png">icons/chats@3x.png</file>
+        <file alias="chat_type.png">icons/dialogs_chat.png</file>
+        <file alias="chat_type@2x.png">icons/dialogs_chat@2x.png</file>
+        <file alias="chat_type@3x.png">icons/dialogs_chat@3x.png</file>
+        <file alias="mention.png">icons/dialogs_mention.png</file>
+        <file alias="mention@2x.png">icons/dialogs_mention@2x.png</file>
+        <file alias="mention@3x.png">icons/dialogs_mention@3x.png</file>
+        <file alias="channel_type.png">icons/dialogs_channel.png</file>
+        <file alias="channel_type@2x.png">icons/dialogs_channel@2x.png</file>
+        <file alias="channel_type@3x.png">icons/dialogs_channel@3x.png</file>
+        <file alias="player_check.png">icons/player_check.png</file>
+        <file alias="player_check@2x.png">icons/player_check@2x.png</file>
+        <file alias="player_check@3x.png">icons/player_check@3x.png</file>
+        <file alias="shadow_top_left.png">icons/round_shadow_box_top_left.png</file>
+        <file alias="shadow_top_left@2x.png">icons/round_shadow_box_top_left@2x.png</file>
+        <file alias="shadow_top_left@3x.png">icons/round_shadow_box_top_left@3x.png</file>
+        <file alias="shadow_top.png">icons/round_shadow_box_top.png</file>
+        <file alias="shadow_top@2x.png">icons/round_shadow_box_top@2x.png</file>
+        <file alias="shadow_top@3x.png">icons/round_shadow_box_top@3x.png</file>
+        <file alias="shadow_left.png">icons/round_shadow_box_left.png</file>
+        <file alias="shadow_left@2x.png">icons/round_shadow_box_left@2x.png</file>
+        <file alias="shadow_left@3x.png">icons/round_shadow_box_left@3x.png</file>
+        <file alias="shadow_bottom_left.png">icons/round_shadow_box_bottom_left.png</file>
+        <file alias="shadow_bottom_left@2x.png">icons/round_shadow_box_bottom_left@2x.png</file>
+        <file alias="shadow_bottom_left@3x.png">icons/round_shadow_box_bottom_left@3x.png</file>
+        <file alias="shadow_bottom.png">icons/round_shadow_box_bottom.png</file>
+        <file alias="shadow_bottom@2x.png">icons/round_shadow_box_bottom@2x.png</file>
+        <file alias="shadow_bottom@3x.png">icons/round_shadow_box_bottom@3x.png</file>
+    </qresource>
+</RCC>

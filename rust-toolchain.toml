@@ -1,0 +1,13 @@
+# Pin the Rust toolchain so CI builds match local builds and avoid the
+# "works locally, fails in CI" drift that broke the Linux package build
+# (rustc's default recursion_limit overflowed computing matrix-sdk's sync()
+# future layout on a newer floating `stable`).
+#
+# matrix-sdk-ui 0.18 raised its MSRV to rustc 1.93, so the 0.16-era 1.92.0 pin
+# no longer builds the SDK. Pinned to 1.96.0 (current stable, builds the whole
+# 0.18 family). Keep this channel in sync with the dtolnay/rust-toolchain@<ver>
+# refs in .github/workflows/build.yml and _reusable-tests.yml.
+[toolchain]
+channel = "1.96.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

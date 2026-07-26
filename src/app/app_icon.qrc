@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/telematrix/app">
+    <file alias="icon.png">../../telematrix.png</file>
+  </qresource>
+</RCC>

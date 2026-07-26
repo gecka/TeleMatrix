@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=TeleMatrix
+GenericName=Matrix Client
+Comment=A Matrix client with a Telegram Desktop-style interface
+Exec=/opt/TeleMatrix/bin/TeleMatrix %u
+Icon=dev.telematrix.TeleMatrix
+Terminal=false
+Categories=Network;InstantMessaging;Chat;Qt;
+Keywords=matrix;chat;messaging;im;
+MimeType=x-scheme-handler/matrix;
+StartupNotify=true
+StartupWMClass=TeleMatrix

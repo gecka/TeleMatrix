@@ -1,0 +1,15 @@
+#!/bin/sh
+# Debian post-removal: drop the system-path symlinks created by postinst.
+set -e
+
+rm -f /usr/bin/telematrix
+rm -f /usr/share/applications/dev.telematrix.TeleMatrix.desktop
+rm -f /usr/share/metainfo/dev.telematrix.TeleMatrix.metainfo.xml
+for sz in 16 32 48 64 128 256; do
+    rm -f "/usr/share/icons/hicolor/${sz}x${sz}/apps/dev.telematrix.TeleMatrix.png"
+done
+
+update-desktop-database -q /usr/share/applications 2>/dev/null || true
+gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+
+exit 0

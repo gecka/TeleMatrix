@@ -1,0 +1,170 @@
+[package]
+name = "telematrix-protocol"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[lib]
+name = "telematrix_protocol"
+crate-type = ["staticlib", "lib"]
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+libc = "0.2"
+async-trait = "0.1"
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+# Loopback media-streaming server (media_stream::server): hyper 1.x http1 server,
+# tokio glue, and the body helpers for fixed-length responses.
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+futures-util = "0.3"
+eyeball-im = "0.8"
+# Base SharedObservable, used to receive media-upload byte progress from the SDK
+# (matrix-sdk uses the same eyeball 0.8 internally).
+eyeball = "0.8"
+mime = "0.3"
+# TLS: since matrix-sdk 0.17 `native-tls` was removed and rustls is the only TLS
+# backend (no feature to select), so no native-tls/OpenSSL is linked for HTTP.
+# We still keep `default-features = false` to avoid pulling the non-bundled
+# `sqlite` default (we use `bundled-sqlite`). (libcrypto is still pulled in
+# separately by rusqlite bundled-sqlcipher.)
+matrix-sdk = { version = "0.18", default-features = false, features = ["e2e-encryption", "automatic-room-key-forwarding", "bundled-sqlite", "qrcode"] }
+matrix-sdk-ui = { version = "0.18", default-features = false }
+matrix-sdk-crypto = "0.18"
+# Render QrVerification::to_qr_code() to a module grid. Same crate (0.14) the SDK's
+# qrcode feature already pulls, so versions unify.
+qrcode = { version = "0.14", default-features = false }
+dirs = "6"
+rusqlite = { version = "0.37", features = ["bundled-sqlcipher"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rand = "0.8"
+# Scrub in-memory secrets (store passphrase, pending recovery key) on drop so they
+# don't linger in freed heap for the rest of the process lifetime.
+zeroize = "1"
+sha2 = "0.10"
+hkdf = "0.12"
+chacha20poly1305 = "0.10"
+# Password-based KDF for the Linux master-password secret vault (fallback when
+# no Secret Service / D-Bus is available). Memory-hard; params live in the vault
+# header. Compiles on all platforms; only *engaged* on Linux (secret_vault.rs).
+argon2 = "0.5"
+# Trimmed to the modules the video-thumbnail extractor uses (format/codec +
+# libswscale). Dropping default features avoids linking libavfilter/libavdevice/
+# libswresample (and libavdevice's device-capture framework chain) — leaner link
+# + bundle; only libav{codec,format,util,swscale} need linking/shipping.
+ffmpeg-next = { version = "8.1.0", default-features = false, features = ["codec", "format", "software-scaling"] }
+# AES-256-CTR seekable range decryption for encrypted media streaming (Task 1).
+# All three crates are already transitive via matrix-sdk-crypto; pinning to the
+# same versions avoids a second copy in the artifact.
+aes = "0.8"
+ctr = "0.9"
+cipher = "0.4"
+# Refresh a cached file's mtime on read so the on-disk media cache LRU is by
+# last-USE, not last-write (cross-platform: utimensat / SetFileTime).
+filetime = "0.2"
+# Auto-update (update_service.rs): verify the ed25519/minisign signature on a
+# downloaded release asset against the embedded public key. Verify-only and
+# zero-dependency — the signing half never ships in the app, it lives in CI.
+minisign-verify = "0.2"
+# Semver compare for "is the release newer than what's running", including
+# pre-release ordering (1.1.0-beta.1 < 1.1.0). Already in the tree transitively.
+semver = "1"
+
+# Platform-native secret storage backends for the `keyring` crate. The
+# keychain.rs code uses the backend-agnostic keyring::Entry API, so only the
+# enabled feature differs per OS:
+#   macOS   -> Keychain Services
+#   Windows -> Credential Manager
+#   Linux   -> Secret Service (DBus; needs a running provider e.g. GNOME Keyring)
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+# SQLCipher needs a crypto provider, and Windows has no system OpenSSL. Vendor and
+# statically build it (openssl-src; needs perl + nasm at build time). This unifies
+# with the base `bundled-sqlcipher` above, so on Windows libcrypto is compiled
+# INTO the staticlib (no system OpenSSL to find or link). mac/linux are unaffected.
+rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+# Already present transitively (secret-service pulls zbus 4.x); made explicit for
+# the synchronous `org.freedesktop.secrets` NameHasOwner probe in keychain.rs that
+# decides keychain-vs-vault at fresh login. Pure Rust, no extra native linkage.
+zbus = "4"
+
+# Test-only: matrix-sdk's in-repo test utilities (MatrixMockServer + wiremock +
+# matrix-sdk-test) drive the in-crate `#[cfg(test)]` integration tests against a
+# mock homeserver. Dev-dependencies only affect `cargo test`; the staticlib CMake
+# builds via `cargo build`/`--release` never enables `testing`, so the shipped
+# binary is byte-for-byte unaffected. Features mirror the runtime dep + `testing`.
+[dev-dependencies]
+matrix-sdk = { version = "0.18", default-features = false, features = ["e2e-encryption", "automatic-room-key-forwarding", "bundled-sqlite", "qrcode", "testing"] }
+# Already in the tree via matrix-sdk's `testing`; direct dep so the MSC2965
+# auth-delegation probe tests can mock the two auth_metadata endpoints.
+wiremock = "0.6"
+# Same story: matrix-sdk re-exports the sync builders privately, so seeding a room
+# with custom state (e.g. an `m.space` create event) needs the crate directly.
+matrix-sdk-test = "0.18"
+# Test-only signing half of minisign: the update-verification tests mint a throwaway
+# keypair and sign fixtures in-process, so `cargo test` needs no `minisign` CLI and
+# no checked-in key material. Never a runtime dependency — the app only verifies.
+minisign = "0.9"
+
+# NOTE: the C FFI header (protocol_ffi.h) is generated by the standalone
+# `cbindgen_runner` crate (run by CMake via `cargo run`), NOT by a build.rs.
+# A build.rs only runs when this crate recompiles, which left the header missing
+# after a clean; the runner always regenerates it. See cbindgen_runner/src/main.rs.
+
+# This crate is built as a staticlib and linked into the C++ application, so a
+# Rust panic must never unwind across the `extern "C"` FFI boundary (that is
+# undefined behaviour). `panic = "abort"` turns any panic into an immediate,
+# well-defined process abort instead. The release profile is the one linked into
+# the shipped app, so the FFI-safety setting lives here.
+#
+# `panic = "abort"` is intentionally NOT set on the dev/test profiles: the libtest
+# harness requires unwinding, and `cargo test` builds with the dev profile.
+#
+# Note: `strip` is deliberately omitted — stripping the staticlib's symbol table
+# could drop the `tm_*` export symbols the C++ linker needs.
+[profile.release]
+panic = "abort"
+lto = "thin"
+codegen-units = 1
+# Line tables so optimized builds keep Rust frames in a profiler. CMake maps
+# every non-Debug CMAKE_BUILD_TYPE to --release, so without this a
+# RelWithDebInfo build — the one you actually want to profile — symbolicates
+# the C++ half and shows the Rust half as anonymous addresses. No codegen
+# change; only a larger binary.
+debug = 1
+
+# Profile for the staticlib that a Debug C++ build links (CMake selects it via
+# `--profile dev-ffi`). It's a debuggable dev build that ALSO aborts on panic, so
+# (1) it never unwinds across the FFI boundary — UB-safe like release — and
+# (2) it carries no DWARF unwind tables, keeping `__eh_frame` under the 16 MB
+# compact-unwind limit (the plain dev profile's unwind tables overflow it and
+# produce an ld warning). `cargo test` still uses the unwinding `dev` profile.
+[profile.dev-ffi]
+inherits = "dev"
+panic = "abort"
+
+# Disk optimization: strip debug info from all *dependencies* (matrix-sdk,
+# aws-lc, ffmpeg, rustls, …) — we never step into them, and their DWARF was the
+# bulk of a ~8 GB target tree. Our own crate keeps full debug info (the root
+# package uses [profile.dev-ffi] above, not this glob). Roughly halves the tree.
+[profile.dev-ffi.package."*"]
+debug = false
+# NOTE: an `opt-level = 2` for deps was tried here (2026-07-20) so a Debug-build
+# profile wouldn't over-attribute the Rust half — the crypto/SQLite deps are
+# otherwise -O0. It worked (confirmed the ~0.7-core back-scroll decrypt is real)
+# but ballooned rust/target from ~3.6GB to ~60GB (cargo keeps opt-0 and opt-2
+# copies side by side) and filled the disk. Reverted 2026-07-21. If you need
+# honest Rust timings again, prefer a one-off RelWithDebInfo build (release deps
+# are already optimized) over re-enabling this. `[profile.release] debug = 1`
+# stays, so that build keeps Rust frames in a profiler.

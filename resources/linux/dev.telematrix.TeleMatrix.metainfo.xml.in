@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.telematrix.TeleMatrix</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <!-- TeleMatrix derives from Telegram Desktop (GPL-3.0); adjust if your
+       licensing differs. -->
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>TeleMatrix</name>
+  <summary>A Matrix client with a Telegram Desktop-style interface</summary>
+  <description>
+    <p>
+      TeleMatrix is a desktop Matrix client that pairs the Matrix protocol with a
+      Telegram Desktop-style user interface. It supports end-to-end encrypted
+      rooms, device verification, media, and notifications.
+    </p>
+  </description>
+  <launchable type="desktop-id">dev.telematrix.TeleMatrix.desktop</launchable>
+  <url type="homepage">https://telematrix.app</url>
+  <provides>
+    <binary>telematrix</binary>
+  </provides>
+  <releases>
+    <release version="@TELEMATRIX_VERSION@" date="@TELEMATRIX_RELEASE_DATE@"/>
+  </releases>
+</component>

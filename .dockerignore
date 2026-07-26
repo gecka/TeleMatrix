@@ -1,0 +1,30 @@
+# The Linux builder image is source-mounted at run time (docker run -v "$PWD":/src),
+# so the build context only needs the Dockerfile. Exclude everything heavy/irrelevant
+# to keep `docker build` fast.
+
+# Build outputs / caches
+build/
+rust/target/
+rust/cbindgen_runner/target/
+dist/
+
+# VCS
+.git/
+.github/
+
+# Packaging artifacts
+*.deb
+*.rpm
+*.dmg
+*.exe
+
+# Untracked CI / scratch logs
+*.txt
+aqtinstall.log
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
+.claude/
+.superpowers/

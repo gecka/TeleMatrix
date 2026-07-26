@@ -1,0 +1,37 @@
+# Trunk CI. `main` is the sole long-lived branch; releases are cut from tags
+# (see release.yml).
+#
+#   pull_request  -> tests only (Linux). Deliberately NOT a package build: this is a
+#                    private repo, where macOS runners bill at 10x and Windows at 2x.
+#   push to main  -> tests + the full 3-OS package build, unsigned, artifacts only.
+#                    Same build path a tag takes, so a packaging regression surfaces on
+#                    merge rather than on release day.
+#   dispatch      -> same as a push to main (force a full build on demand).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Superseded pushes/PR updates are cancelled — don't burn minutes on stale commits.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    uses: ./.github/workflows/_reusable-tests.yml
+
+  build:
+    name: Build packages
+    if: github.event_name != 'pull_request'
+    needs: tests   # gate the package build on green tests
+    uses: ./.github/workflows/_reusable-build.yml
+    with:
+      publish: false   # unsigned; no GitHub Release

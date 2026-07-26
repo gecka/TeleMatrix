@@ -1,0 +1,14 @@
+[package]
+name = "cbindgen-runner"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Standalone cbindgen runner that regenerates the telematrix-protocol C FFI header."
+
+# Empty table: makes this crate its OWN workspace root so cargo never tries to
+# attach it to the parent `rust/` package (a nested crate without this errors
+# with "current package believes it's in a workspace when it's not").
+[workspace]
+
+[dependencies]
+cbindgen = "0.27"

@@ -1,0 +1,37 @@
+<RCC>
+  <qresource prefix="/settings_icons">
+    <file alias="info_back.png">icons/info_back.png</file>
+    <file alias="info_back@2x.png">icons/info_back@2x.png</file>
+    <file alias="info_back@3x.png">icons/info_back@3x.png</file>
+    <file alias="info_close.png">icons/info_close.png</file>
+    <file alias="info_close@2x.png">icons/info_close@2x.png</file>
+    <file alias="info_close@3x.png">icons/info_close@3x.png</file>
+    <file alias="menu_profile.png">icons/menu_profile.png</file>
+    <file alias="menu_profile@2x.png">icons/menu_profile@2x.png</file>
+    <file alias="menu_profile@3x.png">icons/menu_profile@3x.png</file>
+    <file alias="menu_notifications.png">icons/menu_notifications.png</file>
+    <file alias="menu_notifications@2x.png">icons/menu_notifications@2x.png</file>
+    <file alias="menu_notifications@3x.png">icons/menu_notifications@3x.png</file>
+    <file alias="menu_lock.png">icons/menu_lock.png</file>
+    <file alias="menu_lock@2x.png">icons/menu_lock@2x.png</file>
+    <file alias="menu_lock@3x.png">icons/menu_lock@3x.png</file>
+    <file alias="menu_devices.png">icons/menu_devices.png</file>
+    <file alias="menu_devices@2x.png">icons/menu_devices@2x.png</file>
+    <file alias="menu_devices@3x.png">icons/menu_devices@3x.png</file>
+    <file alias="menu_faq.png">icons/menu_faq.png</file>
+    <file alias="menu_faq@2x.png">icons/menu_faq@2x.png</file>
+    <file alias="menu_faq@3x.png">icons/menu_faq@3x.png</file>
+    <file alias="menu_advanced.png">icons/menu_advanced.png</file>
+    <file alias="menu_advanced@2x.png">icons/menu_advanced@2x.png</file>
+    <file alias="menu_advanced@3x.png">icons/menu_advanced@3x.png</file>
+    <file alias="settings_faq.png">icons/settings_faq.png</file>
+    <file alias="settings_faq@2x.png">icons/settings_faq@2x.png</file>
+    <file alias="settings_faq@3x.png">icons/settings_faq@3x.png</file>
+    <file alias="menu_settings.png">icons/menu_settings.png</file>
+    <file alias="menu_settings@2x.png">icons/menu_settings@2x.png</file>
+    <file alias="menu_settings@3x.png">icons/menu_settings@3x.png</file>
+    <file alias="menu_palette.png">icons/menu_palette.png</file>
+    <file alias="menu_palette@2x.png">icons/menu_palette@2x.png</file>
+    <file alias="menu_palette@3x.png">icons/menu_palette@3x.png</file>
+  </qresource>
+</RCC>

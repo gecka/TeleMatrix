@@ -1,0 +1,25 @@
+#!/bin/sh
+# Debian post-install: link the self-contained /opt install into system paths.
+set -e
+PREFIX=/opt/TeleMatrix
+
+ln -sf "$PREFIX/bin/TeleMatrix" /usr/bin/telematrix
+
+mkdir -p /usr/share/applications
+ln -sf "$PREFIX/share/applications/dev.telematrix.TeleMatrix.desktop" \
+    /usr/share/applications/dev.telematrix.TeleMatrix.desktop
+
+mkdir -p /usr/share/metainfo
+ln -sf "$PREFIX/share/metainfo/dev.telematrix.TeleMatrix.metainfo.xml" \
+    /usr/share/metainfo/dev.telematrix.TeleMatrix.metainfo.xml
+
+for sz in 16 32 48 64 128 256; do
+    mkdir -p "/usr/share/icons/hicolor/${sz}x${sz}/apps"
+    ln -sf "$PREFIX/share/icons/hicolor/${sz}x${sz}/apps/dev.telematrix.TeleMatrix.png" \
+        "/usr/share/icons/hicolor/${sz}x${sz}/apps/dev.telematrix.TeleMatrix.png"
+done
+
+update-desktop-database -q /usr/share/applications 2>/dev/null || true
+gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+
+exit 0
