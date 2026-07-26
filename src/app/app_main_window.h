@@ -66,6 +66,7 @@ protected:
     void moveEvent(QMoveEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
     void changeEvent(QEvent *e) override;
+    void showEvent(QShowEvent *e) override;
 
 private:
     void setupMenuBar();
@@ -80,6 +81,12 @@ private:
     AppController *_controller = nullptr;
     bool _windowActive = false;
     bool _positionPersistenceEnabled = false;
+    // Geometry restoreWindowState() asked for, re-applied once the native window
+    // exists — Windows can ignore a pre-show setGeometry(). Empty when the window
+    // was centred at its default size instead.
+    QRect _restoreGeometry;
+    bool _restorePendingShow = false;
+    void settleRestoredGeometry();
 };
 
 } // namespace TeleMatrix

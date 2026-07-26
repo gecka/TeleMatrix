@@ -65,6 +65,20 @@ int main(int argc, char *argv[]) {
     std::signal(SIGTERM, signalHandler);
     std::signal(SIGINT, signalHandler);
 
+    // The style system's device pixel ratio is an int (style::DevicePixelRatio),
+    // and app_controller rounds Qt's value into it — so a fractional ratio makes
+    // the two disagree, and every rect we fill lands on a half device pixel. On
+    // Windows that shows up as hairline grey seams between adjacent fills and as
+    // bubble tails detaching from their body; Qt 6 defaults to PassThrough, which
+    // hands out exactly those fractional ratios at 125%/150% desktop scaling.
+    // (macOS is always 1x or 2x, which is why it never showed this.)
+    //
+    // PreferFloor over plain Round: 150% is the common Windows setting and would
+    // otherwise jump to 2x, enlarging the whole UI. Users who want that have the
+    // in-app interface scale. MUST precede the QApplication constructor.
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::RoundPreferFloor);
+
     QApplication app(argc, argv);
     app.setFont(st::baseFont(st::fsize));
 

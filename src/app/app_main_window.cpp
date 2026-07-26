@@ -22,6 +22,8 @@
 #include <QAction>
 #include <QCloseEvent>
 #include <QEvent>
+#include <QShowEvent>
+#include <QTimer>
 #include <QApplication>
 #include <QPalette>
 #include <QLineEdit>
@@ -661,6 +663,7 @@ void AppMainWindow::restoreWindowState() {
         saved.setWidth(qMax(saved.width(), kMinWidth));
         saved.setHeight(qMax(saved.height(), kMinHeight));
         const auto clamped = clampToAvailableGeometry(saved, screen->availableGeometry());
+        _restoreGeometry = clamped;
         setGeometry(clamped);
     };
 
@@ -674,7 +677,26 @@ void AppMainWindow::restoreWindowState() {
         showMaximized();
     }
 
-    _positionPersistenceEnabled = true;
+    // Persistence stays OFF until the geometry settles. Windows only creates the
+    // native window on show, may override a geometry set before that, and then
+    // emits its own move/resize — which, with persistence already live, would
+    // save the position it just imposed over the one we asked for and lose the
+    // user's window placement for good on the next start.
+    if (isVisible()) {
+        settleRestoredGeometry();
+    } else {
+        _restorePendingShow = true; // showEvent() takes it from here
+    }
+}
+
+void AppMainWindow::settleRestoredGeometry() {
+    // Queued so the platform's post-show move/resize burst runs first.
+    QTimer::singleShot(0, this, [this] {
+        if (_restoreGeometry.isValid() && !isMaximized() && !isMinimized()) {
+            setGeometry(_restoreGeometry);
+        }
+        _positionPersistenceEnabled = true;
+    });
 }
 
 void AppMainWindow::savePositionToSettings() {
@@ -740,6 +762,14 @@ void AppMainWindow::moveEvent(QMoveEvent *e) {
 void AppMainWindow::resizeEvent(QResizeEvent *e) {
     QMainWindow::resizeEvent(e);
     savePositionToSettings(); // Coalesced via delayed timer.
+}
+
+void AppMainWindow::showEvent(QShowEvent *e) {
+    QMainWindow::showEvent(e);
+    if (_restorePendingShow) {
+        _restorePendingShow = false;
+        settleRestoredGeometry();
+    }
 }
 
 void AppMainWindow::changeEvent(QEvent *e) {
