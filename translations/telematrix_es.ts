@@ -318,45 +318,47 @@
     <message>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="150"/>
         <source>Leave space</source>
-        <translation type="unfinished"></translation>
+        <translation>Salir del espacio</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="169"/>
         <source>Are you sure you want to leave &quot;%1&quot;?
 
 You&apos;ll stay in its rooms unless you tick the ones you also want to leave.</source>
-        <translation type="unfinished"></translation>
+        <translation>¿Seguro que quieres salir de «%1»?
+
+Seguirás en sus salas, salvo en las que marques para salir también.</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="174"/>
         <source>Are you sure you want to leave &quot;%1&quot;?</source>
-        <translation type="unfinished">¿Seguro que quieres abandonar &quot;%1&quot;?</translation>
+        <translation>¿Seguro que quieres salir de «%1»?</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="211"/>
         <source>Rooms in this space</source>
-        <translation type="unfinished"></translation>
+        <translation>Salas de este espacio</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="229"/>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="363"/>
         <source>Select all</source>
-        <translation type="unfinished"></translation>
+        <translation>Seleccionar todo</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="297"/>
         <source>Cancel</source>
-        <translation type="unfinished">Cancelar</translation>
+        <translation>Cancelar</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="311"/>
         <source>Leave</source>
-        <translation type="unfinished">Abandonar</translation>
+        <translation>Salir</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_leave_space_box.cpp" line="362"/>
         <source>Clear</source>
-        <translation type="unfinished"></translation>
+        <translation>Borrar selección</translation>
     </message>
 </context>
 <context>
@@ -1124,7 +1126,7 @@ You&apos;ll stay in its rooms unless you tick the ones you also want to leave.</
     <message>
         <location filename="../src/dialogs/dialogs_member_picker_box.cpp" line="169"/>
         <source>Loading members…</source>
-        <translation type="unfinished"></translation>
+        <translation>Cargando miembros…</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_member_picker_box.cpp" line="340"/>
@@ -1733,22 +1735,22 @@ You&apos;ll stay in its rooms unless you tick the ones you also want to leave.</
     <message>
         <location filename="../src/settings/account/account_settings_page.cpp" line="1699"/>
         <source>Add Account</source>
-        <translation type="unfinished"></translation>
+        <translation>Añadir cuenta</translation>
     </message>
     <message>
         <location filename="../src/settings/account/account_settings_page.cpp" line="1572"/>
         <source>Emails and phones</source>
-        <translation type="unfinished"></translation>
+        <translation>Correos y teléfonos</translation>
     </message>
     <message>
         <location filename="../src/settings/account/account_settings_page.cpp" line="1559"/>
         <source>Username</source>
-        <translation type="unfinished">Nombre de usuario</translation>
+        <translation>Nombre de usuario</translation>
     </message>
     <message>
         <location filename="../src/settings/account/account_settings_page.cpp" line="1563"/>
         <source>Homeserver</source>
-        <translation type="unfinished">Servidor base</translation>
+        <translation>Servidor base</translation>
     </message>
     <message>
         <location filename="../src/settings/account/account_settings_page.cpp" line="1601"/>
@@ -1831,27 +1833,27 @@ Esta acción es permanente y no se puede deshacer. Todos tus datos se perderán.
     <message>
         <location filename="../src/app/app_controller.cpp" line="1355"/>
         <source>Couldn&apos;t open this account</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo abrir esta cuenta</translation>
     </message>
     <message>
         <location filename="../src/app/app_controller.cpp" line="1356"/>
         <source>Its saved sign-in can&apos;t be read right now. Nothing has been deleted — you can try again later, or sign this account out of this device.</source>
-        <translation type="unfinished"></translation>
+        <translation>Su sesión guardada no se puede leer ahora mismo. No se ha borrado nada: puedes reintentarlo más tarde o cerrar la sesión de esta cuenta en este dispositivo.</translation>
     </message>
     <message>
         <location filename="../src/app/app_controller.cpp" line="1359"/>
         <source>Sign out account</source>
-        <translation type="unfinished"></translation>
+        <translation>Cerrar sesión de la cuenta</translation>
     </message>
     <message>
         <location filename="../src/app/app_controller.cpp" line="1360"/>
         <source>Not now</source>
-        <translation type="unfinished"></translation>
+        <translation>Ahora no</translation>
     </message>
     <message>
         <location filename="../src/app/app_controller.cpp" line="1503"/>
         <source>TeleMatrix can&apos;t reach secure storage, so it can&apos;t save a new account&apos;s sign-in. Unlock your keyring and try again.</source>
-        <translation type="unfinished"></translation>
+        <translation>TeleMatrix no puede acceder al almacenamiento seguro, así que no puede guardar el inicio de sesión de una cuenta nueva. Desbloquea tu llavero e inténtalo de nuevo.</translation>
     </message>
     <message>
         <location filename="../src/app/app_controller.cpp" line="2014"/>
@@ -1895,7 +1897,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/app/app_controller.cpp" line="1505"/>
         <source>OK</source>
-        <translation type="unfinished">Aceptar</translation>
+        <translation>Aceptar</translation>
     </message>
     <message>
         <source>No system keyring is available, so TeleMatrix will protect your sign-in with a master password. You&apos;ll enter it each time you open the app. If you forget it you&apos;ll need to sign in again — your messages stay on the server.</source>
@@ -2229,12 +2231,12 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/dialogs/dialogs_filter_sidebar.cpp" line="650"/>
         <source>Explore</source>
-        <translation type="unfinished">Explorar</translation>
+        <translation>Explorar</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_filter_sidebar.cpp" line="655"/>
         <source>Leave</source>
-        <translation type="unfinished">Abandonar</translation>
+        <translation>Salir</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_filter_sidebar.cpp" line="661"/>
@@ -2388,7 +2390,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/dialogs/dialogs_main_menu_panel.cpp" line="901"/>
         <source>Color Theme</source>
-        <translation type="unfinished"></translation>
+        <translation>Tema de color</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_main_menu_panel.cpp" line="907"/>
@@ -2403,7 +2405,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/dialogs/dialogs_main_menu_panel.cpp" line="1016"/>
         <source>Add Account</source>
-        <translation type="unfinished"></translation>
+        <translation>Añadir cuenta</translation>
     </message>
 </context>
 <context>
@@ -2433,17 +2435,17 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/dialogs/dialogs_widget.cpp" line="2162"/>
         <source>Couldn&apos;t update folder</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo actualizar la carpeta</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_widget.cpp" line="2163"/>
         <source>The change was rejected by the server.</source>
-        <translation type="unfinished"></translation>
+        <translation>El servidor rechazó el cambio.</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_widget.cpp" line="2164"/>
         <source>OK</source>
-        <translation type="unfinished">Aceptar</translation>
+        <translation>Aceptar</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_widget.cpp" line="2520"/>
@@ -2468,7 +2470,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/dialogs/dialogs_widget.cpp" line="2536"/>
         <source>This permanently deletes Saved Messages and everything in it. This can&apos;t be undone.</source>
-        <translation type="unfinished"></translation>
+        <translation>Esto elimina permanentemente Mensajes guardados y todo su contenido. No se puede deshacer.</translation>
     </message>
     <message>
         <source>This deletes all saved messages and removes Saved Messages from your chats list. Opening it again brings it back, empty.</source>
@@ -2482,7 +2484,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/dialogs/dialogs_widget.cpp" line="3248"/>
         <source>Couldn&apos;t save the new order.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo guardar el nuevo orden.</translation>
     </message>
     <message>
         <location filename="../src/dialogs/dialogs_widget.cpp" line="3370"/>
@@ -3373,7 +3375,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/history/history_widget.cpp" line="3155"/>
         <source>This permanently deletes Saved Messages and everything in it. This can&apos;t be undone.</source>
-        <translation type="unfinished"></translation>
+        <translation>Esto elimina permanentemente Mensajes guardados y todo su contenido. No se puede deshacer.</translation>
     </message>
     <message>
         <location filename="../src/history/history_widget.cpp" line="3197"/>
@@ -3857,12 +3859,12 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/intro/intro_create_password.cpp" line="99"/>
         <source>The passwords don&apos;t match</source>
-        <translation type="unfinished"></translation>
+        <translation>Las contraseñas no coinciden</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_create_password.cpp" line="135"/>
         <source>Couldn&apos;t set up the vault. Please try again</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo configurar la caja fuerte. Inténtalo de nuevo</translation>
     </message>
     <message>
         <source>The passwords don&apos;t match.</source>
@@ -3935,37 +3937,37 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="301"/>
         <source>Choose a new password for your account</source>
-        <translation type="unfinished"></translation>
+        <translation>Elige una nueva contraseña para tu cuenta</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="336"/>
         <source>Please enter a homeserver</source>
-        <translation type="unfinished">Por favor, introduce un servidor base</translation>
+        <translation>Introduce un servidor base</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="342"/>
         <source>Please enter your email address</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce tu dirección de correo</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="365"/>
         <source>Please enter a new password</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce una nueva contraseña</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="371"/>
         <source>Passwords do not match</source>
-        <translation type="unfinished"></translation>
+        <translation>Las contraseñas no coinciden</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="403"/>
         <source>No account is linked to that email address</source>
-        <translation type="unfinished"></translation>
+        <translation>No hay ninguna cuenta vinculada a esa dirección de correo</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="405"/>
         <source>The identity server is not trusted by the homeserver</source>
-        <translation type="unfinished"></translation>
+        <translation>El servidor base no confía en el servidor de identidad</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="417"/>
@@ -4031,7 +4033,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/intro/intro_forgot_password.cpp" line="471"/>
         <source>Email verification not completed. Please check your email and try again</source>
-        <translation type="unfinished"></translation>
+        <translation>No se completó la verificación por correo. Revisa tu correo e inténtalo de nuevo</translation>
     </message>
     <message>
         <source>Sign in</source>
@@ -4156,7 +4158,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/intro/intro_login.cpp" line="260"/>
         <source>Couldn&apos;t access your keychain. Please try again</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo acceder a tu llavero. Inténtalo de nuevo</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_login.cpp" line="71"/>
@@ -4269,22 +4271,22 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     <message>
         <location filename="../src/intro/intro_register.cpp" line="163"/>
         <source>Change</source>
-        <translation type="unfinished">Cambiar</translation>
+        <translation>Cambiar</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="369"/>
         <source>Checking…</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobando…</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="403"/>
         <source>This doesn&apos;t look like a Matrix server. Check the address and try again</source>
-        <translation type="unfinished"></translation>
+        <translation>Esto no parece un servidor de Matrix. Comprueba la dirección e inténtalo de nuevo</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="436"/>
         <source>This homeserver creates accounts on its own website</source>
-        <translation type="unfinished"></translation>
+        <translation>Este servidor crea las cuentas en su propio sitio web</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="439"/>
@@ -4295,62 +4297,62 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <location filename="../src/intro/intro_register.cpp" line="572"/>
         <location filename="../src/intro/intro_register.cpp" line="595"/>
         <source>Please enter a homeserver</source>
-        <translation type="unfinished">Por favor, introduce un servidor base</translation>
+        <translation>Introduce un servidor base</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="601"/>
         <source>Please enter a username</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce un nombre de usuario</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="607"/>
         <source>Please enter a password</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce una contraseña</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="613"/>
         <source>Passwords do not match</source>
-        <translation type="unfinished"></translation>
+        <translation>Las contraseñas no coinciden</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="627"/>
         <source>Couldn&apos;t access your keychain. Please try again</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo acceder a tu llavero. Inténtalo de nuevo</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="761"/>
         <source>No more stages to complete, but registration did not succeed</source>
-        <translation type="unfinished"></translation>
+        <translation>No quedan pasos por completar, pero el registro no se completó</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="810"/>
         <source>Please accept the terms of service to continue</source>
-        <translation type="unfinished"></translation>
+        <translation>Acepta las condiciones de servicio para continuar</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="858"/>
         <source>Please enter a registration token</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce un token de registro</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="876"/>
         <source>Registration cannot be completed — unsupported UIA stage</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede completar el registro: paso de UIA no compatible</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="937"/>
         <source>That username is already taken</source>
-        <translation type="unfinished"></translation>
+        <translation>Ese nombre de usuario ya está en uso</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="943"/>
         <source>Registration is disabled on this homeserver. It may require creating the account on its website</source>
-        <translation type="unfinished"></translation>
+        <translation>El registro está desactivado en este servidor. Puede que haya que crear la cuenta en su sitio web</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="945"/>
         <source>That email or phone number is already in use</source>
-        <translation type="unfinished"></translation>
+        <translation>Ese correo o número de teléfono ya está en uso</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_register.cpp" line="950"/>
@@ -4764,7 +4766,7 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
     <message>
         <location filename="../src/intro/intro_vault_unlock.cpp" line="41"/>
         <source>Enter your master password to open your local data</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce tu contraseña maestra para abrir tus datos locales</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_vault_unlock.cpp" line="44"/>
@@ -4795,12 +4797,12 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
     <message>
         <location filename="../src/intro/intro_vault_unlock.cpp" line="119"/>
         <source>Incorrect master password</source>
-        <translation type="unfinished"></translation>
+        <translation>Contraseña maestra incorrecta</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_vault_unlock.cpp" line="120"/>
         <source>The vault file can&apos;t be opened — it may be damaged. You can reset local data and sign in again</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede abrir el archivo de la caja fuerte: puede estar dañado. Puedes restablecer los datos locales y volver a iniciar sesión</translation>
     </message>
     <message>
         <source>Incorrect master password.</source>
@@ -5074,7 +5076,7 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
     <message>
         <location filename="../src/intro/intro_verify_recovery_key.cpp" line="41"/>
         <source>Enter your recovery key to verify this session. You can find it in your security settings</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce tu clave de recuperación para verificar esta sesión. La encontrarás en los ajustes de seguridad</translation>
     </message>
     <message>
         <source>Recovery key</source>
@@ -5120,12 +5122,12 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
     <message>
         <location filename="../src/intro/intro_verify_recovery_key.cpp" line="125"/>
         <source>Please enter your recovery key</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce tu clave de recuperación</translation>
     </message>
     <message>
         <location filename="../src/intro/intro_verify_recovery_key.cpp" line="162"/>
         <source>Invalid recovery key. Please check and try again</source>
-        <translation type="unfinished"></translation>
+        <translation>Clave de recuperación no válida. Compruébala e inténtalo de nuevo</translation>
     </message>
     <message>
         <source>Please enter your recovery key.</source>
@@ -5455,17 +5457,17 @@ o pulsa Enter sobre un ID exacto @usuario:servidor para añadirlo directamente.<
     <message>
         <location filename="../src/history/history_forward_dialog.cpp" line="272"/>
         <source>online</source>
-        <translation type="unfinished">en línea</translation>
+        <translation>en línea</translation>
     </message>
     <message>
         <location filename="../src/history/history_forward_dialog.cpp" line="273"/>
         <source>last seen recently</source>
-        <translation type="unfinished">visto recientemente</translation>
+        <translation>visto recientemente</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/history/history_forward_dialog.cpp" line="275"/>
         <source>%n member(s)</source>
-        <translation type="unfinished">
+        <translation>
             <numerusform>%n miembro</numerusform>
             <numerusform>%n miembros</numerusform>
         </translation>
@@ -5561,7 +5563,7 @@ Caché de vistas previas: %2</translation>
         <location filename="../src/protocol/protocol_bridge.cpp" line="3908"/>
         <location filename="../src/protocol/protocol_bridge.cpp" line="3929"/>
         <source>Not connected</source>
-        <translation type="unfinished"></translation>
+        <translation>Sin conexión</translation>
     </message>
 </context>
 <context>
@@ -5924,37 +5926,37 @@ Are you sure you want to enable encryption for this room?</source>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1507"/>
         <source>Mentions &amp; keywords</source>
-        <translation type="unfinished"></translation>
+        <translation>Menciones y palabras clave</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1510"/>
         <source>Mute room</source>
-        <translation type="unfinished"></translation>
+        <translation>Silenciar sala</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1566"/>
         <source>Description</source>
-        <translation type="unfinished"></translation>
+        <translation>Descripción</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1566"/>
         <source>Topic</source>
-        <translation type="unfinished"></translation>
+        <translation>Tema</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1626"/>
         <source>Copy Space Link</source>
-        <translation type="unfinished"></translation>
+        <translation>Copiar enlace del espacio</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1634"/>
         <source>Space link copied to clipboard</source>
-        <translation type="unfinished"></translation>
+        <translation>Enlace del espacio copiado al portapapeles</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1648"/>
         <source>Leave Space</source>
-        <translation type="unfinished"></translation>
+        <translation>Salir del espacio</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1806"/>
@@ -5975,7 +5977,7 @@ Are you sure you want to enable encryption for this room?</source>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1881"/>
         <source>Space Settings</source>
-        <translation type="unfinished"></translation>
+        <translation>Ajustes del espacio</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="1960"/>
@@ -6068,32 +6070,32 @@ Are you sure you want to enable encryption for this room?</source>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="2532"/>
         <source>Add a description</source>
-        <translation type="unfinished"></translation>
+        <translation>Añadir una descripción</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="2532"/>
         <source>Add a topic</source>
-        <translation type="unfinished"></translation>
+        <translation>Añadir un tema</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="2533"/>
         <source>No description</source>
-        <translation type="unfinished"></translation>
+        <translation>Sin descripción</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="2533"/>
         <source>No topic</source>
-        <translation type="unfinished"></translation>
+        <translation>Sin tema</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="2559"/>
         <source>Topic updated</source>
-        <translation type="unfinished"></translation>
+        <translation>Tema actualizado</translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="2564"/>
         <source>Failed to update the topic. Please try again.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo actualizar el tema. Inténtalo de nuevo.</translation>
     </message>
     <message>
         <source>Edit Room Name</source>
@@ -6223,24 +6225,24 @@ Are you sure you want to enable encryption for this room?</source>
         <location filename="../src/settings/sessions/sessions_settings_page.cpp" line="367"/>
         <location filename="../src/settings/sessions/sessions_settings_page.cpp" line="472"/>
         <source>This account is managed on the web. Open your account page in the browser to sign out this session?</source>
-        <translation type="unfinished"></translation>
+        <translation>Esta cuenta se gestiona en la web. ¿Quieres abrir la página de tu cuenta en el navegador para cerrar esta sesión?</translation>
     </message>
     <message>
         <location filename="../src/settings/sessions/sessions_settings_page.cpp" line="320"/>
         <location filename="../src/settings/sessions/sessions_settings_page.cpp" line="369"/>
         <location filename="../src/settings/sessions/sessions_settings_page.cpp" line="474"/>
         <source>Open page</source>
-        <translation type="unfinished"></translation>
+        <translation>Abrir página</translation>
     </message>
     <message>
         <location filename="../src/settings/sessions/sessions_settings_page.cpp" line="383"/>
         <source>Could not sign out this session. Please try again.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo cerrar esta sesión. Inténtalo de nuevo.</translation>
     </message>
     <message>
         <location filename="../src/settings/sessions/sessions_settings_page.cpp" line="384"/>
         <source>OK</source>
-        <translation type="unfinished">Aceptar</translation>
+        <translation>Aceptar</translation>
     </message>
     <message>
         <location filename="../src/settings/sessions/sessions_settings_page.cpp" line="529"/>
