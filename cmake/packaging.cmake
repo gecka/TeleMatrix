@@ -67,6 +67,46 @@ if (WIN32)
         COMMENT "Deploying Qt runtime (windeployqt) into ${TM_WINDEPLOY_DIR}"
         VERBATIM)
 
+    # windeployqt bundles Qt and the MSVC runtime and NOTHING else. FFmpeg is
+    # linked dynamically here (vcpkg, VCPKGRS_DYNAMIC=1), so without this the
+    # installed app dies before it paints a window: "avcodec-62.dll is missing".
+    # This is the Windows half of what package_appimage.sh already does on Linux
+    # with its --library force-bundling.
+    #
+    # DLLs live in <prefix>/bin while pkg-config reports <prefix>/lib, hence the
+    # ../bin hop. Globbed rather than named: the soname version travels with the
+    # FFmpeg release (avcodec-62 today) and must not be pinned here.
+    # pkg-config's own prefix is the reliable source — LIBRARY_DIRS is only
+    # populated when pkg-config bothers to emit a -L flag.
+    pkg_get_variable(TM_FFMPEG_PREFIX libavcodec prefix)
+    if (TM_FFMPEG_PREFIX)
+        set(TM_FFMPEG_BINDIR "${TM_FFMPEG_PREFIX}/bin")
+    elseif (FFMPEG_LIBRARY_DIRS)
+        list(GET FFMPEG_LIBRARY_DIRS 0 TM_FFMPEG_LIBDIR)
+        get_filename_component(TM_FFMPEG_BINDIR "${TM_FFMPEG_LIBDIR}/../bin" ABSOLUTE)
+    else()
+        message(FATAL_ERROR
+            "Cannot locate the FFmpeg DLLs to bundle: pkg-config reported neither a "
+            "prefix nor a library dir. Check PKG_CONFIG_PATH points at the vcpkg "
+            "pkgconfig dir.")
+    endif()
+    file(GLOB TM_FFMPEG_DLLS
+        "${TM_FFMPEG_BINDIR}/av*.dll"
+        "${TM_FFMPEG_BINDIR}/sw*.dll"
+        "${TM_FFMPEG_BINDIR}/postproc*.dll")
+    if (NOT TM_FFMPEG_DLLS)
+        message(FATAL_ERROR
+            "No FFmpeg DLLs found in ${TM_FFMPEG_BINDIR}. The app links libav "
+            "dynamically and will not start without them.")
+    endif()
+    # Appended after the windeployqt command above, so it lands in the staged dir
+    # rather than being wiped by that step's rm -rf.
+    add_custom_command(TARGET TeleMatrix POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${TM_FFMPEG_DLLS} "${TM_WINDEPLOY_DIR}/"
+        COMMENT "Bundling FFmpeg DLLs from ${TM_FFMPEG_BINDIR}"
+        VERBATIM)
+
     # Ship the staged folder verbatim at the install root. The exe is already in
     # it, so no separate install(TARGETS) is needed; the NSIS shortcuts below
     # still point at $INSTDIR\TeleMatrix.exe.

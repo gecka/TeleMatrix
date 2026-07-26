@@ -429,7 +429,34 @@ jobs:
           foreach ($f in 'TeleMatrix.exe','Qt6Widgets.dll','Qt6Core.dll','platforms/qwindows.dll') {
             if (!(Test-Path "install_check/$f")) { throw "missing in install tree: $f" }
           }
-          Write-Host "OK: Qt bundled flat next to TeleMatrix.exe"
+
+          # Every non-system DLL the app imports must ship beside it. windeployqt
+          # bundles Qt and the MSVC runtime ONLY, so FFmpeg (linked dynamically via
+          # vcpkg) silently went missing and the installed app died at startup on
+          # "avcodec-62.dll not found" — with nothing red in CI. Walk the FFmpeg
+          # DLLs too: their own deps (zlib1 and friends) fail the same way.
+          $targets = @('install_check\TeleMatrix.exe') +
+                     (Get-ChildItem 'install_check' -Filter 'av*.dll'|% FullName) +
+                     (Get-ChildItem 'install_check' -Filter 'sw*.dll'|% FullName)
+          $missing = @()
+          foreach ($t in $targets) {
+            $deps = (dumpbin /DEPENDENTS $t) |
+                    Select-String -Pattern '^\s+(\S+\.dll)$' |
+                    ForEach-Object { $_.Matches[0].Groups[1].Value }
+            if (-not $deps) { throw "dumpbin reported no imports for $t" }
+            foreach ($d in $deps) {
+              # API-set stubs are resolved by the loader and have no file on disk.
+              if ($d -like 'api-ms-win-*' -or $d -like 'ext-ms-*') { continue }
+              if (Test-Path "install_check\$d") { continue }
+              if (Test-Path "$env:SystemRoot\System32\$d") { continue }   # OS-provided
+              $missing += "$([System.IO.Path]::GetFileName($t)) -> $d"
+            }
+          }
+          if ($missing) { throw "not bundled:`n  $($missing -join "`n  ")" }
+          foreach ($p in 'avcodec-*.dll','avformat-*.dll','avutil-*.dll','swscale-*.dll') {
+            if (!(Get-ChildItem 'install_check' -Filter $p)) { throw "FFmpeg runtime missing: $p" }
+          }
+          Write-Host "OK: Qt + FFmpeg bundled flat next to TeleMatrix.exe"
 
       - name: Package (NSIS installer)
         working-directory: build
