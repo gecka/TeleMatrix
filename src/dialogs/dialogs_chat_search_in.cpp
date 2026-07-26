@@ -23,8 +23,13 @@ namespace {
 /// Load an icon stored as white-on-black RGB (no alpha).
 /// Returns a premultiplied ARGB image with luminance used as alpha.
 [[nodiscard]] QImage loadTdesktopIcon(const QString &basePath, qreal dpr) {
-    const auto suffix = (dpr > 2.0) ? QStringLiteral("@3x")
-                      : (dpr > 1.0) ? QStringLiteral("@2x")
+    // Tag the image with the SPRITE's scale, not the screen's. Only 1x/2x/3x
+    // assets exist, so at a fractional ratio (Windows at 125%/150%) the @2x file
+    // tagged 1.25 would draw 1.6x oversized. Every other icon loader in the app
+    // buckets it this way; this one used to pass the raw ratio through.
+    const auto bucket = (dpr > 2.0) ? 3 : (dpr > 1.0) ? 2 : 1;
+    const auto suffix = (bucket == 3) ? QStringLiteral("@3x")
+                      : (bucket == 2) ? QStringLiteral("@2x")
                       : QString();
     auto path = basePath;
     if (!suffix.isEmpty()) {
@@ -34,7 +39,9 @@ namespace {
     if (img.isNull()) {
         return {};
     }
-    return img.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    auto out = img.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    out.setDevicePixelRatio(bucket);
+    return out;
 }
 
 /// Colorize a white-on-black icon: luminance → alpha, fill with given color.
@@ -67,7 +74,6 @@ ChatSearchIn::ChatSearchIn(QWidget *parent)
         QStringLiteral(":/dialogs/country_dropdown.png"), dpr);
     _chatsIcon = loadTdesktopIcon(
         QStringLiteral(":/dialogs/menu_chats.png"), dpr);
-    _dpr = dpr;
 }
 
 void ChatSearchIn::setRoom(const QString &roomId, const QString &roomName) {
@@ -188,8 +194,7 @@ void ChatSearchIn::paintIcon(
     if (baseIcon.isNull()) {
         return;
     }
-    auto tinted = colorizeIcon(baseIcon, color);
-    tinted.setDevicePixelRatio(_dpr);
+    auto tinted = colorizeIcon(baseIcon, color); // keeps the sprite dpr
     p.drawImage(QPointF(x, y), tinted);
 }
 
@@ -245,7 +250,6 @@ void ChatSearchIn::paintRow(
     if (useChatsIcon) {
         if (!_chatsIcon.isNull()) {
             auto tinted = colorizeIcon(_chatsIcon, st::menuIconColor);
-            tinted.setDevicePixelRatio(_dpr);
             const auto iconW = qRound(tinted.width() / tinted.devicePixelRatio());
             const auto iconH = qRound(tinted.height() / tinted.devicePixelRatio());
             const auto iconX = photoLeft + (photoSize - iconW) / 2;
@@ -261,7 +265,7 @@ void ChatSearchIn::paintRow(
     const auto cancelW = st::dialogsSearchInCancelWidth;
     const auto chevronW = _chevronIcon.isNull()
         ? 0
-        : int(_chevronIcon.width() / _dpr);
+        : int(_chevronIcon.width() / _chevronIcon.devicePixelRatio());
     const auto available = w
         - st::dialogsSearchInSkip
         - cancelW

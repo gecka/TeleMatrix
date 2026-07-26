@@ -83,7 +83,6 @@ private:
     QImage _cancelIcon;  // dialogs_cancel_search
     QImage _chevronIcon; // intro_country_dropdown
     QImage _chatsIcon;   // menu_chats
-    qreal _dpr = 1.0;
     bool _roomUseChatsIcon = false;
 
     bool _roomCloseHovered = false;

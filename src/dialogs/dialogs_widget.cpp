@@ -1127,7 +1127,10 @@ public:
         _iconBase = QImage(path);
         if (!_iconBase.isNull()) {
             _iconBase = _iconBase.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-            _dpr = dpr;
+            // The SPRITE's scale, not the screen's: only 1x/2x/3x assets exist, so
+            // at a fractional ratio (Windows at 125%/150%) tagging the @2x file
+            // 1.25 would draw it 1.6x oversized.
+            _iconBase.setDevicePixelRatio((dpr > 2.0) ? 3 : (dpr > 1.0) ? 2 : 1);
         }
 
         setFixedSize(st::dialogsSearchFromWidth, st::dialogsSearchFilterHeight);
@@ -1160,11 +1163,11 @@ protected:
                 line[x] = qRgba(r * a / 255, g * a / 255, b * a / 255, a);
             }
         }
-        tinted.setDevicePixelRatio(_dpr);
+        // tinted inherits _iconBase's sprite dpr.
 
         // Center the icon in the button area.
-        const auto iconW = tinted.width() / _dpr;
-        const auto iconH = tinted.height() / _dpr;
+        const auto iconW = tinted.width() / tinted.devicePixelRatio();
+        const auto iconH = tinted.height() / tinted.devicePixelRatio();
         const auto dx = (width() - iconW) / 2.0;
         const auto dy = (height() - iconH) / 2.0;
 
@@ -1191,7 +1194,6 @@ protected:
 
 private:
     QImage _iconBase;
-    qreal _dpr = 1.0;
     bool _hovered = false;
     std::function<void()> _onClick;
 };
