@@ -1,6 +1,6 @@
 # TeleMatrix
 
-[![CI](https://github.com/gecka/telematrix-private/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gecka/telematrix-private/actions/workflows/ci.yml)
+[![CI](https://github.com/gecka/TeleMatrix/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gecka/TeleMatrix/actions/workflows/ci.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-blue)
 ![Built with](https://img.shields.io/badge/built%20with-Qt%206%20%C2%B7%20Rust-41cd52)
