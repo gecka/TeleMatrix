@@ -63,6 +63,46 @@ jobs:
         working-directory: rust
         run: cargo clippy --all-targets -- -D warnings
 
+  audit:
+    name: Security advisories (cargo audit)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+
+      - name: Cache Rust build
+        # Also caches ~/.cargo/bin, so cargo-audit is only compiled on a cold cache.
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Install cargo-audit
+        # --locked builds the tool from its own lockfile so the binary is
+        # reproducible. The advisory database is fetched fresh on every run, which
+        # is the part that must NOT be pinned.
+        run: cargo install cargo-audit --locked
+
+      - name: Audit the shipped staticlib
+        working-directory: rust
+        # Fails on VULNERABILITIES only — deliberately not `--deny warnings`. The
+        # tree carries advisories we cannot act on: rand 0.8/0.9 unsoundness
+        # reached only via vodozemac/oauth2/ulid, two unmaintained proc-macro
+        # crates, and yanked wasm-bindgen/js-sys we never build for. Denying those
+        # would wedge CI on other people's release schedules.
+        #
+        # This gate CAN turn a PR red that changed nothing, because advisories are
+        # published without us pushing. That is the point — it is how we find out.
+        # Fix by bumping the offending crate (usually patch-level, e.g.
+        # `cargo update -p rustls-webpki`), never by deleting this step.
+        #
+        # rust/cbindgen_runner has its own lockfile and is not audited: it is a
+        # build-time header generator, never linked into anything we ship.
+        run: cargo audit
+
   cpp-tests:
     name: C++ tests (Qt Test / ctest)
     runs-on: ubuntu-22.04
