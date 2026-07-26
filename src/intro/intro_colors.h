@@ -64,8 +64,9 @@ inline const QColor accentFillOver = QColor(0x34, 0x93, 0x4A);
 /// Every link. Deliberately darker than accentFill — 4.85:1 on the wash's
 /// darkest point.
 inline const QColor accentText = QColor(0x24, 0x70, 0x2F);
-/// Logo mark only. Fails contrast as text or as a fill.
-inline const QColor appIconGreen = QColor(0x4C, 0xAF, 0x50);
+/// Logo mark only. Fails contrast as text or as a fill. Tracks the app icon's
+/// body, which tools/icon/recolor.py derives from accentFill/accentFillOver.
+inline const QColor appIconGreen = QColor(0x32, 0x90, 0x48);
 inline const QColor inkHeading = QColor(0x2F, 0x2B, 0x24);
 inline const QColor inkField = QColor(0x22, 0x22, 0x1F);
 inline const QColor mutedFg = QColor(0x5F, 0x5B, 0x55);
