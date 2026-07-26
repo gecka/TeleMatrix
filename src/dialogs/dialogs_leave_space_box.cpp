@@ -309,12 +309,12 @@ DialogsLeaveSpaceBox::DialogsLeaveSpaceBox(
     leaveStyle.radius = st::buttonRadius;
     const auto leaveLabel =
         QCoreApplication::translate("DialogsLeaveSpaceBox", "Leave");
-    _leave = new ::Ui::TextButton(leaveLabel, leaveStyle, buttonsContainer);
-    _leave->setFont(st::boxButtonFont);
-    _leave->setFixedSize(
+    _leaveButton = new ::Ui::TextButton(leaveLabel, leaveStyle, buttonsContainer);
+    _leaveButton->setFont(st::boxButtonFont);
+    _leaveButton->setFixedSize(
         buttonAutoWidth(leaveLabel, st::boxButtonFont), st::boxButtonHeight);
-    connect(_leave, &QAbstractButton::clicked, this, [this] { accept(); });
-    buttonsLayout->addWidget(_leave);
+    connect(_leaveButton, &QAbstractButton::clicked, this, [this] { accept(); });
+    buttonsLayout->addWidget(_leaveButton);
 
     // Resolve room avatar URLs (only matters when the list is shown).
     if (bridge && hasRooms) {

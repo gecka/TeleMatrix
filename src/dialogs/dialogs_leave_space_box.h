@@ -65,7 +65,9 @@ private:
     ChatPickInner *_inner = nullptr;
     ::Ui::TextButton *_selectAll = nullptr;
     ::Ui::TextButton *_cancel = nullptr;
-    ::Ui::TextButton *_leave = nullptr;
+    // Not `_leave`: MSVC's language extensions make `_leave` a synonym for the
+    // SEH keyword `__leave`, so it can't be an identifier.
+    ::Ui::TextButton *_leaveButton = nullptr;
 
     QSet<QString> _result_selected;
 

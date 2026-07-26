@@ -156,7 +156,7 @@ else ()
             "METAINFO_FILE=${TM_METAINFO}"
             "QMAKE=${TM_QMAKE_EXECUTABLE}"
             "APPDIR=${CMAKE_BINARY_DIR}/AppDir"
-            "OUTPUT=${CMAKE_BINARY_DIR}/TeleMatrix-${TELEMATRIX_VERSION}-x86_64.AppImage"
+            "APPIMAGE_OUTPUT=${CMAKE_BINARY_DIR}/TeleMatrix-${TELEMATRIX_VERSION}-x86_64.AppImage"
             bash "${CMAKE_SOURCE_DIR}/cmake/package_appimage.sh"
         DEPENDS TeleMatrix
         COMMENT "Building AppImage (linuxdeploy + plugin-qt + appimagetool)"

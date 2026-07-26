@@ -8,13 +8,13 @@
 # is the sole Qt bundler (no double-deploy), so one configure yields deb + rpm + AppImage.
 # X11/xcb only — the AppImage runs on Wayland desktops via XWayland (no wayland plugins).
 #
-# Required env: BINARY VERSION DESKTOP_FILE ICON_FILE OUTPUT APPDIR
+# Required env: BINARY VERSION DESKTOP_FILE ICON_FILE APPIMAGE_OUTPUT APPDIR
 # Optional env: METAINFO_FILE QMAKE
 #               LINUXDEPLOY LINUXDEPLOY_PLUGIN_QT APPIMAGETOOL  (tool paths; downloaded if unset)
 #               APPIMAGE_TOOLS_DIR  (download cache; default ~/.cache/telematrix-appimage-tools)
 set -euo pipefail
 
-for v in BINARY VERSION DESKTOP_FILE ICON_FILE OUTPUT APPDIR; do
+for v in BINARY VERSION DESKTOP_FILE ICON_FILE APPIMAGE_OUTPUT APPDIR; do
     [ -n "${!v:-}" ] || { echo "package_appimage: \$$v not set" >&2; exit 2; }
 done
 [ -f "$BINARY" ]      || { echo "package_appimage: binary not found: $BINARY" >&2; exit 2; }
@@ -105,7 +105,7 @@ mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/metainfo"
 # The repo .desktop targets the /opt install (Exec=/opt/TeleMatrix/bin/TeleMatrix). In an
 # AppImage the binary is on PATH inside the bundle, so rewrite Exec to the bare name —
 # linuxdeploy derives/validates the executable from it.
-DESKTOP_TMP="$(dirname "$OUTPUT")/dev.telematrix.TeleMatrix.appimage.desktop"
+DESKTOP_TMP="$(dirname "$APPIMAGE_OUTPUT")/dev.telematrix.TeleMatrix.appimage.desktop"
 sed -E 's#^Exec=.*#Exec=TeleMatrix %u#' "$DESKTOP_FILE" > "$DESKTOP_TMP"
 
 # AppStream metainfo — linuxdeploy has no flag for it, so place it by hand.
@@ -124,10 +124,14 @@ done
 
 # --- Deploy Qt (xcb only) + pack -------------------------------------------------------------
 export LINUXDEPLOY_OUTPUT_VERSION="$VERSION"
-OUTDIR="$(dirname "$OUTPUT")/.appimage-build"
+OUTDIR="$(dirname "$APPIMAGE_OUTPUT")/.appimage-build"
 rm -rf "$OUTDIR"; mkdir -p "$OUTDIR"
 (
     cd "$OUTDIR"
+    # linuxdeploy-plugin-appimage treats $OUTPUT (deprecated alias of $LDAI_OUTPUT) as the
+    # AppImage path to write. Anything inherited under those names would divert the build
+    # out of $OUTDIR and defeat the glob below, so clear both and rely on cwd.
+    unset OUTPUT LDAI_OUTPUT
     "$LINUXDEPLOY" \
         --appdir "$APPDIR" \
         --executable "$BINARY" \
@@ -142,7 +146,7 @@ shopt -s nullglob
 produced=("$OUTDIR"/*.AppImage)
 shopt -u nullglob
 [ "${#produced[@]}" -ge 1 ] || { echo "package_appimage: no .AppImage produced" >&2; exit 1; }
-mv -f "${produced[0]}" "$OUTPUT"
+mv -f "${produced[0]}" "$APPIMAGE_OUTPUT"
 
 # --- Verify the FFmpeg multimedia backend is bundled (the acid test for video streaming) -----
 plugin="$APPDIR/usr/plugins/multimedia/libffmpegmediaplugin.so"
@@ -165,5 +169,5 @@ done < <(patchelf --print-needed "$plugin" 2>/dev/null || true)
 [ -f "$APPDIR/usr/plugins/platforms/libqxcb.so" ] \
     || echo "WARNING: libqxcb.so not bundled — the app may fail to find a platform plugin." >&2
 
-echo "OK: AppImage built -> $OUTPUT"
-ls -lh "$OUTPUT"
+echo "OK: AppImage built -> $APPIMAGE_OUTPUT"
+ls -lh "$APPIMAGE_OUTPUT"

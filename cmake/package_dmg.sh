@@ -68,6 +68,21 @@ fi
 "$MACDEPLOYQT" "$SRC_DIR/TeleMatrix.app" "${deploy_args[@]}" \
     || "$MACDEPLOYQT" "$SRC_DIR/TeleMatrix.app" -always-overwrite
 
+# macdeployqt rewrites Mach-O load commands inside a bundle CMake already signed,
+# which invalidates the seal unless it re-signed for us (-sign-for-notarization,
+# real identities only). On Apple Silicon an invalid signature is unloadable — the
+# app reads as "damaged and can't be opened" — so re-seal whatever it left behind,
+# ad-hoc included, with the identifier the POST_BUILD signing used.
+if ! codesign --verify --deep --strict "$SRC_DIR/TeleMatrix.app" 2>/dev/null; then
+    echo ">> Re-sealing staged bundle (macdeployqt invalidated the signature)"
+    resign_args=(--force --deep --sign "$SIGN_IDENTITY" --identifier dev.telematrix.TeleMatrix)
+    if [ "$SIGN_IDENTITY" != "-" ] && [ -n "$SIGN_IDENTITY" ]; then
+        resign_args+=(--options runtime --timestamp)
+    fi
+    codesign "${resign_args[@]}" "$SRC_DIR/TeleMatrix.app"
+    codesign --verify --deep --strict --verbose=2 "$SRC_DIR/TeleMatrix.app"
+fi
+
 echo ">> Tagging background DPI so Finder draws it at window size"
 mkdir -p "$STAGING_DIR/.background"
 BG_FIXED="$STAGING_DIR/.background/dmg_background.png"
