@@ -36,7 +36,11 @@ struct ShadowTiles {
 
 [[nodiscard]] ShadowTiles loadShadowTiles(qreal dpr) {
     static QHash<int, ShadowTiles> cache;
-    const auto key = dpr >= 2.5 ? 3 : (dpr >= 1.5 ? 2 : 1);
+    // Keyed on Scale() as well as dpr: loadScaledMask picks its sprite band from
+    // Scale() * dpr, so a dpr-only key keeps serving the old sprites after the
+    // interface scale changes while the layout around them has already grown.
+    const auto key = TeleMatrix::Style::Scale() * 10
+        + (dpr >= 2.5 ? 3 : (dpr >= 1.5 ? 2 : 1));
     if (const auto i = cache.constFind(key); i != cache.cend()) {
         return i.value();
     }
@@ -229,12 +233,12 @@ HistoryAttachPopup::HistoryAttachPopup(QWidget *parent)
     setAttribute(Qt::WA_TranslucentBackground);
     setMouseTracking(true);
 
-    const auto bodyHeight = kScrollPaddingTop
-        + kRowCount * kRowHeight
-        + kScrollPaddingBottom;
+    const auto bodyHeight = scrollPaddingTop()
+        + kRowCount * rowHeight()
+        + scrollPaddingBottom();
     setFixedSize(
-        kPopupWidth + 2 * kShadowExtend,
-        bodyHeight + 2 * kShadowExtend);
+        popupWidth() + 2 * shadowExtend(),
+        bodyHeight + 2 * shadowExtend());
 }
 
 void HistoryAttachPopup::showNear(QWidget *anchor) {
@@ -244,8 +248,8 @@ void HistoryAttachPopup::showNear(QWidget *anchor) {
 
     // Position above the anchor, aligned to its left edge.
     const auto anchorGlobal = anchor->mapToGlobal(QPoint(0, 0));
-    auto x = anchorGlobal.x() - kShadowExtend;
-    auto y = anchorGlobal.y() - height() + kShadowExtend;
+    auto x = anchorGlobal.x() - shadowExtend();
+    auto y = anchorGlobal.y() - height() + shadowExtend();
 
     // Clamp to screen.
     if (const auto *scr = anchor->screen()) {
@@ -255,7 +259,7 @@ void HistoryAttachPopup::showNear(QWidget *anchor) {
         }
         if (y < avail.top()) {
             // Show below the anchor instead.
-            y = anchorGlobal.y() + anchor->height() - kShadowExtend;
+            y = anchorGlobal.y() + anchor->height() - shadowExtend();
         }
         x = qMax(x, avail.left());
     }
@@ -270,15 +274,15 @@ void HistoryAttachPopup::showNear(QWidget *anchor) {
 }
 
 int HistoryAttachPopup::rowAtPos(const QPoint &pos) const {
-    const auto innerX = pos.x() - kShadowExtend;
-    const auto innerY = pos.y() - kShadowExtend - kScrollPaddingTop;
-    if (innerX < 0 || innerX >= kPopupWidth) {
+    const auto innerX = pos.x() - shadowExtend();
+    const auto innerY = pos.y() - shadowExtend() - scrollPaddingTop();
+    if (innerX < 0 || innerX >= popupWidth()) {
         return -1;
     }
-    if (innerY < 0 || innerY >= kRowCount * kRowHeight) {
+    if (innerY < 0 || innerY >= kRowCount * rowHeight()) {
         return -1;
     }
-    return innerY / kRowHeight;
+    return innerY / rowHeight();
 }
 
 void HistoryAttachPopup::paintEvent(QPaintEvent *) {
@@ -286,19 +290,19 @@ void HistoryAttachPopup::paintEvent(QPaintEvent *) {
     p.setRenderHint(QPainter::Antialiasing);
 
     const auto innerRect = rect().adjusted(
-        kShadowExtend, kShadowExtend,
-        -kShadowExtend, -kShadowExtend);
+        shadowExtend(), shadowExtend(),
+        -shadowExtend(), -shadowExtend());
 
     // Shadow.
     const auto tiles = loadShadowTiles(devicePixelRatioF());
-    paintShadow(p, innerRect, tiles, kShadowExtend);
+    paintShadow(p, innerRect, tiles, shadowExtend());
 
     // Rounded body background.
     QPainterPath clipPath;
     clipPath.addRoundedRect(
         QRectF(innerRect).adjusted(0.5, 0.5, -0.5, -0.5),
-        kPopupRadius,
-        kPopupRadius);
+        popupRadius(),
+        popupRadius());
     p.fillPath(clipPath, st::menuBg);
     p.setClipPath(clipPath);
 
@@ -317,16 +321,16 @@ void HistoryAttachPopup::paintEvent(QPaintEvent *) {
     };
 
     for (int i = 0; i < kRowCount; ++i) {
-        const auto rowY = kShadowExtend + kScrollPaddingTop + i * kRowHeight;
-        const auto rowRect = QRect(kShadowExtend, rowY, kPopupWidth, kRowHeight);
+        const auto rowY = shadowExtend() + scrollPaddingTop() + i * rowHeight();
+        const auto rowRect = QRect(shadowExtend(), rowY, popupWidth(), rowHeight());
 
         const auto isHovered = (i == _hoveredRow);
         p.fillRect(rowRect, isHovered ? st::menuBgOver : st::menuBg);
 
         // Icon area.
-        const auto iconLeft = rowRect.left() + kPadding;
-        const auto iconTop = rowRect.top() + (kRowHeight - kIconSize) / 2;
-        const auto iconRect = QRect(iconLeft, iconTop, kIconSize, kIconSize);
+        const auto iconLeft = rowRect.left() + padding();
+        const auto iconTop = rowRect.top() + (rowHeight() - iconSize()) / 2;
+        const auto iconRect = QRect(iconLeft, iconTop, iconSize(), iconSize());
         const auto iconColor = isHovered ? st::menuIconFgOver : st::menuIconFg;
 
         if (rows[i].iconType == 0) {
@@ -336,8 +340,8 @@ void HistoryAttachPopup::paintEvent(QPaintEvent *) {
         }
 
         // Label text.
-        const auto textLeft = iconLeft + kIconSize + kPadding;
-        const auto textY = rowRect.top() + (kRowHeight + fm.ascent() - fm.descent()) / 2;
+        const auto textLeft = iconLeft + iconSize() + padding();
+        const auto textY = rowRect.top() + (rowHeight() + fm.ascent() - fm.descent()) / 2;
         p.setPen(isHovered ? st::windowFgOver : st::windowFg);
         p.drawText(textLeft, textY, rows[i].label);
     }

@@ -32,7 +32,13 @@ namespace {
 constexpr auto kActionIconNameProperty = "_telematrix_menu_icon_name";
 constexpr auto kActionRightIconNameProperty = "_telematrix_menu_icon_right_name";
 constexpr auto kActionAttentionProperty = "_tm_attention";
-constexpr auto kPopupRadius = 8;
+// Scaled at use, not constexpr: the shadow sprites these are measured against
+// come from loadScaledMask, which sizes them by Scale() * dpr. Leaving these
+// fixed made the body's rounded corner smaller than the shadow sprite's corner
+// at any non-100% interface scale, so the sprite's opaque inner quadrant showed
+// through as a black square at each corner.
+[[nodiscard]] int popupRadius();
+[[nodiscard]] int shadowExtend();
 constexpr auto kMenuItemRightSkip = 6;
 constexpr auto kSeparatorLineWidth = 1;
 constexpr auto kFoldersRightIconSkip = 17; // st::menuWithIcons.itemPadding.right()
@@ -44,8 +50,9 @@ const auto kMenuIconPosition = QPoint(15, 5); // menuWithIcons.itemIconPosition
 const auto kSeparatorPadding = QMargins(0, 5, 0, 5); // defaultMenuSeparator.padding
 constexpr auto kFoldersMenuMaxHeight = 320; // foldersMenu.maxHeight
 
-// Rounded 8px shadow: extend = margins(10px, 10px, 10px, 10px).
-constexpr auto kShadowExtend = 10;
+// Rounded 8px shadow: extend = margins(10px, 10px, 10px, 10px), both scaled.
+[[nodiscard]] int popupRadius() { return TeleMatrix::Style::ConvertScale(8); }
+[[nodiscard]] int shadowExtend() { return TeleMatrix::Style::ConvertScale(10); }
 
 // Default popup scrollPadding: margins(0px, 8px, 0px, 8px).
 // Popup-with-icons scrollPadding: margins(0px, 5px, 0px, 5px).
@@ -123,7 +130,11 @@ struct ShadowTiles {
 
 [[nodiscard]] ShadowTiles loadShadowTiles(qreal dpr) {
     static QHash<int, ShadowTiles> cache;
-    const auto key = dpr >= 2.5 ? 3 : (dpr >= 1.5 ? 2 : 1);
+    // Keyed on Scale() as well as dpr: loadScaledMask picks its sprite band from
+    // Scale() * dpr, so a dpr-only key kept serving 100% sprites after the user
+    // raised the interface scale, while the layout around them had already grown.
+    const auto key = TeleMatrix::Style::Scale() * 10
+        + (dpr >= 2.5 ? 3 : (dpr >= 1.5 ? 2 : 1));
     if (const auto i = cache.constFind(key); i != cache.cend()) {
         return i.value();
     }
@@ -178,18 +189,18 @@ void paintShadow(QPainter &p, const QRect &box, int outerWidth, const ShadowTile
         auto from = box.y();
         auto to = box.y() + box.height();
         p.drawImage(
-            box.x() - kShadowExtend,
-            box.y() - kShadowExtend,
+            box.x() - shadowExtend(),
+            box.y() - shadowExtend(),
             st.topLeft);
-        from += tlH - kShadowExtend;
+        from += tlH - shadowExtend();
         p.drawImage(
-            box.x() - kShadowExtend,
-            box.y() + box.height() + kShadowExtend - blH,
+            box.x() - shadowExtend(),
+            box.y() + box.height() + shadowExtend() - blH,
             st.bottomLeft);
-        to -= blH - kShadowExtend;
+        to -= blH - shadowExtend();
         if (to > from) {
             p.drawImage(
-                QRect(box.x() - kShadowExtend, from, leftW, to - from),
+                QRect(box.x() - shadowExtend(), from, leftW, to - from),
                 st.left,
                 QRect(0, 0, st.left.width(), st.left.height()));
         }
@@ -200,19 +211,19 @@ void paintShadow(QPainter &p, const QRect &box, int outerWidth, const ShadowTile
         auto from = box.y();
         auto to = box.y() + box.height();
         p.drawImage(
-            box.x() + box.width() + kShadowExtend - trW,
-            box.y() - kShadowExtend,
+            box.x() + box.width() + shadowExtend() - trW,
+            box.y() - shadowExtend(),
             st.topRight);
-        from += trH - kShadowExtend;
+        from += trH - shadowExtend();
         p.drawImage(
-            box.x() + box.width() + kShadowExtend - brW,
-            box.y() + box.height() + kShadowExtend - brH,
+            box.x() + box.width() + shadowExtend() - brW,
+            box.y() + box.height() + shadowExtend() - brH,
             st.bottomRight);
-        to -= brH - kShadowExtend;
+        to -= brH - shadowExtend();
         if (to > from) {
             p.drawImage(
                 QRect(
-                    box.x() + box.width() + kShadowExtend - rightW,
+                    box.x() + box.width() + shadowExtend() - rightW,
                     from,
                     rightW,
                     to - from),
@@ -225,11 +236,11 @@ void paintShadow(QPainter &p, const QRect &box, int outerWidth, const ShadowTile
     {
         auto from = box.x();
         auto to = box.x() + box.width();
-        from += tlW - kShadowExtend;
-        to -= trW - kShadowExtend;
+        from += tlW - shadowExtend();
+        to -= trW - shadowExtend();
         if (to > from) {
             p.drawImage(
-                QRect(from, box.y() - kShadowExtend, to - from, topH),
+                QRect(from, box.y() - shadowExtend(), to - from, topH),
                 st.top,
                 QRect(0, 0, st.top.width(), st.top.height()));
         }
@@ -239,13 +250,13 @@ void paintShadow(QPainter &p, const QRect &box, int outerWidth, const ShadowTile
     {
         auto from = box.x();
         auto to = box.x() + box.width();
-        from += blW - kShadowExtend;
-        to -= brW - kShadowExtend;
+        from += blW - shadowExtend();
+        to -= brW - shadowExtend();
         if (to > from) {
             p.drawImage(
                 QRect(
                     from,
-                    box.y() + box.height() + kShadowExtend - bottomH,
+                    box.y() + box.height() + shadowExtend() - bottomH,
                     to - from,
                     bottomH),
                 st.bottom,
@@ -429,7 +440,7 @@ void PopupMenu::recalculateLayout() {
     const auto scrollTop = scrollPaddingTop();
     const auto scrollBottom = scrollPaddingBottom();
 
-    int y = kShadowExtend + scrollTop;
+    int y = shadowExtend() + scrollTop;
     if (_hasReactionStrip) {
         y += stripTotalHeight() + stripMenuGap();
     }
@@ -438,7 +449,7 @@ void PopupMenu::recalculateLayout() {
         ? (2 * stripSkipX() + kStripColumns * stripCellSize())
         : 0;
     const auto innerWidth = qMax(_bodyWidth, stripW);
-    const auto menuBodyX = kShadowExtend + (innerWidth - _bodyWidth) / 2;
+    const auto menuBodyX = shadowExtend() + (innerWidth - _bodyWidth) / 2;
 
     for (auto &item : _items) {
         item.height = item.isSeparator ? separatorHeight : actionHeight;
@@ -446,7 +457,7 @@ void PopupMenu::recalculateLayout() {
         y += item.height;
     }
 
-    auto contentHeight = y - kShadowExtend - scrollTop;
+    auto contentHeight = y - shadowExtend() - scrollTop;
     if (_hasReactionStrip) {
         contentHeight -= stripTotalHeight() + stripMenuGap();
     }
@@ -459,12 +470,12 @@ void PopupMenu::recalculateLayout() {
     }
 
     const auto bodyHeight = scrollTop + contentHeight + scrollBottom;
-    const auto widgetWidth = innerWidth + 2 * kShadowExtend;
+    const auto widgetWidth = innerWidth + 2 * shadowExtend();
     auto totalInnerHeight = bodyHeight;
     if (_hasReactionStrip) {
         totalInnerHeight += stripTotalHeight() + stripMenuGap();
     }
-    const auto widgetHeight = totalInnerHeight + 2 * kShadowExtend;
+    const auto widgetHeight = totalInnerHeight + 2 * shadowExtend();
     setFixedSize(widgetWidth, widgetHeight);
 }
 
@@ -494,7 +505,7 @@ void PopupMenu::popup(const QPoint &globalPos) {
     recalculateLayout();
 
     // Position widget so the body top-left is at globalPos.
-    auto widgetPos = globalPos - QPoint(kShadowExtend, kShadowExtend);
+    auto widgetPos = globalPos - QPoint(shadowExtend(), shadowExtend());
 
     // Clamp to screen bounds.
     if (const auto *scr = screenForPopup(this, globalPos)) {
@@ -648,7 +659,7 @@ void PopupMenu::showSubmenuForItem(int index) {
     (void)item.submenu->winId();
 
     // Default: child body left = parent body right (shadows overlap).
-    const auto parentBodyLeft = pos().x() + kShadowExtend;
+    const auto parentBodyLeft = pos().x() + shadowExtend();
     auto bodyLeft = parentBodyLeft + _bodyWidth;
     const auto bodyTop = pos().y() + item.rect.y();
 
@@ -725,10 +736,10 @@ void PopupMenu::mouseMoveEvent(QMouseEvent *e) {
     if (_hasReactionStrip) {
         const auto localX = e->pos().x();
         const auto localY = e->pos().y();
-        const auto innerW = width() - 2 * kShadowExtend;
+        const auto innerW = width() - 2 * shadowExtend();
         const auto pillW = 2 * stripSkipX() + kStripColumns * stripCellSize();
-        const auto pillLeft = kShadowExtend + (innerW - pillW) / 2;
-        const auto stripTop = kShadowExtend;
+        const auto pillLeft = shadowExtend() + (innerW - pillW) / 2;
+        const auto stripTop = shadowExtend();
         const auto stripBottom = stripTop + stripHeight();
         const auto cellAreaLeft = pillLeft + stripSkipX();
         const auto cellAreaRight = cellAreaLeft + kStripColumns * stripCellSize();
@@ -906,8 +917,8 @@ void PopupMenu::paintEvent(QPaintEvent *) {
 
     // Inner rect: the full area inset by shadow extend.
     const auto innerRect = rect().adjusted(
-        kShadowExtend, kShadowExtend,
-        -kShadowExtend, -kShadowExtend);
+        shadowExtend(), shadowExtend(),
+        -shadowExtend(), -shadowExtend());
 
     // Compute strip and menu body rects independently.
     const auto stripW = _hasReactionStrip
@@ -929,7 +940,7 @@ void PopupMenu::paintEvent(QPaintEvent *) {
         QPainterPath menuPath;
         menuPath.addRoundedRect(
             QRectF(menuBodyRect).adjusted(0.5, 0.5, -0.5, -0.5),
-            kPopupRadius, kPopupRadius);
+            popupRadius(), popupRadius());
         p.fillPath(menuPath, st::menuBg);
         p.setClipPath(menuPath);
     }
@@ -1012,7 +1023,7 @@ void PopupMenu::paintEvent(QPaintEvent *) {
         QPainterPath menuClip;
         menuClip.addRoundedRect(
             QRectF(menuBodyRect).adjusted(0.5, 0.5, -0.5, -0.5),
-            kPopupRadius, kPopupRadius);
+            popupRadius(), popupRadius());
         p.setClipPath(menuClip);
     }
 
