@@ -48,7 +48,7 @@ rand = "0.8"
 zeroize = "1"
 sha2 = "0.10"
 hkdf = "0.12"
-chacha20poly1305 = "0.10"
+chacha20poly1305 = "0.11"
 # Password-based KDF for the Linux master-password secret vault (fallback when
 # no Secret Service / D-Bus is available). Memory-hard; params live in the vault
 # header. Compiles on all platforms; only *engaged* on Linux (secret_vault.rs).
