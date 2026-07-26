@@ -161,6 +161,16 @@ add_library(telematrix_protocol STATIC IMPORTED GLOBAL)
 set_target_properties(telematrix_protocol PROPERTIES IMPORTED_LOCATION "${RUST_LIB_PATH}")
 add_dependencies(telematrix_protocol telematrix_protocol_build)
 
+# Theme resources are compiled with an explicit rcc call rather than by AUTORCC.
+# AUTORCC emits its .cpp into a nested per-config autogen dir, and the object
+# follows it there — but a target consuming an OBJECT library has to name that
+# library's objects by path, and the Visual Studio generator writes the flat
+# telematrix_core.dir/<Config>/qrc_theme_resources.obj into TeleMatrix's link
+# line. The two disagree and the Windows link dies with LNK1181 on a file that
+# was built. qt_add_resources produces an ordinary source in the binary dir, so
+# its object name is flat and both sides agree on every generator.
+qt_add_resources(TELEMATRIX_THEME_QRC src/theme/theme_resources.qrc)
+
 # Reusable "core" of pure, runtime-light translation units (no QtWidgets, no
 # ProtocolBridge/Rust FFI). Compiled once as an OBJECT library so both the
 # TeleMatrix executable and the unit-test runners (tests/) link the SAME objects
@@ -238,8 +248,9 @@ add_library(telematrix_core OBJECT
     src/theme/chat_background.cpp
     # Carries the per-theme palettes and doodle patterns, which theme_registry.cpp
     # and chat_background.cpp read. Lives here rather than on TeleMatrix so the
-    # unit tests can load them too.
-    src/theme/theme_resources.qrc
+    # unit tests can load them too. Generated above by qt_add_resources, not
+    # AUTORCC — see the comment on that call.
+    ${TELEMATRIX_THEME_QRC}
     # Pure helpers shared by the platform toast managers; cross-platform so they
     # are unit-tested on any host.
     src/window/notifications_win_keys.h
