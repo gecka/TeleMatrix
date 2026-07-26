@@ -464,14 +464,24 @@ protected:
     }
 
 private:
+    // Callers hold these as QLabel* (valueLabel() hands one out), so almost all
+    // text arrives via QLabel::setText — which is not virtual and cannot be
+    // intercepted. Adopt any text we did not elide ourselves as the new full
+    // text; otherwise the first resize overwrites it with an empty _full and the
+    // row silently goes blank.
     void applyElide() {
+        if (QLabel::text() != _elided) {
+            _full = QLabel::text();
+        }
         const QFontMetrics fm(font());
-        QLabel::setText(_full.isEmpty()
+        _elided = _full.isEmpty()
             ? _full
-            : fm.elidedText(_full, Qt::ElideRight, qMax(1, width())));
+            : fm.elidedText(_full, Qt::ElideRight, qMax(1, width()));
+        QLabel::setText(_elided);
     }
 
     QString _full;
+    QString _elided;
 };
 
 class InfoValueRowWidget : public QWidget {
