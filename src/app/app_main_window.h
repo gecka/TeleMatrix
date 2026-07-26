@@ -85,6 +85,7 @@ private:
     // exists — Windows can ignore a pre-show setGeometry(). Empty when the window
     // was centred at its default size instead.
     QRect _restoreGeometry;
+    bool _restoreMaximized = false;
     bool _restorePendingShow = false;
     void settleRestoredGeometry();
 };

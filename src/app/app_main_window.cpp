@@ -673,9 +673,12 @@ void AppMainWindow::restoreWindowState() {
         useDefaultCentered();
     }
 
-    if (pos.maximized) {
-        showMaximized();
-    }
+    // Recorded, NOT applied here. Maximizing a window the app has not shown yet
+    // makes isVisible() true, which used to run the settle below before the real
+    // show() — re-enabling persistence just in time to save the geometry that
+    // show() imposed. That is why the maximized case kept losing its size while
+    // every other case survived.
+    _restoreMaximized = (pos.maximized != 0);
 
     // Persistence stays OFF until the geometry settles. Windows only creates the
     // native window on show, may override a geometry set before that, and then
@@ -692,8 +695,17 @@ void AppMainWindow::restoreWindowState() {
 void AppMainWindow::settleRestoredGeometry() {
     // Queued so the platform's post-show move/resize burst runs first.
     QTimer::singleShot(0, this, [this] {
-        if (_restoreGeometry.isValid() && !isMaximized() && !isMinimized()) {
+        if (_restoreGeometry.isValid() && !isMinimized()) {
+            // Apply the normal rect even when the target state is maximized, so
+            // the platform records what to restore DOWN to. Skipping this is why
+            // un-maximizing landed on a Windows-invented size.
+            if (isMaximized()) {
+                showNormal();
+            }
             setGeometry(_restoreGeometry);
+        }
+        if (_restoreMaximized && !isMaximized()) {
+            showMaximized();
         }
         _positionPersistenceEnabled = true;
     });
