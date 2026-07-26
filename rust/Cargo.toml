@@ -42,13 +42,13 @@ dirs = "6"
 rusqlite = { version = "0.37", features = ["bundled-sqlcipher"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-rand = "0.8"
+rand = "0.10"
 # Scrub in-memory secrets (store passphrase, pending recovery key) on drop so they
 # don't linger in freed heap for the rest of the process lifetime.
 zeroize = "1"
 sha2 = "0.10"
 hkdf = "0.12"
-chacha20poly1305 = "0.10"
+chacha20poly1305 = "0.11"
 # Password-based KDF for the Linux master-password secret vault (fallback when
 # no Secret Service / D-Bus is available). Memory-hard; params live in the vault
 # header. Compiles on all platforms; only *engaged* on Linux (secret_vault.rs).

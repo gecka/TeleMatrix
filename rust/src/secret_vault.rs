@@ -26,7 +26,7 @@ use chacha20poly1305::{
     aead::{Aead, KeyInit, Payload},
     Key, XChaCha20Poly1305, XNonce,
 };
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::SysRng, TryRng};
 use zeroize::Zeroizing;
 
 const MAGIC: &[u8; 5] = b"TMVLT";
@@ -73,7 +73,9 @@ pub struct Opened {
 
 pub fn new_salt() -> [u8; SALT_LEN] {
     let mut salt = [0u8; SALT_LEN];
-    OsRng.fill_bytes(&mut salt);
+    SysRng
+        .try_fill_bytes(&mut salt)
+        .expect("OS RNG unavailable — refusing to mint a vault salt");
     salt
 }
 
@@ -104,12 +106,12 @@ pub fn seal(
     params: &KdfParams,
 ) -> Result<Vec<u8>> {
     let mut nonce = [0u8; NONCE_LEN];
-    OsRng.fill_bytes(&mut nonce);
+    SysRng.try_fill_bytes(&mut nonce)?;
     let header = build_header(salt, &nonce, params);
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
+    let cipher = XChaCha20Poly1305::new(&Key::from(*key));
     let ciphertext = cipher
         .encrypt(
-            XNonce::from_slice(&nonce),
+            &XNonce::from(nonce),
             Payload {
                 msg: plaintext,
                 aad: &header,
@@ -240,10 +242,10 @@ fn parse_header(file: &[u8]) -> Result<Header> {
 }
 
 fn decrypt(file: &[u8], header: &Header, key: &[u8; 32]) -> Result<Zeroizing<Vec<u8>>> {
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
+    let cipher = XChaCha20Poly1305::new(&Key::from(*key));
     cipher
         .decrypt(
-            XNonce::from_slice(&header.nonce),
+            &XNonce::from(header.nonce),
             Payload {
                 msg: &file[HEADER_LEN..],
                 // AAD is the exact header bytes — binds params/salt/nonce to the

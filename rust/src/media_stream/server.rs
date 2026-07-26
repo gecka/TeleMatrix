@@ -16,7 +16,7 @@ use hyper::{Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
 use matrix_sdk::ruma::events::room::MediaSource;
 use matrix_sdk::Client;
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::SysRng, TryRng};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::sync::RwLock;
@@ -61,7 +61,7 @@ impl MediaStreamServer {
         let port = listener.local_addr()?.port();
 
         let mut secret_bytes = [0u8; 16];
-        OsRng.fill_bytes(&mut secret_bytes);
+        SysRng.try_fill_bytes(&mut secret_bytes)?;
         let mut secret = String::with_capacity(32);
         for b in secret_bytes {
             secret.push_str(&format!("{b:02x}"));

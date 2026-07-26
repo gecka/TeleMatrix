@@ -6,7 +6,7 @@
 
 use anyhow::{anyhow, Result};
 use matrix_sdk::Client;
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::SysRng, TryRng};
 use std::sync::{Arc, Mutex};
 use zeroize::Zeroizing;
 
@@ -215,7 +215,9 @@ impl SessionStorageService {
 
     fn generate_local_secret() -> String {
         let mut bytes = [0u8; 32];
-        OsRng.fill_bytes(&mut bytes);
+        SysRng
+            .try_fill_bytes(&mut bytes)
+            .expect("OS RNG unavailable — refusing to mint a local secret");
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()
     }
 }

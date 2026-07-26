@@ -11,6 +11,12 @@ updates:
     groups:
       actions:
         patterns: ['*']
+    ignore:
+      # This action's "version" is the pinned rustc, not an action API version, so
+      # dependabot bumps it to toolchains that need not exist yet (1.100.0 404'd on
+      # rustup and took the whole actions group red). Move it by hand, in step with
+      # rust-toolchain.toml.
+      - dependency-name: dtolnay/rust-toolchain
     open-pull-requests-limit: 5
 
   # The protocol/crypto staticlib. matrix-sdk bumps regularly move the rustc MSRV —
@@ -25,6 +31,12 @@ updates:
         patterns: ['matrix-sdk*']
       rust-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # sha2 0.11 moved to digest 0.11 / crypto-common 0.2 while hkdf 0.12 is still on
+      # digest 0.10, so Hkdf::<Sha256> stops typechecking against both generations in
+      # one graph. Drop this once hkdf ships a digest-0.11 release.
+      - dependency-name: sha2
+        update-types: [version-update:semver-major]
     open-pull-requests-limit: 5
 
   - package-ecosystem: cargo

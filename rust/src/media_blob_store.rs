@@ -11,7 +11,7 @@ use anyhow::{anyhow, Result};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::SysRng, TryRng};
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -139,19 +139,19 @@ fn legacy_media_key(key_material: &str) -> Result<[u8; 32]> {
 
 fn cipher(key_material: &str) -> Result<XChaCha20Poly1305> {
     let key = media_key(key_material)?;
-    Ok(XChaCha20Poly1305::new(Key::from_slice(&key)))
+    Ok(XChaCha20Poly1305::new(&Key::from(key)))
 }
 
 fn legacy_cipher(key_material: &str) -> Result<XChaCha20Poly1305> {
     let key = legacy_media_key(key_material)?;
-    Ok(XChaCha20Poly1305::new(Key::from_slice(&key)))
+    Ok(XChaCha20Poly1305::new(&Key::from(key)))
 }
 
 fn chunk_nonce(prefix: &[u8; NONCE_PREFIX_LEN], index: u64) -> XNonce {
     let mut nonce = [0u8; 24];
     nonce[..NONCE_PREFIX_LEN].copy_from_slice(prefix);
     nonce[NONCE_PREFIX_LEN..].copy_from_slice(&index.to_le_bytes());
-    *XNonce::from_slice(&nonce)
+    XNonce::from(nonce)
 }
 
 fn chunk_aad(aad: &[u8], index: u64) -> Vec<u8> {
@@ -180,7 +180,7 @@ pub async fn encrypt_file(
 
     let cipher = cipher(key_material)?;
     let mut prefix = [0u8; NONCE_PREFIX_LEN];
-    OsRng.fill_bytes(&mut prefix);
+    SysRng.try_fill_bytes(&mut prefix)?;
 
     let mut input = tokio::fs::File::open(plaintext_path).await?;
     let mut output = tokio::fs::File::create(&temp_path).await?;
@@ -230,7 +230,7 @@ pub async fn encrypt_bytes(
 
     let cipher = cipher(key_material)?;
     let mut prefix = [0u8; NONCE_PREFIX_LEN];
-    OsRng.fill_bytes(&mut prefix);
+    SysRng.try_fill_bytes(&mut prefix)?;
 
     let mut output = tokio::fs::File::create(&temp_path).await?;
     output.write_all(MAGIC).await?;

@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rand::RngCore;
+use rand::Rng;
 
 /// TeleMatrix's own account-data event: the unified left-rail order (folders +
 /// spaces interleaved). Element has no equivalent, so this stays private.
@@ -55,7 +55,7 @@ pub(crate) fn is_section_tag(tag_key: &str) -> bool {
 /// prefix (not that the suffix is a real UUID), but we mint a proper v4 anyway.
 pub(crate) fn new_section_tag() -> String {
     let mut bytes = [0u8; 16];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
     let uuid = format!(
