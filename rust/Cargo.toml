@@ -46,7 +46,7 @@ rand = "0.8"
 # Scrub in-memory secrets (store passphrase, pending recovery key) on drop so they
 # don't linger in freed heap for the rest of the process lifetime.
 zeroize = "1"
-sha2 = "0.10"
+sha2 = "0.11"
 hkdf = "0.12"
 chacha20poly1305 = "0.10"
 # Password-based KDF for the Linux master-password secret vault (fallback when
