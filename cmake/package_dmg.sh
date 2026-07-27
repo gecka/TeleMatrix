@@ -22,7 +22,6 @@ set -euo pipefail
 : "${STAGING_DIR:?scratch dir (wiped each run)}"
 : "${ICNS:?app/volume/file icon (.icns)}"
 : "${BACKGROUND:?source background png}"
-: "${MACDEPLOYQT:?macdeployqt path}"
 : "${CREATEDMG:?create-dmg path}"
 
 # --- optional inputs (with sensible defaults) -------------------------------
@@ -52,6 +51,15 @@ done
 
 SRC_DIR="$STAGING_DIR/source"
 
+# The build owns deployment and signing (macdeployqt + cmake/codesign_bundle.sh in
+# the TeleMatrix POST_BUILD). This target no longer DEPENDS on TeleMatrix, so say
+# plainly when the app isn't there rather than packaging a stale or absent bundle.
+if [ ! -d "$APP_BUNDLE" ]; then
+    echo "!! $APP_BUNDLE not found. Build it first:" >&2
+    echo "     cmake --build <builddir> --target TeleMatrix" >&2
+    exit 1
+fi
+
 echo ">> Cleaning staging: $STAGING_DIR"
 rm -rf "$STAGING_DIR" "$OUTPUT_DMG"
 mkdir -p "$SRC_DIR"
@@ -60,27 +68,19 @@ echo ">> Staging app bundle"
 # cp -a preserves the framework symlinks inside the bundle.
 cp -a "$APP_BUNDLE" "$SRC_DIR/TeleMatrix.app"
 
-echo ">> Deploying Qt runtime into staged bundle"
-deploy_args=(-always-overwrite)
-if [ "$SIGN_IDENTITY" != "-" ] && [ -n "$SIGN_IDENTITY" ]; then
-    deploy_args+=("-sign-for-notarization=$SIGN_IDENTITY")
-fi
-"$MACDEPLOYQT" "$SRC_DIR/TeleMatrix.app" "${deploy_args[@]}" \
-    || "$MACDEPLOYQT" "$SRC_DIR/TeleMatrix.app" -always-overwrite
-
-# macdeployqt rewrites Mach-O load commands inside a bundle CMake already signed,
-# which invalidates the seal unless it re-signed for us (-sign-for-notarization,
-# real identities only). On Apple Silicon an invalid signature is unloadable — the
-# app reads as "damaged and can't be opened" — so re-seal whatever it left behind,
-# ad-hoc included, with the identifier the POST_BUILD signing used.
-if ! codesign --verify --deep --strict "$SRC_DIR/TeleMatrix.app" 2>/dev/null; then
-    echo ">> Re-sealing staged bundle (macdeployqt invalidated the signature)"
-    resign_args=(--force --deep --sign "$SIGN_IDENTITY" --identifier dev.telematrix.TeleMatrix)
-    if [ "$SIGN_IDENTITY" != "-" ] && [ -n "$SIGN_IDENTITY" ]; then
-        resign_args+=(--options runtime --timestamp)
-    fi
-    codesign "${resign_args[@]}" "$SRC_DIR/TeleMatrix.app"
-    codesign --verify --deep --strict --verbose=2 "$SRC_DIR/TeleMatrix.app"
+echo ">> Verifying the staged bundle"
+# This used to re-run macdeployqt on the copy and re-seal it with --deep. Both were
+# wrong: the re-deploy stripped and re-signed a bundle the release flow had already
+# notarized and STAPLED, which changes the CDHash and leaves the copied ticket
+# stale, so the app inside the .dmg shipped effectively un-stapled. And --deep is
+# documented by Apple as ad-hoc-testing-only — it re-signs nested code with
+# filename-derived identifiers, which notarization rejects. The bundle arrives here
+# already deployed and signed; the only correct action is to check that, and stop
+# if it is not true.
+if ! codesign --verify --deep --strict --verbose=2 "$SRC_DIR/TeleMatrix.app"; then
+    echo "!! the staged bundle does not verify — refusing to package it." >&2
+    echo "   Rebuild the app (the build signs it) and try again." >&2
+    exit 1
 fi
 
 echo ">> Tagging background DPI so Finder draws it at window size"

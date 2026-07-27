@@ -698,6 +698,31 @@ if (APPLE)
     set_source_files_properties(telematrix.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
     target_sources(TeleMatrix PRIVATE telematrix.icns)
 
+    # Put the icon in the bundle BEFORE anything signs it. MACOSX_PACKAGE_LOCATION
+    # above generates its copy as a *sibling* prerequisite of the target's build
+    # rule, and make runs it AFTER the link rule that carries every POST_BUILD
+    # command — so on a clean build the icon landed in Contents/Resources once
+    # codesign had already sealed the bundle:
+    #
+    #   TeleMatrix.app: a sealed resource is missing or invalid
+    #   file added: .../Contents/Resources/telematrix.icns
+    #
+    # The resource seal lives in the MAIN EXECUTABLE's signature, so that reads as
+    # an invalid signature on Contents/MacOS/TeleMatrix — which is exactly what
+    # notarization rejected. Incremental builds hid it completely: the icon was
+    # already in place from the previous build, so only clean builds (i.e. CI) were
+    # ever affected. This POST_BUILD registers first, so it runs first; CMake's own
+    # copy still follows and is a harmless no-op on identical bytes.
+    add_custom_command(TARGET TeleMatrix POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:TeleMatrix>/Resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/telematrix.icns"
+            "$<TARGET_BUNDLE_CONTENT_DIR:TeleMatrix>/Resources/telematrix.icns"
+        COMMENT "Staging bundle icon (before deploy + signing)"
+        VERBATIM
+    )
+
     find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${Qt6_DIR}/../../../bin")
     find_program(CREATEDMG_EXECUTABLE create-dmg)
     set(TELEMATRIX_CODESIGN_IDENTITY "-" CACHE STRING
@@ -705,23 +730,17 @@ if (APPLE)
     set(TELEMATRIX_NOTARIZE_PROFILE "" CACHE STRING
         "xcrun notarytool keychain profile name. When set (and a real Developer ID identity is used), package_dmg notarizes and staples the .dmg. Create one with: xcrun notarytool store-credentials.")
 
-    # macdeployqt notarization-sign flag, computed once and reused by both the
-    # POST_BUILD bundle deploy and the package_dmg target.
-    set(MACDEPLOY_SIGN_ARG "")
-    if (TELEMATRIX_CODESIGN_IDENTITY AND NOT TELEMATRIX_CODESIGN_IDENTITY STREQUAL "-")
-        set(MACDEPLOY_SIGN_ARG "-sign-for-notarization=${TELEMATRIX_CODESIGN_IDENTITY}")
-    endif()
-
     if (MACDEPLOYQT_EXECUTABLE)
-        set(MACDEPLOY_ARGS -always-overwrite -no-strip)
-        if (MACDEPLOY_SIGN_ARG)
-            list(APPEND MACDEPLOY_ARGS "${MACDEPLOY_SIGN_ARG}")
-        endif()
-
+        # Deploy only — NO -sign-for-notarization. macdeployqt rewrites load
+        # commands with install_name_tool and then signs, but when a codesign call
+        # fails (Apple's timestamp authority rate-limits, and -sign-for-notarization
+        # implies -timestamp) it prints "ERROR: Codesign signing error" and exits 0.
+        # That shipped a binary modified after it was signed, which notarization
+        # rejects. cmake/codesign_bundle.sh below owns signing, and fails loudly.
         add_custom_command(TARGET TeleMatrix POST_BUILD
             COMMAND "${MACDEPLOYQT_EXECUTABLE}"
                 "$<TARGET_BUNDLE_DIR:TeleMatrix>"
-                ${MACDEPLOY_ARGS}
+                -always-overwrite -no-strip
             COMMENT "Deploying Qt runtime into TeleMatrix.app bundle"
             VERBATIM
         )
@@ -729,23 +748,22 @@ if (APPLE)
 
     find_program(CODESIGN_EXECUTABLE codesign)
     if (CODESIGN_EXECUTABLE)
-        # Never fall back to ad-hoc when a real identity was asked for. The keychain
-        # binds our stored secrets to this app's *signing identity* (the item's ACL
-        # requires `certificate leaf[subject.OU] = <team>`), so an ad-hoc bundle —
-        # no team, no certificate — cannot see them at all: the keychain reports the
-        # item as simply absent. A build that quietly downgraded because the signing
-        # key was locked, or because its Keychain prompt was dismissed, therefore
-        # produced an app that could not read its own session. Fail loudly instead.
-        if (TELEMATRIX_CODESIGN_IDENTITY STREQUAL "-")
-            set(TELEMATRIX_CODESIGN_CMD
-                "\"${CODESIGN_EXECUTABLE}\" --force --deep --sign \"-\" --identifier \"dev.telematrix.TeleMatrix\" \"$<TARGET_BUNDLE_DIR:TeleMatrix>\"")
-        else()
-            set(TELEMATRIX_CODESIGN_CMD
-                "\"${CODESIGN_EXECUTABLE}\" --force --options runtime --timestamp --sign \"${TELEMATRIX_CODESIGN_IDENTITY}\" \"$<TARGET_FILE:TeleMatrix>\" && \"${CODESIGN_EXECUTABLE}\" --force --options runtime --timestamp --sign \"${TELEMATRIX_CODESIGN_IDENTITY}\" --identifier \"dev.telematrix.TeleMatrix\" \"$<TARGET_BUNDLE_DIR:TeleMatrix>\" || { echo 'error: codesign failed with identity ${TELEMATRIX_CODESIGN_IDENTITY}. Unlock your login keychain (and allow codesign to use the signing key) and build again. Refusing to sign ad-hoc: an ad-hoc build cannot read the secrets this app stored under its Developer ID, and would sign you out. To build without the identity, configure with -DTELEMATRIX_CODESIGN_IDENTITY=-' >&2; exit 1; }")
-        endif()
+        # One signing pass owns the bundle: nested code inside-out, the bundle last,
+        # transient timestamp-authority failures retried, and a hard
+        # `codesign --verify --deep --strict` before the build is allowed to
+        # succeed. The script never falls back to ad-hoc when a real identity was
+        # asked for — the keychain binds our stored secrets to the *signing
+        # identity* (the item's ACL requires `certificate leaf[subject.OU] =
+        # <team>`), so an ad-hoc bundle cannot see them at all and would sign the
+        # user out.
         add_custom_command(TARGET TeleMatrix POST_BUILD
-            COMMAND /bin/sh -c "${TELEMATRIX_CODESIGN_CMD}"
-            COMMENT "Signing TeleMatrix.app with bundle identifier"
+            COMMAND ${CMAKE_COMMAND} -E env
+                "APP_BUNDLE=$<TARGET_BUNDLE_DIR:TeleMatrix>"
+                "SIGN_IDENTITY=${TELEMATRIX_CODESIGN_IDENTITY}"
+                "BUNDLE_ID=dev.telematrix.TeleMatrix"
+                "CODESIGN=${CODESIGN_EXECUTABLE}"
+                bash "${CMAKE_SOURCE_DIR}/cmake/codesign_bundle.sh"
+            COMMENT "Signing TeleMatrix.app (one pass, inside-out)"
             VERBATIM
         )
     endif()
@@ -790,7 +808,6 @@ if (APPLE)
                 "STAGING_DIR=${CMAKE_BINARY_DIR}/dmg_staging"
                 "ICNS=${CMAKE_SOURCE_DIR}/telematrix.icns"
                 "BACKGROUND=${DMG_BACKGROUND_SOURCE}"
-                "MACDEPLOYQT=${MACDEPLOYQT_EXECUTABLE}"
                 "CREATEDMG=${CREATEDMG_EXECUTABLE}"
                 "VOLNAME=TeleMatrix Installer"
                 "WINDOW_W=${DMG_WINDOW_WIDTH}"
@@ -804,7 +821,12 @@ if (APPLE)
                 "SIGN_IDENTITY=${TELEMATRIX_CODESIGN_IDENTITY}"
                 "NOTARIZE_PROFILE=${TELEMATRIX_NOTARIZE_PROFILE}"
                 bash "${CMAKE_SOURCE_DIR}/cmake/package_dmg.sh"
-            DEPENDS TeleMatrix
+            # Deliberately NOT `DEPENDS TeleMatrix`. The release flow notarizes and
+            # staples TeleMatrix.app *before* packaging, and the TeleMatrix target
+            # relinks on every invocation (the Rust staticlib custom command
+            # refreshes its output), which re-fired the deploy+sign POST_BUILD and
+            # silently destroyed the ticket that had just been stapled on. Build the
+            # app first; package_dmg.sh fails with a readable error if you didn't.
             COMMENT "Building stylized DMG (create-dmg + custom file icon)"
             VERBATIM
         )

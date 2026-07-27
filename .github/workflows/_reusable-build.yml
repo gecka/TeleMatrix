@@ -265,6 +265,16 @@ jobs:
             exit 1
           fi
 
+      - name: Verify the signature before notarizing
+        # A hard gate. Notarization is a ~20 minute round-trip that reports a path
+        # and never a reason, so a broken signature used to be discovered by Apple
+        # rather than by us. cmake/sigdiag.sh walks every Mach-O in the bundle and
+        # fails on the four things the notary rejects: a signature that no longer
+        # reaches the end of its slice (modified after signing), ad-hoc or unsigned
+        # nested code, no hardened runtime, no secure timestamp.
+        if: inputs.publish
+        run: ./cmake/sigdiag.sh build/TeleMatrix.app "pre-notarization"
+
       # --- Notarize + staple the .app itself, BEFORE the dmg is built ----------
       #
       # package_dmg notarizes the .dmg, which is enough for a first install but
@@ -305,6 +315,13 @@ jobs:
         # code-signature seal.
         run: |
           set -euo pipefail
+          # Assert the ticket is still on the bundle. `package_dmg` above used to
+          # DEPEND on TeleMatrix, and that target relinks on every invocation, so
+          # packaging re-fired the deploy+sign POST_BUILD and re-signed the bundle
+          # — destroying the staple, and shipping an updater payload that needed a
+          # Gatekeeper round-trip on first launch. That dependency is gone; this
+          # keeps it gone.
+          xcrun stapler validate build/TeleMatrix.app
           version="$(grep -oE 'set\(TELEMATRIX_VERSION "[^"]+"' CMakeLists.txt | sed -E 's/.*"([^"]+)"/\1/')"
           out="dist/TeleMatrix-${version}-macos-aarch64-app.tar.gz"
           COPYFILE_DISABLE=1 tar czf "$out" -C build TeleMatrix.app
