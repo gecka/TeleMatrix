@@ -741,7 +741,7 @@ if (APPLE)
                 "\"${CODESIGN_EXECUTABLE}\" --force --deep --sign \"-\" --identifier \"dev.telematrix.TeleMatrix\" \"$<TARGET_BUNDLE_DIR:TeleMatrix>\"")
         else()
             set(TELEMATRIX_CODESIGN_CMD
-                "\"${CODESIGN_EXECUTABLE}\" --force --deep --sign \"${TELEMATRIX_CODESIGN_IDENTITY}\" --identifier \"dev.telematrix.TeleMatrix\" \"$<TARGET_BUNDLE_DIR:TeleMatrix>\" || { echo 'error: codesign failed with identity ${TELEMATRIX_CODESIGN_IDENTITY}. Unlock your login keychain (and allow codesign to use the signing key) and build again. Refusing to sign ad-hoc: an ad-hoc build cannot read the secrets this app stored under its Developer ID, and would sign you out. To build without the identity, configure with -DTELEMATRIX_CODESIGN_IDENTITY=-' >&2; exit 1; }")
+                "\"${CODESIGN_EXECUTABLE}\" --force --deep --options runtime --timestamp --sign \"${TELEMATRIX_CODESIGN_IDENTITY}\" --identifier \"dev.telematrix.TeleMatrix\" \"$<TARGET_BUNDLE_DIR:TeleMatrix>\" || { echo 'error: codesign failed with identity ${TELEMATRIX_CODESIGN_IDENTITY}. Unlock your login keychain (and allow codesign to use the signing key) and build again. Refusing to sign ad-hoc: an ad-hoc build cannot read the secrets this app stored under its Developer ID, and would sign you out. To build without the identity, configure with -DTELEMATRIX_CODESIGN_IDENTITY=-' >&2; exit 1; }")
         endif()
         add_custom_command(TARGET TeleMatrix POST_BUILD
             COMMAND /bin/sh -c "${TELEMATRIX_CODESIGN_CMD}"
