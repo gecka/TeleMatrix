@@ -44,6 +44,33 @@ jobs:
           fi
           echo "OK: tag and TELEMATRIX_VERSION agree."
 
+      - name: Compare the update key in source to the repo variable
+        # UPDATE_PUBLIC_KEY is the *client's* trust anchor, compiled into the app;
+        # MINISIGN_PUBLIC_KEY is what CI checks its own signatures against. They
+        # must be the same key. Nothing else compares them: the signature
+        # self-check below verifies against the variable alone, so a mismatch
+        # would sail through CI and ship a release every installed client refuses.
+        # Checked here, in the cheapest job, before three platform builds run.
+        env:
+          MINISIGN_PUBLIC_KEY: ${{ vars.MINISIGN_PUBLIC_KEY }}
+        run: |
+          src_key="$(grep -oE 'const UPDATE_PUBLIC_KEY: &str = "[^"]*"' rust/src/update_service.rs \
+                     | sed -E 's/.*"([^"]*)"/\1/')"
+          var_key="${MINISIGN_PUBLIC_KEY:-}"
+
+          if [ -z "$src_key" ] && [ -z "$var_key" ]; then
+            echo "::warning::No update signing key configured — clients will stay notify-only."
+          elif [ -z "$src_key" ]; then
+            echo "::warning::MINISIGN_PUBLIC_KEY is set but UPDATE_PUBLIC_KEY in rust/src/update_service.rs is empty. Assets will be signed, but this build cannot verify them and stays notify-only."
+          elif [ -z "$var_key" ]; then
+            echo "::warning::UPDATE_PUBLIC_KEY is compiled in but the MINISIGN_PUBLIC_KEY variable is unset. If MINISIGN_SECRET_KEY is also unset this release ships unsigned."
+          elif [ "$src_key" != "$var_key" ]; then
+            echo "::error::Update key mismatch. rust/src/update_service.rs trusts a different key than MINISIGN_PUBLIC_KEY. Both must come from the same minisign.pub, or every client will reject this release."
+            exit 1
+          else
+            echo "OK: the compiled-in update key matches MINISIGN_PUBLIC_KEY."
+          fi
+
   tests:
     needs: version-gate
     uses: ./.github/workflows/_reusable-tests.yml
