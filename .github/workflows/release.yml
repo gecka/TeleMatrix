@@ -307,3 +307,25 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+      - name: Point the beta channel at this release
+        # GitHub's /releases/latest/ excludes pre-releases, so a beta's own
+        # latest.json is unreachable — clients opted into betas read this rolling
+        # release instead. Updated for stable tags too, so a beta user still gets
+        # the finals.
+        #
+        # --prerelease on channel-beta is load-bearing: without it this release
+        # becomes /releases/latest and hijacks the stable channel for everyone.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Not `gh release create ... || true`: that swallows an auth or
+          # permission failure exactly as readily as "already exists", and the
+          # release would publish with the channel silently left on an old build.
+          if ! gh release view channel-beta >/dev/null 2>&1; then
+            gh release create channel-beta --prerelease \
+              --title "Beta channel" \
+              --notes "Rolling pointer to the newest release, pre-releases included. Carries no downloads of its own — see the Releases list."
+          fi
+          gh release upload channel-beta dist/latest.json --clobber

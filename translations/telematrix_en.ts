@@ -4,17 +4,17 @@
 <context>
     <name>ChatSearchIn</name>
     <message>
-        <location filename="../src/dialogs/dialogs_chat_search_in.cpp" line="318"/>
+        <location filename="../src/dialogs/dialogs_chat_search_in.cpp" line="322"/>
         <source>Search messages in</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_chat_search_in.cpp" line="322"/>
+        <location filename="../src/dialogs/dialogs_chat_search_in.cpp" line="326"/>
         <source>This Room</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_chat_search_in.cpp" line="344"/>
+        <location filename="../src/dialogs/dialogs_chat_search_in.cpp" line="348"/>
         <source>From: </source>
         <translation type="unfinished"></translation>
     </message>
@@ -677,22 +677,22 @@ You&apos;ll stay in its rooms unless you tick the ones you also want to leave.</
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1204"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1206"/>
         <source>All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1206"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1208"/>
         <source>Personal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1208"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1210"/>
         <source>Unread</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1210"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1212"/>
         <source>Folder %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1691,131 +1691,131 @@ This action is permanent and cannot be undone. All your data will be lost.</sour
 <context>
     <name>TeleMatrix::AppController</name>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="925"/>
-        <location filename="../src/app/app_controller.cpp" line="1502"/>
+        <location filename="../src/app/app_controller.cpp" line="926"/>
+        <location filename="../src/app/app_controller.cpp" line="1503"/>
         <source>Secure storage unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="926"/>
+        <location filename="../src/app/app_controller.cpp" line="927"/>
         <source>TeleMatrix can&apos;t reach your system keyring, so it can&apos;t open your saved session. Your data is safe — make sure your keyring and D-Bus are running, then reopen TeleMatrix.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="929"/>
+        <location filename="../src/app/app_controller.cpp" line="930"/>
         <source>Quit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="986"/>
+        <location filename="../src/app/app_controller.cpp" line="987"/>
         <source>Can&apos;t read your saved sign-in</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="987"/>
+        <location filename="../src/app/app_controller.cpp" line="988"/>
         <source>TeleMatrix couldn&apos;t read your saved sign-in from the system keychain, so it can&apos;t open your session. Nothing has been deleted — your data is safe. Allow TeleMatrix to access the keychain, then try again.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/app/app_controller.cpp" line="991"/>
-        <location filename="../src/app/app_controller.cpp" line="1071"/>
-        <source>Try again</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/app/app_controller.cpp" line="1355"/>
-        <source>Couldn&apos;t open this account</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/app/app_controller.cpp" line="1356"/>
-        <source>Its saved sign-in can&apos;t be read right now. Nothing has been deleted — you can try again later, or sign this account out of this device.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/app/app_controller.cpp" line="1359"/>
-        <source>Sign out account</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/app/app_controller.cpp" line="1360"/>
-        <source>Not now</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/app/app_controller.cpp" line="2014"/>
-        <source>Are you sure you want to sign out?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/app/app_controller.cpp" line="992"/>
         <location filename="../src/app/app_controller.cpp" line="1072"/>
+        <source>Try again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/app/app_controller.cpp" line="1356"/>
+        <source>Couldn&apos;t open this account</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/app/app_controller.cpp" line="1357"/>
+        <source>Its saved sign-in can&apos;t be read right now. Nothing has been deleted — you can try again later, or sign this account out of this device.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/app/app_controller.cpp" line="1360"/>
+        <source>Sign out account</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/app/app_controller.cpp" line="1361"/>
+        <source>Not now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/app/app_controller.cpp" line="2015"/>
-        <location filename="../src/app/app_controller.cpp" line="2281"/>
+        <source>Are you sure you want to sign out?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/app/app_controller.cpp" line="993"/>
+        <location filename="../src/app/app_controller.cpp" line="1073"/>
+        <location filename="../src/app/app_controller.cpp" line="2016"/>
+        <location filename="../src/app/app_controller.cpp" line="2282"/>
         <source>Sign out</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1067"/>
+        <location filename="../src/app/app_controller.cpp" line="1068"/>
         <source>Couldn&apos;t open your session</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1068"/>
+        <location filename="../src/app/app_controller.cpp" line="1069"/>
         <source>TeleMatrix couldn&apos;t restore your session. The homeserver may be unreachable, or startup may have taken too long. Nothing has been deleted — your data is safe.
 
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1503"/>
+        <location filename="../src/app/app_controller.cpp" line="1504"/>
         <source>TeleMatrix can&apos;t reach secure storage, so it can&apos;t save a new account&apos;s sign-in. Unlock your keyring and try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1505"/>
+        <location filename="../src/app/app_controller.cpp" line="1506"/>
         <source>OK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2276"/>
+        <location filename="../src/app/app_controller.cpp" line="2277"/>
         <source>Data is corrupted. Forcing logout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2277"/>
+        <location filename="../src/app/app_controller.cpp" line="2278"/>
         <source>TeleMatrix&apos;s local data is corrupted and can&apos;t be repaired, so you will be signed out and the local data cleared.
 
 Make sure your recovery key is backed up — you&apos;ll need it to restore your encrypted message history after signing back in.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2340"/>
+        <location filename="../src/app/app_controller.cpp" line="2341"/>
         <source>Reset local data?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2341"/>
+        <location filename="../src/app/app_controller.cpp" line="2342"/>
         <source>Without your master password, TeleMatrix can&apos;t open your local data. Reset and sign in again? Your messages stay on the server and re-download after you sign in.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2344"/>
+        <location filename="../src/app/app_controller.cpp" line="2345"/>
         <source>Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2345"/>
+        <location filename="../src/app/app_controller.cpp" line="2346"/>
         <source>Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2394"/>
+        <location filename="../src/app/app_controller.cpp" line="2395"/>
         <source>Preparing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2395"/>
+        <location filename="../src/app/app_controller.cpp" line="2396"/>
         <source>Clearing leftover data…</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1831,133 +1831,133 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
 <context>
     <name>TeleMatrix::AppMainWindow</name>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="420"/>
+        <location filename="../src/app/app_main_window.cpp" line="422"/>
         <source>&amp;File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="423"/>
+        <location filename="../src/app/app_main_window.cpp" line="425"/>
         <source>About TeleMatrix</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="427"/>
+        <location filename="../src/app/app_main_window.cpp" line="429"/>
         <source>&amp;Quit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="434"/>
+        <location filename="../src/app/app_main_window.cpp" line="436"/>
         <source>&amp;Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="435"/>
+        <location filename="../src/app/app_main_window.cpp" line="437"/>
         <source>&amp;Undo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="436"/>
+        <location filename="../src/app/app_main_window.cpp" line="438"/>
         <source>&amp;Redo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="438"/>
+        <location filename="../src/app/app_main_window.cpp" line="440"/>
         <source>Cu&amp;t</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="439"/>
+        <location filename="../src/app/app_main_window.cpp" line="441"/>
         <source>&amp;Copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="440"/>
+        <location filename="../src/app/app_main_window.cpp" line="442"/>
         <source>&amp;Paste</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="441"/>
+        <location filename="../src/app/app_main_window.cpp" line="443"/>
         <source>Select &amp;All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="447"/>
+        <location filename="../src/app/app_main_window.cpp" line="449"/>
         <source>Formatting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="455"/>
+        <location filename="../src/app/app_main_window.cpp" line="457"/>
         <source>Bold</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="456"/>
+        <location filename="../src/app/app_main_window.cpp" line="458"/>
         <source>Italic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="457"/>
+        <location filename="../src/app/app_main_window.cpp" line="459"/>
         <source>Underline</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="458"/>
+        <location filename="../src/app/app_main_window.cpp" line="460"/>
         <source>Strikethrough</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="464"/>
-        <location filename="../src/app/app_main_window.cpp" line="467"/>
+        <location filename="../src/app/app_main_window.cpp" line="466"/>
+        <location filename="../src/app/app_main_window.cpp" line="469"/>
         <source>Quote</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="470"/>
+        <location filename="../src/app/app_main_window.cpp" line="472"/>
         <source>Monospace</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="473"/>
+        <location filename="../src/app/app_main_window.cpp" line="475"/>
         <source>Clear formatting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="477"/>
+        <location filename="../src/app/app_main_window.cpp" line="479"/>
         <source>&amp;Settings...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="493"/>
+        <location filename="../src/app/app_main_window.cpp" line="495"/>
         <source>&amp;View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="593"/>
+        <location filename="../src/app/app_main_window.cpp" line="595"/>
         <source>version %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="595"/>
+        <location filename="../src/app/app_main_window.cpp" line="597"/>
         <source>A desktop Matrix client with the look and feel of Telegram Desktop.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="597"/>
+        <location filename="../src/app/app_main_window.cpp" line="599"/>
         <source>This software is licensed under GNU GPL version 3. Source code is available on %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="606"/>
+        <location filename="../src/app/app_main_window.cpp" line="608"/>
         <source>TeleMatrix</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="608"/>
+        <location filename="../src/app/app_main_window.cpp" line="610"/>
         <source>Close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="766"/>
+        <location filename="../src/app/app_main_window.cpp" line="808"/>
         <source>Hold %1 to Quit</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2043,32 +2043,32 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
 <context>
     <name>TeleMatrix::Core::UpdateService</name>
     <message>
-        <location filename="../src/core/update_service.cpp" line="238"/>
+        <location filename="../src/core/update_service.cpp" line="248"/>
         <source>This installation has no automatic update packages.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="241"/>
+        <location filename="../src/core/update_service.cpp" line="251"/>
         <source>This build has no update signing key, so updates have to be installed manually.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="318"/>
+        <location filename="../src/core/update_service.cpp" line="330"/>
         <source>Could not check for updates.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="390"/>
+        <location filename="../src/core/update_service.cpp" line="402"/>
         <source>The update could not be downloaded.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="417"/>
+        <location filename="../src/core/update_service.cpp" line="429"/>
         <source>The downloaded update failed its final check.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="434"/>
+        <location filename="../src/core/update_service.cpp" line="446"/>
         <source>The update could not be installed.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2269,79 +2269,79 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
 <context>
     <name>TeleMatrix::DialogsWidget</name>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1582"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1584"/>
         <source>Search</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1927"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1930"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2015"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1929"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1932"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2017"/>
         <source>My Messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1942"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1944"/>
         <source>Search messages in</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1943"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1945"/>
         <source>Search messages in %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2162"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2164"/>
         <source>Couldn&apos;t update folder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2163"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2165"/>
         <source>The change was rejected by the server.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2164"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2166"/>
         <source>OK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2520"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2522"/>
         <source>Leave Room</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2521"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2523"/>
         <source>Are you sure you want to leave &quot;%1&quot;?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2523"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2525"/>
         <source>Leave</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2535"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2537"/>
         <source>Delete Saved Messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2536"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2538"/>
         <source>This permanently deletes Saved Messages and everything in it. This can&apos;t be undone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2538"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2540"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="3248"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="3250"/>
         <source>Couldn&apos;t save the new order.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="3370"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="3372"/>
         <source>Me</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2560,7 +2560,7 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
     </message>
     <message>
         <location filename="../src/settings/help/help_about_settings_page.cpp" line="124"/>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="263"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="275"/>
         <source>Check for updates</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2585,78 +2585,83 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="233"/>
-        <source>Checking for updates…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="239"/>
-        <source>Downloading… %1%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="240"/>
-        <source>Cancel</source>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="169"/>
+        <source>Install beta versions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/settings/help/help_about_settings_page.cpp" line="245"/>
-        <source>Version %1 is ready to install</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="246"/>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="296"/>
-        <source>Update &amp; Restart</source>
+        <source>Checking for updates…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/settings/help/help_about_settings_page.cpp" line="251"/>
-        <source>Try again</source>
+        <source>Downloading… %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="252"/>
+        <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/settings/help/help_about_settings_page.cpp" line="257"/>
+        <source>Version %1 is ready to install</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="258"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="327"/>
+        <source>Update &amp; Restart</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="263"/>
+        <source>Try again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="269"/>
         <source>Version %1 is available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="258"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="270"/>
         <source>Download</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="258"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="270"/>
         <source>Open release page</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="262"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="274"/>
         <source>TeleMatrix is up to date</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="264"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="276"/>
         <source>Check again</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="264"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="276"/>
         <source>Check</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="294"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="325"/>
         <source>Update TeleMatrix</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="295"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="326"/>
         <source>TeleMatrix will restart to finish updating.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="297"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="328"/>
         <source>Later</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2664,12 +2669,12 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
 <context>
     <name>TeleMatrix::HistoryAttachPopup</name>
     <message>
-        <location filename="../src/history/history_attach_popup.cpp" line="315"/>
+        <location filename="../src/history/history_attach_popup.cpp" line="319"/>
         <source>Photo or Video</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_attach_popup.cpp" line="316"/>
+        <location filename="../src/history/history_attach_popup.cpp" line="320"/>
         <source>Document</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4998,82 +5003,82 @@ Preview cache: %2</source>
 <context>
     <name>TeleMatrix::RoomSettingsWidget</name>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1490"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1500"/>
         <source>General</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1492"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1502"/>
         <source>Members</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1496"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1506"/>
         <source>Security</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1590"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="1731"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="1801"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="1810"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="1817"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1600"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1741"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1811"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1820"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1827"/>
         <source>Loading...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2322"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2323"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2324"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2325"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2332"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2333"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2334"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2335"/>
         <source>Unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="257"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2075"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2085"/>
         <source>Members only (since joining)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="259"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2068"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2078"/>
         <source>Members only (since invited)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="261"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2061"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2071"/>
         <source>Members only (full history)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="208"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2003"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2013"/>
         <source>Public</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="210"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2010"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2020"/>
         <source>Knock</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="212"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2018"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2028"/>
         <source>Restricted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="214"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2026"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2036"/>
         <source>Restricted, can knock</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="217"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="1996"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2006"/>
         <source>Private</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5085,304 +5090,304 @@ Preview cache: %2</source>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="263"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2082"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2092"/>
         <source>Anyone (world-readable)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/room_settings_widget.cpp" line="336"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="1967"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1977"/>
         <source>Copy to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1962"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1972"/>
         <source>Copied!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="728"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="738"/>
         <source>admin</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="724"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="734"/>
         <source>invited</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1216"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1226"/>
         <source>No members found</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2276"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2303"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2435"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2458"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2480"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2512"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2563"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2286"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2313"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2445"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2468"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2490"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2522"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2573"/>
         <source>Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1626"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1636"/>
         <source>Copy Room Link</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1635"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1645"/>
         <source>Room link copied to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1640"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1650"/>
         <source>Export History</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1648"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1658"/>
         <source>Leave Room</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1701"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1711"/>
         <source>Add member</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1681"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1691"/>
         <source>Search members</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1766"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1776"/>
         <source>Encryption</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1776"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1786"/>
         <source>Enable Encryption</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1777"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1787"/>
         <source>Once enabled, encryption cannot be disabled.
 
 Are you sure you want to enable encryption for this room?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1780"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1790"/>
         <source>Enable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1786"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2377"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1796"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2387"/>
         <source>Enabling...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1586"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="1797"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2033"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1596"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1807"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2043"/>
         <source>Access</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1507"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1517"/>
         <source>Mentions &amp; keywords</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1510"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1520"/>
         <source>Mute room</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1514"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1524"/>
         <source>All messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1566"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1576"/>
         <source>Description</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1566"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1576"/>
         <source>Topic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1597"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="1606"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1607"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1616"/>
         <source>Notifications</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1626"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1636"/>
         <source>Copy Space Link</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1634"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1644"/>
         <source>Space link copied to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1648"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1658"/>
         <source>Leave Space</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1806"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2090"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1816"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2100"/>
         <source>History visibility</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1815"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1825"/>
         <source>New members can see history</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1881"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1891"/>
         <source>Room Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1881"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1891"/>
         <source>Space Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="1960"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="1970"/>
         <source>Copied to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2128"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2140"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2138"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2150"/>
         <source>Updating...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2214"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2224"/>
         <source>Choose Avatar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2216"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2226"/>
         <source>Images (*.png *.jpg *.jpeg *.gif *.webp)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2246"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2256"/>
         <source>Delete Avatar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2247"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2257"/>
         <source>Remove this room&apos;s avatar?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2248"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2258"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2277"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2287"/>
         <source>Failed to upload room avatar. Please try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2304"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2314"/>
         <source>Failed to delete room avatar. Please try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2379"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2389"/>
         <source>Enabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2381"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2421"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2391"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2431"/>
         <source>Enabled (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2385"/>
-        <location filename="../src/history/room_settings_widget.cpp" line="2428"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2395"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2438"/>
         <source>Not encrypted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2406"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2416"/>
         <source>Yes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2407"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2417"/>
         <source>No</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2436"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2446"/>
         <source>Failed to enable encryption. Please try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2459"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2469"/>
         <source>Failed to update room access. Please try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2481"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2491"/>
         <source>Failed to update history visibility. Please try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2532"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2542"/>
         <source>Add a description</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2532"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2542"/>
         <source>Add a topic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2533"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2543"/>
         <source>No description</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2533"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2543"/>
         <source>No topic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2559"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2569"/>
         <source>Topic updated</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2564"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2574"/>
         <source>Failed to update the topic. Please try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2508"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2518"/>
         <source>Room name updated</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/room_settings_widget.cpp" line="2513"/>
+        <location filename="../src/history/room_settings_widget.cpp" line="2523"/>
         <source>Failed to update room name. Please try again.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5955,7 +5960,7 @@ Are you sure you want to enable encryption for this room?</source>
     <name>TeleMatrix::VerifySessionDialog</name>
     <message>
         <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="322"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1051"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1052"/>
         <source>Verify this session</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5965,149 +5970,149 @@ Are you sure you want to enable encryption for this room?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="419"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="420"/>
         <source>Verify with emoji</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="433"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="434"/>
         <source>Verify with QR code</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="446"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1059"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="447"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1060"/>
         <source>Enter recovery key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="469"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="735"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="470"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="736"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="492"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="493"/>
         <source>Waiting for the other device...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="532"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="533"/>
         <source>They Don’t Match</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="543"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="544"/>
         <source>They Match</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="547"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="750"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="548"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="751"/>
         <source>Confirming...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="570"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="765"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="571"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="766"/>
         <source>The request was denied or timed out, or there was a verification mismatch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="581"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="764"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="582"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="765"/>
         <source>Verification failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="584"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="769"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="585"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="770"/>
         <source>Close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="703"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="704"/>
         <source>Waiting for your other session...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="746"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="747"/>
         <source>Continue</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="817"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="818"/>
         <source>Confirm on your other session</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="845"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="846"/>
         <source>Enter your recovery key to verify this session and restore access to encrypted messages.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="854"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="855"/>
         <source>Recovery key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="893"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="894"/>
         <source>Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="902"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="944"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="903"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="945"/>
         <source>Verify</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="909"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="910"/>
         <source>Verifying...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="947"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="948"/>
         <source>Invalid recovery key. Please check and try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1006"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1007"/>
         <source>Session Verified</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1013"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1014"/>
         <source>This session is now verified. Your encrypted messages are secure.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1037"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1038"/>
         <source>Done</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1055"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1056"/>
         <source>Compare emojis</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1056"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1057"/>
         <source>Verify %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1066"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1067"/>
         <source>Session verified</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1067"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1068"/>
         <source>%1 verified</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1070"/>
+        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1071"/>
         <source>Scan QR code</source>
         <translation type="unfinished"></translation>
     </message>
