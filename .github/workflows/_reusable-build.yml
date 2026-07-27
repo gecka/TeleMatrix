@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive   # 8 desktop-app/GSL/expected submodules under lib/
 
@@ -136,7 +136,7 @@ jobs:
           ls -l dist
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: telematrix-linux-packages
           path: dist/*
@@ -149,7 +149,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive   # desktop-app/GSL/expected submodules under lib/
 
@@ -197,7 +197,7 @@ jobs:
       # --- Signing prep: publish builds only (secrets are unavailable to fork PRs) ---
       - name: Import Developer ID certificate
         if: inputs.publish
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
           p12-password: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -311,7 +311,7 @@ jobs:
           ls -l "$out"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: telematrix-macos-dmg
           path: dist/*
@@ -328,7 +328,7 @@ jobs:
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
     steps:
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive   # desktop-app/GSL/expected submodules under lib/
 
@@ -354,7 +354,7 @@ jobs:
         run: New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
 
       - name: Cache vcpkg binary packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}\vcpkg-cache
           # Bump the -vN suffix to force a rebuild of the cached FFmpeg packages.
@@ -497,7 +497,7 @@ jobs:
       - name: Upload unsigned installer for signing
         if: inputs.publish && steps.signpath.outputs.enabled == 'true'
         id: unsigned
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           # Deliberately OUTSIDE the `telematrix-*` glob the publish job
           # downloads with merge-multiple. This artifact holds the same exe
@@ -511,7 +511,7 @@ jobs:
 
       - name: Sign with SignPath
         if: inputs.publish && steps.signpath.outputs.enabled == 'true'
-        uses: signpath/github-action-submit-signing-request@v1
+        uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -524,7 +524,7 @@ jobs:
           output-artifact-directory: dist
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: telematrix-windows-installer
           path: dist/*
