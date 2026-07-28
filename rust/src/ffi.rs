@@ -8483,6 +8483,10 @@ pub unsafe extern "C" fn tm_keychain_clear_all() -> bool {
 /// `data_dir` must be a valid C string.
 #[no_mangle]
 pub unsafe extern "C" fn tm_secret_store_init(data_dir: *const c_char, backend: c_int) {
+    // The whole secret-store gate runs before the first ProtocolBridge is built, so
+    // tm_create has not installed the subscriber yet and every keychain warning
+    // would be dropped — exactly the diagnostics needed when a backend probe fails.
+    init_tracing();
     let data_dir = c_to_string(data_dir);
     crate::keychain::init(
         std::path::PathBuf::from(data_dir),
@@ -8496,6 +8500,7 @@ pub unsafe extern "C" fn tm_secret_store_init(data_dir: *const c_char, backend: 
 /// when the backend is merely unreachable.
 #[no_mangle]
 pub extern "C" fn tm_secret_store_state() -> c_int {
+    init_tracing();
     crate::keychain::state().as_i32() as c_int
 }
 
@@ -8503,6 +8508,7 @@ pub extern "C" fn tm_secret_store_state() -> c_int {
 /// Used to choose keychain-vs-vault at fresh login.
 #[no_mangle]
 pub extern "C" fn tm_secret_service_available() -> bool {
+    init_tracing();
     crate::keychain::service_available()
 }
 
@@ -8510,6 +8516,7 @@ pub extern "C" fn tm_secret_service_available() -> bool {
 /// 1 = no D-Bus session bus, 2 = D-Bus up but no provider. Always 0 off Linux.
 #[no_mangle]
 pub extern "C" fn tm_secret_service_status() -> c_int {
+    init_tracing();
     crate::keychain::service_status() as c_int
 }
 

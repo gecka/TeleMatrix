@@ -230,7 +230,112 @@ fn save_bundle_to_store(bundle: &SecretBundle) -> Result<()> {
     }
 }
 
+// ----- Linux: which Secret Service collection keyring should use -----
+//
+// KWallet serves no `default` collection alias: ReadAlias("default") answers "/"
+// even with a wallet present. That breaks keyring specifically for the *default*
+// target. Its read path (map_matching_items) starts with a service-wide
+// search_items, which is fine — but when that finds nothing AND the target is
+// "default", it falls back to map_matching_legacy_items, which resolves
+// get_default_collection(). On KWallet that alias lookup fails, the
+// secret-service crate reports NoResult and keyring maps it to NoStorageAccess.
+// So a first read on KDE — the empty-keychain case every fresh install hits —
+// raises a hard error instead of NoEntry, and `keychain_reachable` reads that as
+// "this device has no keychain" and offers the master-password vault.
+//
+// Naming a non-"default" target skips that legacy fallback entirely: an empty
+// search then returns NoEntry (reachable-but-empty, which is the truth), and
+// writes go through get_collection/create_collection, which match by label via
+// get_all_collections() — something KWallet does implement. The label is fixed
+// rather than "whichever collection came back first" so the target can never
+// shift between runs as other wallets appear; writing to one wallet and reading
+// from another would look exactly like a lost session.
+#[cfg(target_os = "linux")]
+const COLLECTION_LABEL: &str = "TeleMatrix";
+
+#[cfg(target_os = "linux")]
+enum Routing {
+    /// The `default` alias resolves (GNOME Keyring): keep keyring's own path so
+    /// secrets already stored there stay reachable.
+    DefaultAlias,
+    /// No `default` alias (KWallet): address a collection by this label.
+    Label(&'static str),
+}
+
+/// Cached routing. `None` = not probed yet; a failed probe is deliberately NOT
+/// cached, so a provider that starts after us is still picked up later.
+#[cfg(target_os = "linux")]
+static COLLECTION_ROUTING: Mutex<Option<Option<&'static str>>> = Mutex::new(None);
+
+#[cfg(target_os = "linux")]
+fn probe_routing() -> Option<Routing> {
+    use zbus::blocking::{Connection, Proxy};
+    let conn = Connection::session()
+        .inspect_err(|e| warn!("[SECRET_STORE] collection probe: no session bus: {e}"))
+        .ok()?;
+    let service = Proxy::new(
+        &conn,
+        "org.freedesktop.secrets",
+        "/org/freedesktop/secrets",
+        "org.freedesktop.Secret.Service",
+    )
+    .inspect_err(|e| warn!("[SECRET_STORE] collection probe: no Secret Service proxy: {e}"))
+    .ok()?;
+    let alias: zbus::zvariant::OwnedObjectPath = service
+        .call("ReadAlias", &"default")
+        .inspect_err(|e| warn!("[SECRET_STORE] collection probe: ReadAlias failed: {e}"))
+        .ok()?;
+    if alias.as_str() == "/" {
+        tracing::info!(
+            "[SECRET_STORE] no `default` collection alias (KWallet); \
+             targeting the {COLLECTION_LABEL} collection by label"
+        );
+        Some(Routing::Label(COLLECTION_LABEL))
+    } else {
+        tracing::info!("[SECRET_STORE] `default` collection alias resolves to {alias}");
+        Some(Routing::DefaultAlias)
+    }
+}
+
+/// Resolved routing: `Some(Some(label))` = address that collection by label,
+/// `Some(None)` = use keyring's default path, `None` = the service did not answer.
+#[cfg(target_os = "linux")]
+fn routing() -> Option<Option<&'static str>> {
+    let mut guard = COLLECTION_ROUTING
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(cached) = *guard {
+        return Some(cached);
+    }
+    // A failed probe stays uncached, so a provider that starts after us is still
+    // picked up; only a definite answer is remembered.
+    let resolved = match probe_routing()? {
+        Routing::Label(label) => Some(label),
+        Routing::DefaultAlias => None,
+    };
+    *guard = Some(resolved);
+    Some(resolved)
+}
+
+/// The collection label to address, or `None` to use keyring's default path.
+#[cfg(target_os = "linux")]
+fn collection_target() -> Option<&'static str> {
+    routing().flatten()
+}
+
+/// Whether a collection can actually be addressed — the question the bus-name
+/// probe cannot answer on its own.
+#[cfg(target_os = "linux")]
+fn collection_usable() -> bool {
+    routing().is_some()
+}
+
 fn entry(key: &str) -> Result<keyring::Entry> {
+    #[cfg(target_os = "linux")]
+    if let Some(target) = collection_target() {
+        return keyring::Entry::new_with_target(target, SERVICE_NAME, key)
+            .map_err(|e| anyhow!("Keychain entry error: {e}"));
+    }
     keyring::Entry::new(SERVICE_NAME, key).map_err(|e| anyhow!("Keychain entry error: {e}"))
 }
 
@@ -509,28 +614,63 @@ pub fn service_status() -> i32 {
 fn secret_service_status() -> i32 {
     use zbus::blocking::{fdo::DBusProxy, Connection};
     const NAME: &str = "org.freedesktop.secrets";
-    let Ok(conn) = Connection::session() else {
-        return SECRET_SERVICE_NO_DBUS;
+    // Every branch logs: this verdict disables the keychain in the UI, and without
+    // a trace there is no way to tell a genuinely providerless desktop from a
+    // probe that failed for its own reasons.
+    let conn = match Connection::session() {
+        Ok(conn) => conn,
+        Err(e) => {
+            warn!("[SECRET_STORE] no D-Bus session bus: {e}");
+            return SECRET_SERVICE_NO_DBUS;
+        }
     };
-    let Ok(proxy) = DBusProxy::new(&conn) else {
-        return SECRET_SERVICE_NO_DBUS;
+    let proxy = match DBusProxy::new(&conn) {
+        Ok(proxy) => proxy,
+        Err(e) => {
+            warn!("[SECRET_STORE] D-Bus proxy unavailable: {e}");
+            return SECRET_SERVICE_NO_DBUS;
+        }
     };
-    let Ok(bus_name) = zbus::names::BusName::try_from(NAME) else {
-        return SECRET_SERVICE_NO_PROVIDER;
+    let bus_name = match zbus::names::BusName::try_from(NAME) {
+        Ok(name) => name,
+        Err(e) => {
+            warn!("[SECRET_STORE] invalid bus name {NAME}: {e}");
+            return SECRET_SERVICE_NO_PROVIDER;
+        }
     };
-    if proxy.name_has_owner(bus_name).unwrap_or(false) {
-        return SECRET_SERVICE_OK;
+    match proxy.name_has_owner(bus_name) {
+        Ok(true) => {
+            // Owning the bus name is not the same as being usable: KWallet owns it
+            // yet serves no `default` alias, which used to leave this probe saying
+            // "keychain available" while every actual read failed at the startup
+            // gate. Confirm a collection can be addressed before promising one.
+            return if collection_usable() {
+                tracing::info!("[SECRET_STORE] {NAME} is owned and usable");
+                SECRET_SERVICE_OK
+            } else {
+                warn!("[SECRET_STORE] {NAME} is owned but no collection is addressable");
+                SECRET_SERVICE_NO_PROVIDER
+            };
+        }
+        Ok(false) => {}
+        Err(e) => warn!("[SECRET_STORE] NameHasOwner({NAME}) failed: {e}"),
     }
     // Not currently running but D-Bus-activatable still counts as available.
-    let activatable = proxy
-        .list_activatable_names()
-        .map(|names| names.iter().any(|n| n.as_str() == NAME))
-        .unwrap_or(false);
-    if activatable {
-        SECRET_SERVICE_OK
-    } else {
-        SECRET_SERVICE_NO_PROVIDER
+    match proxy.list_activatable_names() {
+        Ok(names) => {
+            if names.iter().any(|n| n.as_str() == NAME) {
+                tracing::info!("[SECRET_STORE] {NAME} is D-Bus-activatable; keychain available");
+                return SECRET_SERVICE_OK;
+            }
+            warn!(
+                "[SECRET_STORE] {NAME} is neither owned nor activatable among {} names \
+                 (no GNOME Keyring / KWallet Secret Service provider on this session)",
+                names.len()
+            );
+        }
+        Err(e) => warn!("[SECRET_STORE] ListActivatableNames failed: {e}"),
     }
+    SECRET_SERVICE_NO_PROVIDER
 }
 
 #[cfg(not(target_os = "linux"))]
