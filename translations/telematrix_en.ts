@@ -1835,7 +1835,7 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
 <context>
     <name>TeleMatrix::AppMainWidget</name>
     <message>
-        <location filename="../src/app/app_main_widget.cpp" line="719"/>
+        <location filename="../src/app/app_main_widget.cpp" line="720"/>
         <source>Failed to create room. Check the room settings and try again.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1969,7 +1969,7 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/app/app_main_window.cpp" line="808"/>
+        <location filename="../src/app/app_main_window.cpp" line="849"/>
         <source>Hold %1 to Quit</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2361,184 +2361,183 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
 <context>
     <name>TeleMatrix::EncryptionSettingsPage</name>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="301"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="260"/>
         <source>Recovery Key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="302"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="261"/>
         <source>The recovery key was not accepted. Please check and try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="314"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="273"/>
         <source>Updating recovery key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="315"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="274"/>
         <source>Please wait while your new recovery key is saved.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="341"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="300"/>
         <source>Export Keys</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="343"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="302"/>
         <source>E2E room keys exported successfully.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="344"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="303"/>
         <source>Failed to export E2E room keys.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="349"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="353"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="308"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="312"/>
         <source>Import Keys</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="350"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="309"/>
         <source>Imported %1 of %2 keys.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="354"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="313"/>
         <source>Failed to import E2E room keys.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="360"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="375"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="319"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="334"/>
         <source>Identity Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="361"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="320"/>
         <source>Cryptographic identity has been reset.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="376"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="335"/>
         <source>Failed to reset cryptographic identity.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="508"/>
-        <source>Verify this session to access your encrypted messages and prove your identity to others.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="525"/>
-        <source>Verify with another device</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="530"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="552"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="487"/>
         <source>Enter recovery key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="535"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="470"/>
         <source>Enter your recovery key to sync encryption keys across your devices.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="572"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="447"/>
+        <source>Verify this session</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="453"/>
+        <source>To access your encrypted messages and prove your identity to others.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="507"/>
         <source>Forgot recovery key?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="582"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="517"/>
         <source>Your encryption keys are no longer available. Reset to create new ones. You will lose access to previously encrypted messages.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="600"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="535"/>
         <source>Reset identity</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="607"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="542"/>
         <source>Device ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="609"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="544"/>
         <source>Session Key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="614"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="549"/>
         <source>Allow key storage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="619"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="554"/>
         <source>Disable Key Storage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="620"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="555"/>
         <source>Disabling key storage means new devices won&apos;t be able to access your message history. Continue?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="622"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="557"/>
         <source>Disable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="623"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="558"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="651"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="586"/>
         <source>Change recovery key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="661"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="664"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="596"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="599"/>
         <source>Import E2EE room keys</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="666"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="690"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="601"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="625"/>
         <source>Key files (*.txt *.bin);;All files (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="671"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="695"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="606"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="630"/>
         <source>Passphrase</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="672"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="607"/>
         <source>Enter the passphrase for the key file:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="685"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="688"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="620"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="623"/>
         <source>Export E2EE room keys</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="696"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="631"/>
         <source>Enter a passphrase to protect the exported keys:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="709"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="644"/>
         <source>Reset cryptographic identity</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2728,102 +2727,102 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
 <context>
     <name>TeleMatrix::HistoryInput</name>
     <message>
-        <location filename="../src/history/history_input.cpp" line="389"/>
+        <location filename="../src/history/history_input.cpp" line="390"/>
         <source>Message...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="1175"/>
+        <location filename="../src/history/history_input.cpp" line="1177"/>
         <source>Release outside this field to cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="1262"/>
+        <location filename="../src/history/history_input.cpp" line="1264"/>
         <source>Edit Message</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="1263"/>
+        <location filename="../src/history/history_input.cpp" line="1265"/>
         <source>Reply</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="1445"/>
+        <location filename="../src/history/history_input.cpp" line="1447"/>
         <source>Write a message...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2122"/>
+        <location filename="../src/history/history_input.cpp" line="2124"/>
         <source>Formatting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2128"/>
+        <location filename="../src/history/history_input.cpp" line="2130"/>
         <source>Bold</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2134"/>
+        <location filename="../src/history/history_input.cpp" line="2136"/>
         <source>Italic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2140"/>
+        <location filename="../src/history/history_input.cpp" line="2142"/>
         <source>Underline</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2146"/>
+        <location filename="../src/history/history_input.cpp" line="2148"/>
         <source>Strikethrough</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2152"/>
+        <location filename="../src/history/history_input.cpp" line="2154"/>
         <source>Quote</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2159"/>
+        <location filename="../src/history/history_input.cpp" line="2161"/>
         <source>Monospace</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2167"/>
+        <location filename="../src/history/history_input.cpp" line="2169"/>
         <source>Clear formatting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2183"/>
+        <location filename="../src/history/history_input.cpp" line="2185"/>
         <source>Undo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2187"/>
+        <location filename="../src/history/history_input.cpp" line="2189"/>
         <source>Redo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2194"/>
+        <location filename="../src/history/history_input.cpp" line="2196"/>
         <source>Cut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2198"/>
+        <location filename="../src/history/history_input.cpp" line="2200"/>
         <source>Copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2202"/>
+        <location filename="../src/history/history_input.cpp" line="2204"/>
         <source>Paste</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2206"/>
+        <location filename="../src/history/history_input.cpp" line="2208"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_input.cpp" line="2220"/>
+        <location filename="../src/history/history_input.cpp" line="2222"/>
         <source>Select All</source>
         <translation type="unfinished"></translation>
     </message>

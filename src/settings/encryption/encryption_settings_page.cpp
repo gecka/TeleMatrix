@@ -98,47 +98,6 @@ protected:
     }
 };
 
-// Outline (bordered, transparent-fill) text button painted with live st::
-// colors. ::Ui::TextButton has no border support, so this small subclass keeps
-// the 1px outline the original stylesheet drew.
-class OutlineButton final : public QAbstractButton {
-public:
-    OutlineButton(const QString &text, QWidget *parent)
-        : QAbstractButton(parent) {
-        setText(text);
-        setCursor(Qt::PointingHandCursor);
-        setMouseTracking(true);
-        setFixedHeight(36);
-    }
-
-protected:
-    void paintEvent(QPaintEvent *) override {
-        QPainter p(this);
-        PainterHighQualityEnabler hq(p);
-        if (_hovered) {
-            p.setPen(Qt::NoPen);
-            p.setBrush(st::settingsButtonBgOver);
-            p.drawRoundedRect(rect(), 4, 4);
-        }
-        const auto inset = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-        p.setPen(QPen(st::windowActiveTextFg, 1));
-        p.setBrush(Qt::NoBrush);
-        p.drawRoundedRect(inset, 4, 4);
-        p.setPen(st::windowActiveTextFg);
-        p.drawText(rect(), Qt::AlignCenter, text());
-    }
-    void enterEvent(QEnterEvent *) override { _hovered = true; update(); }
-    void leaveEvent(QEvent *) override { _hovered = false; update(); }
-
-    QSize sizeHint() const override {
-        const QFontMetrics fm(font());
-        return QSize(fm.horizontalAdvance(text()) + 48, 36);
-    }
-
-private:
-    bool _hovered = false;
-};
-
 class ActionSpinner final : public QWidget {
 public:
     explicit ActionSpinner(QWidget *parent = nullptr)
@@ -481,31 +440,17 @@ void EncryptionSettingsPage::rebuildUi(const EncryptionOverview &overview) {
         layout->addWidget(container);
     };
 
-    // Outline (bordered, transparent) primary button.
-    auto addOutlineButton = [this, layout, content](
-            const QString &text,
-            std::function<void()> action,
-            int top = 4) {
-        auto *container = new QWidget(content);
-        auto *buttonLayout = new QHBoxLayout(container);
-        buttonLayout->setContentsMargins(
-            st::settingsButtonPaddingLeft,
-            top,
-            st::settingsButtonPaddingRight,
-            4);
-        auto *button = new OutlineButton(text, container);
-        button->setFont(st::baseFont(14));
-        connect(button, &QAbstractButton::clicked, this, [action] {
-            action();
-        });
-        buttonLayout->addWidget(button);
-        buttonLayout->addStretch(1);
-        layout->addWidget(container);
-    };
-
     if (state == EncryptionHealthState::VerifyThisSession) {
+        // The popup's own first screen offers every method (QR, emoji, recovery
+        // key), so a single entry point is all this page needs.
+        addFilledButton(
+            tr("Verify this session"),
+            &st::windowActiveTextFg,
+            &st::windowActiveTextFg,
+            [this] { openVerifySessionDialog(); });
+
         auto *descLabel = new QLabel(
-            tr("Verify this session to access your encrypted messages and prove your identity to others."),
+            tr("To access your encrypted messages and prove your identity to others."),
             content);
         descLabel->setFont(st::baseFont(13));
         descLabel->setWordWrap(true);
@@ -516,20 +461,10 @@ void EncryptionSettingsPage::rebuildUi(const EncryptionOverview &overview) {
         }
         descLabel->setContentsMargins(
             st::settingsButtonPaddingLeft,
-            0,
+            4,
             st::settingsButtonPaddingRight,
             12);
         layout->addWidget(descLabel);
-
-        addFilledButton(
-            tr("Verify with another device"),
-            &st::windowActiveTextFg,
-            &st::windowActiveTextFg,
-            [this] { openVerifySessionDialog(); });
-        addOutlineButton(
-            tr("Enter recovery key"),
-            [this] { enterRecoveryKey(); },
-            8);
     } else if (state == EncryptionHealthState::KeyStorageOutOfSync) {
         auto *descLabel = new QLabel(
             tr("Enter your recovery key to sync encryption keys across your devices."),
