@@ -470,6 +470,7 @@ AppController::AppController(QObject *parent)
     // Auto-updater. Created before any window and independent of accounts — it
     // has to work while the user is still sitting on the login screen.
     _updateService = std::make_unique<Core::UpdateService>(this);
+    _updateService->setBetaChannel(_settings.installBetaVersions());
     connect(_updateService.get(), &Core::UpdateService::updateAvailable,
             this, [this](const QString &) {
         // Auto-download only in that policy; the apply step stays user-initiated

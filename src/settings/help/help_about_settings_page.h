@@ -17,6 +17,7 @@ namespace TeleMatrix {
 class AppController;
 class SettingsValueButton;
 class SettingsChoiceRow;
+class SettingsToggleButton;
 
 namespace Core {
 class Settings;
@@ -36,6 +37,7 @@ private:
     /// Re-render the status row from the update service's current state.
     void refreshUpdateRow();
     void setPolicy(int policy);
+    void setInstallBetaVersions(bool beta);
     /// Click handler for the status row — what it does depends on that state.
     void onUpdateRowClicked();
 
@@ -44,6 +46,7 @@ private:
 
     SettingsValueButton *_updateRow = nullptr;
     QVector<SettingsChoiceRow *> _policyRows;
+    SettingsToggleButton *_betaToggle = nullptr;
 
     // Transient state the service doesn't keep: the last error, and whether the
     // last check came back clean (so "Up to date" can be shown once).

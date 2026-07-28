@@ -134,6 +134,32 @@ private slots:
         QCOMPARE(s2.themeMode(), s1.themeMode());
         QCOMPARE(s2.themeId(), s1.themeId());
         QCOMPARE(s2.dialogsWidthRatio(), s1.dialogsWidthRatio());
+        QCOMPARE(s2.updatePolicy(), s1.updatePolicy());
+        QCOMPARE(s2.installBetaVersions(), s1.installBetaVersions());
+    }
+
+    // The beta channel is opt-in, and an upgrade must not move anyone onto it:
+    // a settings file written before the setting existed has no "beta" key, and
+    // has to load as false rather than inheriting whatever was in memory.
+    void installBetaVersionsRoundTripsAndDefaultsOff() {
+        Settings fresh;
+        QCOMPARE(fresh.installBetaVersions(), false);
+
+        Settings s1;
+        s1.setInstallBetaVersions(true);
+        Settings s2;
+        QVERIFY(s2.addFromJson(s1.toJson()));
+        QCOMPARE(s2.installBetaVersions(), true);
+
+        // An "updates" object from before this setting existed.
+        Settings old;
+        QJsonObject json;
+        json[QStringLiteral("updates")] = QJsonObject{
+            { QStringLiteral("policy"), 2 },
+        };
+        QVERIFY(old.addFromJson(json));
+        QCOMPARE(old.updatePolicy(), 2);
+        QCOMPARE(old.installBetaVersions(), false);
     }
 
     // The device-level backend preference must round-trip and, crucially, survive

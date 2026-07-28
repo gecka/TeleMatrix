@@ -160,6 +160,18 @@ void HelpAboutSettingsPage::setupUpdateSection(QWidget *content, QVBoxLayout *la
         _policyRows.push_back(row);
     }
 
+    // Orthogonal to the policy above: that picks *whether* we check, this picks
+    // *which channel*. Pointless with checking off, so it follows the same
+    // greying-out convention the disabled auto-download row uses.
+    _betaToggle = addSettingsToggle(
+        content,
+        layout,
+        tr("Install beta versions"),
+        _settings && _settings->installBetaVersions());
+    _betaToggle->setEnabled(current != static_cast<int>(Policy::Off));
+    connect(_betaToggle, &SettingsToggleButton::toggled, this,
+            [this](bool checked) { setInstallBetaVersions(checked); });
+
     if (notifyOnly) {
         const auto reason = service->notifyOnlyReason();
         if (!reason.isEmpty()) {
@@ -277,6 +289,25 @@ void HelpAboutSettingsPage::setPolicy(int policy) {
     _settings->setUpdatePolicy(policy);
     _controller->saveSettingsDelayed();
     _controller->notifyUpdatePolicyChanged();
+    if (_betaToggle) {
+        _betaToggle->setEnabled(policy != static_cast<int>(Policy::Off));
+    }
+}
+
+void HelpAboutSettingsPage::setInstallBetaVersions(bool beta) {
+    if (!_settings || !_controller) {
+        return;
+    }
+    if (_settings->installBetaVersions() == beta) {
+        return;
+    }
+    _settings->setInstallBetaVersions(beta);
+    _controller->saveSettingsDelayed();
+    // The service reads the channel at the start of each check, so this only
+    // needs to reach it before the next one — no re-check is forced here.
+    if (auto *service = _controller->updateService()) {
+        service->setBetaChannel(beta);
+    }
 }
 
 void HelpAboutSettingsPage::onUpdateRowClicked() {

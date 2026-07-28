@@ -63,7 +63,7 @@ use tracing::{info, warn};
 /// to download anything ([`signing_configured`] is false, and C++ degrades to
 /// notify-only). That is deliberate: an unconfigured build can never install an
 /// unverified payload, it can only fail loudly.
-const UPDATE_PUBLIC_KEY: &str = "";
+const UPDATE_PUBLIC_KEY: &str = "RWQXEqqTaJClGM4bvnBrfhOWdRTe3uCKmLmhXaIpSbbTdI8YA5WNreOu";
 
 /// Hosts the updater may talk to, checked on the initial URL *and* on every
 /// redirect hop. Everything else is refused, which stops a swapped manifest from

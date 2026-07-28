@@ -63,6 +63,12 @@ public:
     /// Verified local file, set on updateReady. Empty until then.
     [[nodiscard]] QString readyPath() const { return _readyPath; }
 
+    /// Follow the beta channel (pre-releases included) instead of stable. Read
+    /// at the start of each check, so toggling it takes effect on the next one
+    /// rather than disturbing a check already in flight.
+    [[nodiscard]] bool betaChannel() const { return _betaChannel; }
+    void setBetaChannel(bool beta) { _betaChannel = beta; }
+
     /// Start a manifest check. Silent (log-only) failures when `userInitiated` is
     /// false, so the 4-hourly poll never interrupts anyone.
     void check(bool userInitiated);
@@ -122,6 +128,7 @@ private:
     bool _checking = false;
     bool _downloading = false;
     bool _userInitiatedCheck = false;
+    bool _betaChannel = false;
     // Set by cancelDownload() so the terminal failure that follows is reported
     // as a cancellation rather than an error.
     bool _cancelRequested = false;

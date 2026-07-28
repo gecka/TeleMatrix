@@ -50,6 +50,16 @@ namespace {
     "https://github.com/gecka/telematrix/releases/latest/download/latest.json"
 #endif
 
+/// The beta channel's manifest. A separate URL is not a nicety: GitHub's
+/// `/releases/latest/` excludes pre-releases by definition, so a beta's own
+/// `latest.json` is unreachable through the stable URL no matter what the client
+/// does. `channel-beta` is a rolling release CI re-points at the newest build of
+/// *any* kind, so opting in also keeps delivering stable finals.
+#ifndef TELEMATRIX_UPDATE_BETA_MANIFEST_URL
+#define TELEMATRIX_UPDATE_BETA_MANIFEST_URL \
+    "https://github.com/gecka/telematrix/releases/download/channel-beta/latest.json"
+#endif
+
 #ifndef TELEMATRIX_VERSION_STR
 #define TELEMATRIX_VERSION_STR "0.0.0"
 #endif
@@ -253,7 +263,9 @@ void UpdateService::check(bool userInitiated) {
     Q_EMIT checkStarted();
 
     const auto current = QStringLiteral(TELEMATRIX_VERSION_STR).toUtf8();
-    const auto url = QStringLiteral(TELEMATRIX_UPDATE_MANIFEST_URL).toUtf8();
+    const auto url = (_betaChannel
+        ? QStringLiteral(TELEMATRIX_UPDATE_BETA_MANIFEST_URL)
+        : QStringLiteral(TELEMATRIX_UPDATE_MANIFEST_URL)).toUtf8();
     // An unsupported platform still checks — it just reports notify-only. Send a
     // key that cannot match so no asset is ever resolved for it.
     const auto key = platformKey().toUtf8();

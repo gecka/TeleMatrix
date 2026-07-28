@@ -216,6 +216,12 @@ public:
     [[nodiscard]] int updatePolicy() const { return _updatePolicy; }
     void setUpdatePolicy(int policy) { _updatePolicy = policy; }
 
+    // Opt in to pre-release builds. Off follows the stable channel only; on also
+    // offers betas. Turning it back off never downgrades — a beta simply stops
+    // being superseded until the matching final ships.
+    [[nodiscard]] bool installBetaVersions() const { return _installBetaVersions; }
+    void setInstallBetaVersions(bool v) { _installBetaVersions = v; }
+
     // Whether to follow OS dark mode when themeMode == System.
     [[nodiscard]] bool systemDarkModeEnabled() const { return _systemDarkModeEnabled; }
     void setSystemDarkModeEnabled(bool v) { _systemDarkModeEnabled = v; }
@@ -296,6 +302,7 @@ private:
     int _themeMode = 0;               // 0=Day, 1=Night, 2=System
     bool _systemDarkModeEnabled = true;
     int _updatePolicy = 1;            // 0=Off, 1=Check & notify, 2=Auto-download
+    bool _installBetaVersions = false; // opt-in: also offer pre-release builds
     int _configScale = 0;              // 0=auto, else percent (50-300)
     QString _customFontFamily;         // empty=default, "system"=system font
     bool _backgroundDoodles = true;
