@@ -47,7 +47,7 @@ rand = "0.10"
 # don't linger in freed heap for the rest of the process lifetime.
 zeroize = "1"
 sha2 = "0.10"
-hkdf = "0.12"
+hkdf = "0.13"
 chacha20poly1305 = "0.11"
 # Password-based KDF for the Linux master-password secret vault (fallback when
 # no Secret Service / D-Bus is available). Memory-hard; params live in the vault
