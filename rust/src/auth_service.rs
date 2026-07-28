@@ -195,7 +195,7 @@ impl AuthService {
         client
             .matrix_auth()
             .login_username(user, pass)
-            .initial_device_display_name("TeleMatrix")
+            .initial_device_display_name(&device_display_name())
             .await
             .map_err(|e| anyhow!("Login failed: {e}"))?;
 
@@ -239,7 +239,7 @@ impl AuthService {
         let mut reg_request = register::v3::Request::new();
         reg_request.username = Some(request.username.clone());
         reg_request.password = Some(request.password.clone());
-        reg_request.initial_device_display_name = Some("TeleMatrix".to_string());
+        reg_request.initial_device_display_name = Some(device_display_name());
         reg_request.inhibit_login = false;
 
         if let (Some(session), Some(auth_json)) = (&request.session, &request.auth_json) {
@@ -787,9 +787,27 @@ impl AuthService {
     }
 }
 
+/// Session name other clients show in their device list, e.g.
+/// "TeleMatrix Desktop: macOS". Deliberately untranslated: the homeserver
+/// stores it verbatim and renders it to *other* users, in their locale.
+fn device_display_name() -> String {
+    format!("TeleMatrix Desktop: {}", os_label(std::env::consts::OS))
+}
+
+/// Split from `device_display_name` so every platform's label is testable from
+/// any host — `#[cfg(target_os)]` constants would ship untested on CI.
+fn os_label(os: &str) -> &str {
+    match os {
+        "macos" => "macOS",
+        "windows" => "Windows",
+        "linux" => "Linux",
+        other => other,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::AuthService;
+    use super::{device_display_name, os_label, AuthService};
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -1071,5 +1089,27 @@ mod tests {
             AuthService::probe_email_threepid_support(&server.uri()).await,
             None
         );
+    }
+
+    #[test]
+    fn os_label_capitalizes_the_desktop_platforms() {
+        assert_eq!(os_label("macos"), "macOS");
+        assert_eq!(os_label("windows"), "Windows");
+        assert_eq!(os_label("linux"), "Linux");
+    }
+
+    #[test]
+    fn os_label_passes_through_unknown_platforms() {
+        assert_eq!(os_label("freebsd"), "freebsd");
+    }
+
+    #[test]
+    fn device_display_name_is_prefixed_and_names_this_platform() {
+        let name = device_display_name();
+        assert_eq!(
+            name,
+            format!("TeleMatrix Desktop: {}", os_label(std::env::consts::OS))
+        );
+        assert!(name.starts_with("TeleMatrix Desktop: "));
     }
 }
