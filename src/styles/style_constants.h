@@ -933,6 +933,11 @@ inline QColor mediaviewPlaybackBg = QColor(0x00, 0x00, 0x00, 0xB2);    // #00000
 // Reactions (chat.style + chat_helpers.style).
 inline QMargins reactionInlinePadding(5, 2, 7, 2);
 inline int reactionInlineSize = 18;
+// Visual size of the emoji inside that 18px slot. Not the same number: the slot is
+// the layout box, the emoji sits inside it with a margin. A sprite cell is
+// edge-to-edge artwork, so drawing one at reactionInlineSize would fill the whole
+// slot and crowd the pill — the old text path rendered a ~14px glyph from a 12px font.
+inline int reactionInlineEmoji = 15;
 inline int reactionInlineImage = 32;
 inline int reactionInlineSkip = 3;
 inline int reactionInlineTagSkip = 6;
@@ -958,6 +963,10 @@ inline int reactionInfoBetween = 3;
 inline QSize reactionCornerSize(36, 32);
 inline QPoint reactionCornerCenter(7, -9);
 inline int reactionCornerImage = 22;
+// Visual size of the emoji inside the corner button / reaction column cell.
+// reactionCornerImage is the image slot; the emoji sits inside it. Measured against
+// what the old text path rendered (a 15px font produced an 18px glyph).
+inline int reactionCornerEmoji = 18;
 inline QMargins reactionCornerShadow(4, 8, 4, 8);
 inline QMargins reactionCornerActiveAreaPadding(10, 10, 10, 10);
 inline int reactionCornerAddedHeightMax = 100;
@@ -1946,6 +1955,7 @@ inline void initPxValues() {
         ConvertScale(5), ConvertScale(2),
         ConvertScale(7), ConvertScale(2));
     reactionInlineSize = ConvertScale(18);
+    reactionInlineEmoji = ConvertScale(15);
     reactionInlineImage = ConvertScale(32);
     reactionInlineSkip = ConvertScale(3);
     reactionInlineTagSkip = ConvertScale(6);
@@ -1972,6 +1982,7 @@ inline void initPxValues() {
     reactionCornerSize = QSize(ConvertScale(36), ConvertScale(32));
     reactionCornerCenter = QPoint(ConvertScale(7), ConvertScale(-9));
     reactionCornerImage = ConvertScale(22);
+    reactionCornerEmoji = ConvertScale(18);
     reactionCornerShadow = QMargins(
         ConvertScale(4), ConvertScale(8),
         ConvertScale(4), ConvertScale(8));

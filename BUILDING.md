@@ -32,7 +32,7 @@ brew install cmake create-dmg ffmpeg pkg-config
 # Rust toolchain (https://rustup.rs)
 # Qt 6.10.1 — the official build, NOT `brew install qt@6` (see the note below):
 #   the online installer (https://www.qt.io/download-qt-installer), or
-pip install aqtinstall && aqt install-qt mac desktop 6.10.1 clang_64 -m qtmultimedia -O ~/Qt
+pip install aqtinstall && aqt install-qt mac desktop 6.10.1 clang_64 -m qtmultimedia qtimageformats -O ~/Qt
 ```
 
 Build and package:
@@ -57,6 +57,11 @@ Notes:
   `libdarwinmediaplugin.dylib`. Official Qt (online installer / aqtinstall) ships the
   FFmpeg backend, and `macdeployqt` bundles it into the `.app`. Configure hard-fails if
   the resolved Qt lacks it, so this cannot be missed silently.
+- **`qtimageformats` is required**, not optional. It supplies the WebP image plugin that
+  decodes the emoji sprite atlases (`resources/emoji/`). Without it `QImage(path, "WEBP")`
+  returns null and every emoji renders blank — the exact failure this port exists to fix.
+  `tests/tst_emoji_atlas.cpp` fails loudly when the plugin is missing, so a Qt install
+  without it is caught by `ctest` rather than by a user staring at empty squares.
 
 Signing / notarization (optional):
 ```sh
@@ -76,7 +81,9 @@ is also set (a `xcrun notarytool` keychain profile — create one with
 Prerequisites:
 - Visual Studio 2022 (MSVC, "Desktop development with C++").
 - Rust with the **MSVC** toolchain: `rustup default stable-x86_64-pc-windows-msvc`.
-- Qt 6 for MSVC (set `CMAKE_PREFIX_PATH` / `Qt6_DIR` to the Qt install).
+- Qt 6 for MSVC, **including `qtmultimedia` and `qtimageformats`** (set
+  `CMAKE_PREFIX_PATH` / `Qt6_DIR` to the Qt install). `qtimageformats` decodes the
+  emoji atlases; without it every emoji renders blank.
 - FFmpeg / libav with pkg-config `.pc` files (e.g. `vcpkg install ffmpeg:x64-windows` +
   `pkgconfiglite`); point `PKG_CONFIG_PATH` at its `lib/pkgconfig`.
 - [NSIS](https://nsis.sourceforge.io/) on `PATH` (for the installer).
@@ -111,7 +118,9 @@ Notes:
 Prerequisites:
 - A C++20 compiler (gcc ≥ 12 or clang), CMake ≥ 3.20, `make`/`ninja`.
 - Rust toolchain.
-- Qt 6 development packages (incl. `qtmultimedia`).
+- Qt 6 development packages, incl. `qtmultimedia` and **`qtimageformats`** (the latter
+  supplies the WebP plugin the emoji atlases need; Debian/Ubuntu:
+  `qt6-imageformats-plugins`, Fedora: `qt6-qtimageformats`).
 - FFmpeg / libav dev packages: `libavcodec-dev libavformat-dev libavutil-dev libswscale-dev`.
 - `libssl-dev` (rusqlite bundled SQLCipher), `libdbus-1-dev` (keyring / Secret Service),
   `nasm` (rustls crypto provider).

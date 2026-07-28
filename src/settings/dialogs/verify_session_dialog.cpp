@@ -32,6 +32,7 @@
 #include "ui/painter.h"
 #include "ui/recovery_key_format.h"
 #include "ui/qr_code_image.h"
+#include "ui/emoji_sprites.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
 #include "ui/widgets/input_fields.h"
@@ -633,10 +634,19 @@ void VerifySessionDialog::buildEmojiPage() {
                 cellLayout->setContentsMargins(0, 0, 0, 0);
                 cellLayout->setSpacing(st::introVerifyEmojiCellGap);
 
+                // The only SAS emoji surface that is a QLabel rather than a painter, so
+                // it takes a pixmap. Falls back to the text label when the emoji has no
+                // sprite, which is why the font and colour are still set either way.
                 auto *emojiLabel = new QLabel(emojis.value(i), cell);
                 emojiLabel->setFont(st::baseFont(st::introVerifyEmojiFontSize));
                 emojiLabel->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
                 applyLabelColor(emojiLabel, st::windowBoldFg);
+                const auto sprite = TeleMatrix::Emoji::Pixmap(
+                    emojis.value(i),
+                    st::introVerifyEmojiFontSize);
+                if (!sprite.isNull()) {
+                    emojiLabel->setPixmap(sprite);
+                }
                 cellLayout->addWidget(emojiLabel, 3);
 
                 auto *labelText = new QLabel(labels.value(i), cell);

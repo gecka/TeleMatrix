@@ -81,7 +81,9 @@ jobs:
           host: linux
           target: desktop
           arch: linux_gcc_64
-          modules: qtmultimedia       # Core/Gui/Widgets/Concurrent + LinguistTools are in base
+          # qtimageformats: WebP decoding for the emoji sprite atlases. NOT in qtbase —
+          # without it every emoji silently vanishes (tst_emoji_atlas is the gate).
+          modules: qtmultimedia qtimageformats   # Core/Gui/Widgets/Concurrent + LinguistTools are in base
           cache: true
 
       - name: Install Rust toolchain
@@ -170,7 +172,9 @@ jobs:
           host: mac
           target: desktop
           arch: clang_64
-          modules: qtmultimedia       # Core/Gui/Widgets/Concurrent + LinguistTools are in base
+          # qtimageformats: WebP decoding for the emoji sprite atlases. NOT in qtbase —
+          # without it every emoji silently vanishes (tst_emoji_atlas is the gate).
+          modules: qtmultimedia qtimageformats   # Core/Gui/Widgets/Concurrent + LinguistTools are in base
           cache: true
 
       - name: Install Rust toolchain (pinned)
@@ -403,7 +407,9 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2022_64
-          modules: qtmultimedia       # Core/Gui/Widgets/Concurrent + LinguistTools are in base
+          # qtimageformats: WebP decoding for the emoji sprite atlases. NOT in qtbase —
+          # without it every emoji silently vanishes (tst_emoji_atlas is the gate).
+          modules: qtmultimedia qtimageformats   # Core/Gui/Widgets/Concurrent + LinguistTools are in base
           cache: true
 
       - name: Install Rust toolchain (MSVC, pinned)

@@ -24,6 +24,8 @@
 #include "../ui/style/runtime_font.h"
 #include "../ui/style/icon_provider.h"
 #include "../ui/style/runtime_scale.h"
+#include "../ui/emoji_config.h"
+#include "../ui/emoji_sprites.h"
 #include "../styles/style_constants.h"
 #include "../history/history_confirm_dialog.h"
 #include "../history/history_emoji_picker.h"
@@ -423,6 +425,17 @@ AppController::AppController(QObject *parent)
         // macOS Retina default is 110%, non-Retina is 100%.
         const auto defaultScale = (Style::DevicePixelRatio() >= 2) ? 110 : 100;
         Style::SetScale(defaultScale);
+    }
+
+    // Build the emoji sprite index. Cheap — it decodes no atlas pages, those load on
+    // first use. After the DPR/scale calls above because emoji_sprites.cpp caches its
+    // scaled pixmaps in device pixels.
+    Ui::Emoji::Init();
+    if (!TeleMatrix::Emoji::Available()) {
+        // Not fatal: every draw path falls back to text emoji, which is what the app
+        // did before the sprite port. Worth a line in the log, though, because on a
+        // host with no colour emoji font that fallback renders nothing at all.
+        qWarning() << "Emoji: sprite atlases unavailable, falling back to text emoji.";
     }
 
     // Apply runtime scaling to all pixel constants.

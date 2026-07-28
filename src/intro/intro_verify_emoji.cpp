@@ -13,6 +13,7 @@
 #include "intro_widgets.h"
 
 #include "ui/painter.h"
+#include "ui/emoji_sprites.h"
 
 #include <QFontMetrics>
 #include <QPainter>
@@ -360,11 +361,15 @@ void IntroVerifyEmoji::paintEmojiContainer(QPainter &p) {
             const int emojiH = (contentH * 3) / 4;
             const int labelH = contentH - emojiH;
 
+            // Font/pen are for the text fallback; a sprite fills its own box, so it is
+            // drawn at the font size rather than the ~1.5x a glyph would occupy.
             p.setFont(emojiFont);
             p.setPen(intro::titleFg);
-            p.drawText(QRect(cellX, rowY, cellW, emojiH),
-                       Qt::AlignHCenter | Qt::AlignVCenter,
-                       _emojis.value(idx));
+            TeleMatrix::Emoji::DrawCentered(
+                p,
+                _emojis.value(idx),
+                st::introVerifyEmojiFontSize,
+                QRect(cellX, rowY, cellW, emojiH));
 
             p.setFont(labelFont);
             p.setPen(intro::subtextFg);

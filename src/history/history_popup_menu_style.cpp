@@ -24,6 +24,7 @@
 #include "ui/painter.h"
 #include "ui/platform/ui_utility_mac.h"
 #include "ui/style/icon_provider.h"
+#include "ui/emoji_sprites.h"
 
 namespace TeleMatrix::HistoryPopupMenuStyle {
 
@@ -980,9 +981,17 @@ void PopupMenu::paintEvent(QPaintEvent *) {
                     p.setBrush(st::emojiPanHover);
                     p.drawRoundedRect(cellRect.adjusted(2, 2, -2, -2), 8, 8);
                 }
+                // stripEmojiSize() was a *font* size; a sprite cell fills its box, so
+                // the same number is now the visual size directly — 21 in a 32px cell,
+                // the same proportion the vertical reaction column uses. The font is
+                // still set for the text fallback.
                 p.setFont(emojiFont);
                 p.setPen(st::windowFg);
-                p.drawText(cellRect, Qt::AlignCenter, emojis[i]);
+                TeleMatrix::Emoji::DrawCentered(
+                    p,
+                    emojis[i],
+                    stripEmojiSize(),
+                    cellRect);
             } else {
                 // Expand button: 24px circle with downward chevron icon.
                 PainterHighQualityEnabler hq(p);

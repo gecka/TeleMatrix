@@ -46,6 +46,7 @@
 #include "ui/text/quote_paint.h"
 #include "ui/style/icon_provider.h"
 #include "ui/style/runtime_scale.h"
+#include "ui/emoji_sprites.h"
 #include "styles/style_chat.h"
 #include "styles/style_font_metrics.h"
 
@@ -3975,11 +3976,10 @@ struct ReactionPillColors {
     qreal bgOpacity = 1.0;
 };
 
-// Render system emoji into a cached QImage at reactionInlineSize.
-// A pre-rendered-sprite approach would use a 32px image with a -7px overflow
-// offset. System emoji fonts fill the entire glyph box (no padding), so we
-// render at the visual container size (reactionInlineSize = 18px) and draw
-// without offset — producing the same visual result.
+// Render an emoji into a cached QImage the size of the pill's emoji slot
+// (reactionInlineSize = 18px), with the emoji itself drawn at reactionInlineEmoji
+// inside it. The slot is the layout box, not the glyph size — filling it edge to edge
+// makes the pill look cramped. Blitted without offset.
 [[nodiscard]] QImage renderEmojiImage(const QString &emoji) {
     using TeleMatrix::Style::Scale;
     using TeleMatrix::Style::DevicePixelRatio;
@@ -4004,12 +4004,16 @@ struct ReactionPillColors {
         QPainter p(&img);
         p.setRenderHint(QPainter::Antialiasing);
         p.setRenderHint(QPainter::SmoothPixmapTransform);
-        // System emoji fonts fill the glyph box. Scale from 14px base
-        // (visual emoji size at 100% scale).
+        // The font is set for the text fallback only — a reaction key with no sprite
+        // (an emoji newer than the atlases, or a non-emoji key) still draws as text.
         QFont emojiFont;
         emojiFont.setPixelSize(TeleMatrix::Style::ConvertScale(12));
         p.setFont(emojiFont);
-        p.drawText(QRect(0, 0, size, size), Qt::AlignCenter, emoji);
+        TeleMatrix::Emoji::DrawCentered(
+            p,
+            emoji,
+            st::reactionInlineEmoji,
+            QRect(0, 0, size, size));
     }
 
     // Bound the emoji sprite cache (tiny 18px entries, but distinct scale/dpr
@@ -7999,16 +8003,31 @@ void paintReactionPillBg(QPainter &p, const QRectF &inner, qreal radius) {
     return qMax(1, qRound(st::reactionCornerImage * (2.0 / 3.0) * scale));
 }
 
+// A sprite cell is edge-to-edge artwork, so it is drawn at reactionCornerEmoji — the
+// glyph size, not reactionCornerImage, which is the slot the glyph sits inside. The cell
+// is a QRectF and the resting button animates its scale, so this positions in floating
+// point and keeps the text fallback on the original QRectF path — both matter for the
+// 2/3 -> 1 animation.
 void paintReactionCellEmoji(
         QPainter &p,
         const QRectF &cell,
         const QString &emoji,
         qreal scale) {
-    QFont f;
-    f.setPixelSize(reactionEmojiFontPx(scale));
-    p.setFont(f);
-    p.setPen(st::windowFg);
-    p.drawText(cell, Qt::AlignCenter, emoji);
+    const auto sizePx = qMax(1, qRound(st::reactionCornerEmoji * scale));
+    const auto pixmap = TeleMatrix::Emoji::Pixmap(emoji, sizePx);
+    if (pixmap.isNull()) {
+        QFont f;
+        f.setPixelSize(reactionEmojiFontPx(scale));
+        p.setFont(f);
+        p.setPen(st::windowFg);
+        p.drawText(cell, Qt::AlignCenter, emoji);
+        return;
+    }
+    p.drawPixmap(
+        QPointF(
+            cell.x() + (cell.width() - sizePx) / 2.,
+            cell.y() + (cell.height() - sizePx) / 2.),
+        pixmap);
 }
 
 } // namespace

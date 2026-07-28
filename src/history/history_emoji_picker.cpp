@@ -37,6 +37,7 @@
 #include "ui/platform/ui_utility_mac.h"
 #include "ui/style/icon_provider.h"
 #include "ui/style/runtime_scale.h"
+#include "ui/emoji_sprites.h"
 
 namespace TeleMatrix {
 
@@ -57,6 +58,9 @@ inline int kVerticalSizeSub = 1;
 inline int kHoverWidth = 34;
 inline int kHoverHeight = 32;
 inline int kHoverRadius = 8;
+// Sprite emoji size inside a kDesiredSize cell. tdesktop draws its picker emoji at
+// 24px in a 37px cell; a sprite cell fills its box, so this is the visual size.
+inline int kEmojiSize = 24;
 inline int kScrollBarWidth = 7;
 inline int kMinBodyHeight = 278;
 inline int kMaxBodyHeight = 640;
@@ -149,6 +153,7 @@ void applyEmojiPanelScale() {
     kHoverWidth = ConvertScale(34);
     kHoverHeight = ConvertScale(32);
     kHoverRadius = ConvertScale(8);
+    kEmojiSize = ConvertScale(24);
     kScrollBarWidth = ConvertScale(7);
     kMinBodyHeight = ConvertScale(278);
     kMaxBodyHeight = ConvertScale(640);
@@ -676,6 +681,19 @@ public:
         }
         _titles = std::move(titles);
         _entries = std::move(entries);
+        // Fill the sprite cache for the whole grid up front. The atlas keeps only two
+        // decoded pages resident, and a grid this size spans all eight — left lazy,
+        // scrolling would evict and re-decode pages repeatedly. Prewarm visits them in
+        // page order instead, so each is decoded once and then released.
+        {
+            auto all = QStringList();
+            for (const auto &section : _entries) {
+                for (const auto &entry : section) {
+                    all.append(entry.emoji);
+                }
+            }
+            TeleMatrix::Emoji::Prewarm(all, kEmojiSize);
+        }
         _sectionYOffsets.clear();
         _hovered = -1;
         _hoveredSection = -1;
@@ -780,8 +798,11 @@ protected:
                                       kHoverRadius, kHoverRadius);
                     p.setPen(st::windowFg);
                 }
-                p.drawText(QRect(cellX, cellY, _cellW, _cellH),
-                           Qt::AlignCenter, items[i].emoji);
+                TeleMatrix::Emoji::DrawCentered(
+                    p,
+                    items[i].emoji,
+                    kEmojiSize,
+                    QRect(cellX, cellY, _cellW, _cellH));
             }
         }
     }

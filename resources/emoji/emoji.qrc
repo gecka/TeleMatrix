@@ -1,0 +1,12 @@
+<RCC>
+  <qresource prefix="/gui">
+    <file alias="emoji/emoji_1.webp">emoji_1.webp</file>
+    <file alias="emoji/emoji_2.webp">emoji_2.webp</file>
+    <file alias="emoji/emoji_3.webp">emoji_3.webp</file>
+    <file alias="emoji/emoji_4.webp">emoji_4.webp</file>
+    <file alias="emoji/emoji_5.webp">emoji_5.webp</file>
+    <file alias="emoji/emoji_6.webp">emoji_6.webp</file>
+    <file alias="emoji/emoji_7.webp">emoji_7.webp</file>
+    <file alias="emoji/emoji_8.webp">emoji_8.webp</file>
+  </qresource>
+</RCC>

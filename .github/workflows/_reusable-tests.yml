@@ -134,7 +134,7 @@ jobs:
           host: linux
           target: desktop
           arch: linux_gcc_64
-          modules: qtmultimedia
+          modules: qtmultimedia qtimageformats   # qtimageformats: WebP for the emoji atlases (tst_emoji_atlas)
           cache: true
 
       - name: Configure (CMake, Debug, tests on)

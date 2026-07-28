@@ -51,6 +51,32 @@ if (APPLE)
     endif()
 endif()
 
+# Same idea, every platform: the emoji sprite atlases (resources/emoji/*.webp) are WebP,
+# and WebP is not in qtbase — it comes from the qtimageformats add-on. Without the plugin
+# QImage(path, "WEBP") returns null and every emoji renders blank, which is precisely the
+# bug the sprite port exists to fix. Catch it at configure time rather than let a user
+# discover it by staring at empty squares. tests/tst_emoji_atlas.cpp is the runtime gate.
+if (WIN32)
+    set(TELEMATRIX_QT_WEBP_PLUGIN "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_PLUGINS}/imageformats/qwebp.dll")
+elseif (APPLE)
+    set(TELEMATRIX_QT_WEBP_PLUGIN "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_PLUGINS}/imageformats/libqwebp.dylib")
+else ()
+    set(TELEMATRIX_QT_WEBP_PLUGIN "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_PLUGINS}/imageformats/libqwebp.so")
+endif ()
+if (NOT EXISTS "${TELEMATRIX_QT_WEBP_PLUGIN}")
+    message(FATAL_ERROR
+        "Qt at ${QT6_INSTALL_PREFIX} has no WebP image plugin.\n"
+        "  expected: ${TELEMATRIX_QT_WEBP_PLUGIN}\n"
+        "It ships in the qtimageformats module, which qtbase does not include. The emoji "
+        "sprite atlases cannot be decoded without it. Install it and re-configure:\n"
+        "  aqtinstall:   aqt install-qt <host> desktop ${Qt6_VERSION} <arch> -m qtimageformats -O ~/Qt\n"
+        "  Debian/Ubuntu: apt install qt6-imageformats-plugins\n"
+        "  Fedora/RHEL:   dnf install qt6-qtimageformats")
+endif ()
+
+# Emoji data tables, generated from lib/lib_ui/emoji.txt by desktop-app's codegen_emoji.
+include("${CMAKE_SOURCE_DIR}/cmake/codegen_emoji.cmake")
+
 # Rust static library.
 # Keep this in sync with C++ by rebuilding when Rust sources change.
 # MSVC emits telematrix_protocol.lib; Unix toolchains emit libtelematrix_protocol.a.
@@ -171,6 +197,11 @@ add_dependencies(telematrix_protocol telematrix_protocol_build)
 # its object name is flat and both sides agree on every generator.
 qt_add_resources(TELEMATRIX_THEME_QRC src/theme/theme_resources.qrc)
 
+# The emoji sprite atlases (~9 MB) get the same explicit-rcc treatment, and for the
+# same reason. Decoding them needs the WebP plugin from the qtimageformats add-on,
+# which qtbase does not ship — see resources/emoji/README.md.
+qt_add_resources(TELEMATRIX_EMOJI_QRC resources/emoji/emoji.qrc)
+
 # Reusable "core" of pure, runtime-light translation units (no QtWidgets, no
 # ProtocolBridge/Rust FFI). Compiled once as an OBJECT library so both the
 # TeleMatrix executable and the unit-test runners (tests/) link the SAME objects
@@ -238,6 +269,24 @@ add_library(telematrix_core OBJECT
     src/ui/recovery_key_format.cpp
     src/ui/qr_code_image.h
     src/ui/qr_code_image.cpp
+    # Sprite-sheet emoji, ported from desktop-app/lib_ui. emoji.cpp is generated
+    # (cmake/codegen_emoji.cmake) and #includes "ui/emoji_config.h" by that exact path,
+    # which is why the port keeps upstream's file layout. In telematrix_core so the
+    # emoji tests link the same objects the app does.
+    # Pure scale/DPR state, moved here from the executable: emoji_sprites.cpp sizes its
+    # cached pixmaps in device pixels, so the tests need it too.
+    src/ui/style/runtime_scale.h
+    src/ui/style/runtime_scale.cpp
+    src/ui/emoji_compat.h
+    src/ui/emoji_config.h
+    src/ui/emoji_config.cpp
+    src/ui/emoji_sprites.h
+    src/ui/emoji_sprites.cpp
+    "${TM_EMOJI_GEN_DIR}/emoji.cpp"
+    # emoji.cpp calls InitReplacements() from the generated suggestions table; the
+    # hand-written half of that pair is upstream's, and is free of Qt and lib_base.
+    "${TM_EMOJI_GEN_DIR}/emoji_suggestions_data.cpp"
+    lib/lib_ui/emoji_suggestions/emoji_suggestions.cpp
     src/ui/widgets/block_format_presence.h
     src/ui/widgets/block_format_presence.cpp
     src/theme/theme_parser.h
@@ -251,6 +300,9 @@ add_library(telematrix_core OBJECT
     # unit tests can load them too. Generated above by qt_add_resources, not
     # AUTORCC — see the comment on that call.
     ${TELEMATRIX_THEME_QRC}
+    # Emoji sprite atlases, here rather than on TeleMatrix so tst_emoji_atlas can
+    # assert they decode — that test is the gate that catches a missing WebP plugin.
+    ${TELEMATRIX_EMOJI_QRC}
     # Pure helpers shared by the platform toast managers; cross-platform so they
     # are unit-tested on any host.
     src/window/notifications_win_keys.h
@@ -259,6 +311,15 @@ add_library(telematrix_core OBJECT
     src/window/notifications_linux_registry.cpp
 )
 target_include_directories(telematrix_core PUBLIC ${CMAKE_SOURCE_DIR}/src)
+# Emoji: the generated tables, upstream's emoji_suggestions headers, and GSL (the
+# generated emoji.cpp uses gsl::make_span). SYSTEM so vendored headers do not spray
+# warnings through our builds.
+target_include_directories(telematrix_core SYSTEM PUBLIC
+    "${TM_EMOJI_GEN_DIR}"
+    "${CMAKE_SOURCE_DIR}/lib/lib_ui/emoji_suggestions"
+    "${CMAKE_SOURCE_DIR}/lib/GSL/include")
+# The generated sources must exist before anything compiles them.
+add_dependencies(telematrix_core telematrix_emoji_codegen)
 # Qt6::Svg depends on Gui, not Widgets, so the test runners stay headless.
 target_link_libraries(telematrix_core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg)
 if(APPLE)
@@ -525,8 +586,6 @@ add_executable(TeleMatrix
     src/ui/widgets/connecting_widget.cpp
     src/ui/text/quote_paint.h
     src/ui/text/quote_paint.cpp
-    src/ui/style/runtime_scale.h
-    src/ui/style/runtime_scale.cpp
     src/ui/style/runtime_font.h
     src/ui/style/runtime_font.cpp
     src/ui/style/icon_provider.h

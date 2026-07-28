@@ -165,6 +165,20 @@ while read -r need; do
 done < <(patchelf --print-needed "$plugin" 2>/dev/null || true)
 [ "$missing" -eq 0 ] || exit 1
 
+# --- Verify the WebP image plugin is bundled (the acid test for emoji) ---------------------
+# The emoji sprite atlases are WebP. Without this plugin QImage(path, "WEBP") returns null
+# and every emoji falls back to text — which on a Linux host with no colour emoji font
+# renders nothing at all. That is the exact bug the sprite port exists to fix, so a build
+# that would ship it is a failed build, not a warning.
+webp_plugin="$APPDIR/usr/plugins/imageformats/libqwebp.so"
+if [ ! -f "$webp_plugin" ]; then
+    echo "ERROR: libqwebp.so not bundled — emoji would render blank." >&2
+    echo "Bundled image format plugins:" >&2
+    ls -1 "$APPDIR/usr/plugins/imageformats/" 2>/dev/null || echo "  (none)" >&2
+    echo "Install the qtimageformats module for the Qt used to build this." >&2
+    exit 1
+fi
+
 # X11/xcb sanity: the platform plugin must be present (confirms the QPA backend is bundled).
 [ -f "$APPDIR/usr/plugins/platforms/libqxcb.so" ] \
     || echo "WARNING: libqxcb.so not bundled — the app may fail to find a platform plugin." >&2

@@ -29,6 +29,7 @@ set(TELEMATRIX_TEST_AREAS
     prepared_upload
     timeline_item_content
     emoji_data
+    emoji_atlas
     empty_userpic
     ffi_conversions
     room_directory_filter

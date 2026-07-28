@@ -6,6 +6,8 @@
 
 #include "history_large_emoji.h"
 
+#include "ui/emoji_sprites.h"
+
 #include <QFontMetrics>
 
 namespace TeleMatrix {
@@ -337,17 +339,26 @@ void paintLargeEmoji(
             cellX += kVisualSkip;
         }
 
-        // Center glyph within the 38px cell.
-        const auto glyphW = fm.horizontalAdvance(emoji.items[i]);
-        const auto offsetX = (kCellSize - glyphW) / 2;
-        const auto offsetY = (kCellSize - fm.height()) / 2;
-        const auto drawX = cellX + offsetX;
-        const auto drawY = y + offsetY + fm.ascent();
-
-        // Draw the emoji glyph. No white outline — Apple Color Emoji is a
-        // bitmap font that ignores pen color, so outline would just produce
-        // ghosted copies. A baked-outline approach would need pre-rendered sprites.
-        p.drawText(drawX, drawY, emoji.items[i]);
+        // 36px sprite centered in the 38px cell — a clean 1:2 downscale from the 72px
+        // atlas master, so this is the best-quality size in the whole port.
+        const auto sprite = TeleMatrix::Emoji::Pixmap(
+            emoji.items[i],
+            kLargeEmojiSize);
+        if (sprite.isNull()) {
+            // Text fallback, centered from font metrics as before. No white outline:
+            // a colour emoji font ignores pen colour, so an outline would just produce
+            // ghosted copies.
+            const auto glyphW = fm.horizontalAdvance(emoji.items[i]);
+            const auto offsetX = (kCellSize - glyphW) / 2;
+            const auto offsetY = (kCellSize - fm.height()) / 2;
+            p.drawText(
+                cellX + offsetX,
+                y + offsetY + fm.ascent(),
+                emoji.items[i]);
+        } else {
+            const auto inset = (kCellSize - kLargeEmojiSize) / 2;
+            p.drawPixmap(QPoint(cellX + inset, y + inset), sprite);
+        }
 
         cellX += kCellSize;
     }
