@@ -1,13 +1,12 @@
-# Trunk CI. Releases are cut from tags on `main` or `dev` (see release.yml).
+# Trunk CI. `main` is the sole release lineage — every tag is cut from it, betas
+# included (see release.yml). Other branches are short-lived and reach main by merge.
 #
 #   push, any branch -> tests only (Linux). Cheap early signal while iterating.
-#   push to main     -> tests + the full 3-OS package build, unsigned.
+#   push to main     -> tests + the full 3-OS package build, unsigned. Every commit
+#                       that can be tagged is therefore packaged before it is,
+#                       so packaging breaks surface on a free run, never mid-release.
 #   pull_request     -> tests only. Package builds are not a PR gate.
 #   dispatch         -> tests + package build, on any branch you pick.
-#
-# Tagging a release from `dev` therefore packages that code for the first time
-# under signing. Dispatch this workflow against `dev` first, so a packaging
-# regression surfaces on a free unsigned run instead of mid-notarization.
 name: CI
 
 on:
