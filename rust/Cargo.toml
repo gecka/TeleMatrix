@@ -97,7 +97,7 @@ keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
 # Already present transitively (secret-service pulls zbus 4.x); made explicit for
 # the synchronous `org.freedesktop.secrets` NameHasOwner probe in keychain.rs that
 # decides keychain-vs-vault at fresh login. Pure Rust, no extra native linkage.
-zbus = "4"
+zbus = "5"
 
 # Test-only: matrix-sdk's in-repo test utilities (MatrixMockServer + wiremock +
 # matrix-sdk-test) drive the in-crate `#[cfg(test)]` integration tests against a
