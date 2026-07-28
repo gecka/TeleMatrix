@@ -29,6 +29,29 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the ancestry check below needs real history
+
+      - name: Verify the tag is on a release branch
+        # `on: push: tags` fires for a tag anywhere, so without this a tag pushed
+        # from a feature branch would sign, notarize and publish a build that was
+        # never on a release lineage.
+        #
+        # Both main and dev are accepted. Worth knowing: a beta tagged from dev can
+        # carry fixes main lacks, and the later stable is still semver-higher, so
+        # the updater will move those testers onto a build missing them. Keep dev
+        # merged into main before tagging a stable.
+        run: |
+          set -euo pipefail
+          for branch in main dev; do
+            git fetch --no-tags origin "$branch" 2>/dev/null || continue
+            if git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+              echo "OK: tag is on $branch."
+              exit 0
+            fi
+          done
+          echo "::error::Tag '$GITHUB_REF_NAME' is on neither main nor dev. Tag from a release branch."
+          exit 1
 
       - name: Compare tag to CMakeLists.txt
         run: |

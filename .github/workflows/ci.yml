@@ -1,26 +1,29 @@
-# Trunk CI. `main` is the sole long-lived branch; releases are cut from tags
-# (see release.yml).
+# Trunk CI. Releases are cut from tags on `main` or `dev` (see release.yml).
 #
-#   pull_request  -> tests only (Linux). Deliberately NOT a package build: this is a
-#                    private repo, where macOS runners bill at 10x and Windows at 2x.
-#   push to main  -> tests + the full 3-OS package build, unsigned, artifacts only.
-#                    Same build path a tag takes, so a packaging regression surfaces on
-#                    merge rather than on release day.
-#   dispatch      -> same as a push to main (force a full build on demand).
+#   push, any branch -> tests only (Linux). Cheap early signal while iterating.
+#   push to main     -> tests + the full 3-OS package build, unsigned.
+#   pull_request     -> tests only. Package builds are not a PR gate.
+#   dispatch         -> tests + package build, on any branch you pick.
+#
+# Tagging a release from `dev` therefore packages that code for the first time
+# under signing. Dispatch this workflow against `dev` first, so a packaging
+# regression surfaces on a free unsigned run instead of mid-notarization.
 name: CI
 
 on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: ['**']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  # Superseded pushes/PR updates are cancelled — don't burn minutes on stale commits.
+  # Superseded pushes/PR updates are cancelled. Note a branch with an open PR still
+  # runs twice — `push` and `pull_request` carry different refs, so this group
+  # cannot dedupe them. Branch pushes are Linux-only, so that is left alone.
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
@@ -30,7 +33,12 @@ jobs:
 
   build:
     name: Build packages
-    if: github.event_name != 'pull_request'
+    # main and explicit dispatches only. Not dev: it takes commits all day and
+    # three OS builds per push is ~90 minutes of runner time for no new signal.
+    # A PR's ref is refs/pull/N/merge, so this excludes pull_request too.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.ref == 'refs/heads/main'
     needs: tests   # gate the package build on green tests
     uses: ./.github/workflows/_reusable-build.yml
     with:

@@ -1,5 +1,10 @@
 # Automated dependency PRs. Grouped and capped so this stays a weekly review, not a
-# firehose — every PR runs the full CI (tests + 3-OS build) via ci.yml.
+# firehose.
+#
+# A green check on one of these means the Linux TESTS passed — ci.yml does not run
+# the package build on pull requests. macOS and Windows packaging is only exercised
+# once the bump reaches main or dev, so a bump that breaks a platform build fails
+# after the merge, not before it.
 version: 2
 
 updates:
