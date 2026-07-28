@@ -37,11 +37,25 @@ updates:
       rust-minor-patch:
         update-types: [minor, patch]
     ignore:
-      # sha2 0.11 moved to digest 0.11 / crypto-common 0.2 while hkdf 0.12 is still on
-      # digest 0.10, so Hkdf::<Sha256> stops typechecking against both generations in
-      # one graph. Drop this once hkdf ships a digest-0.11 release.
+      # RustCrypto generation lock. aes/ctr/cipher/hkdf/sha2 are pinned to the versions
+      # matrix-sdk-crypto and vodozemac already pull, so the artifact carries one copy of
+      # each. Their next 0.x steps (aes 0.9, ctr 0.10, hkdf 0.13, sha2 0.11) are the
+      # digest-0.11 / cipher-0.5 move, which does not typecheck against a graph still on
+      # digest 0.10 — Hkdf::<Sha256> and Ctr128BE<Aes256> both break. Lift this when
+      # matrix-sdk moves, not before. Patch bumps still come through.
+      #
+      # semver-minor, not -major: dependabot compares version segments literally, so
+      # 0.12 -> 0.13 is a *minor*. An ignore listing only major never fires.
+      - dependency-name: aes
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: ctr
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: cipher
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: hkdf
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
       - dependency-name: sha2
-        update-types: [version-update:semver-major]
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
     open-pull-requests-limit: 5
 
   - package-ecosystem: cargo
