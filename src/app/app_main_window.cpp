@@ -618,17 +618,37 @@ void AppMainWindow::showAboutBox() {
 }
 
 void AppMainWindow::useDefaultCentered() {
-    const auto restoreSave = _positionPersistenceEnabled;
+    // Supersede any restore. showEvent() queues settleRestoredGeometry(), and that
+    // lambda runs from whatever event loop comes next — including the NESTED one the
+    // vault-unlock screen spins — so without this it snapped the window straight back
+    // to the saved (often screen-filling) size a tick after we centred it.
+    ++_geometryEpoch;
+    _restoreGeometry = QRect();
+    _restoreMaximized = false;
+    _restorePendingShow = false;
+    _defaultCentered = true;
+    // The centred default is a transient presentation size (welcome, unlock), never
+    // one the user chose — persisting it would overwrite their real window position,
+    // which the restore right after unlock would then read back. Saving resumes at
+    // the next restoreWindowState(), i.e. when the main shell loads.
     _positionPersistenceEnabled = false;
 
+    // resize()/move() are ignored while maximized and do nothing at all inside a
+    // macOS fullscreen Space, so leave those states first. That exit is animated on
+    // macOS; changeEvent() re-applies the geometry once the new state lands.
+    if (isFullScreen() || isMaximized()) {
+        showNormal();
+    }
+    applyDefaultCenteredGeometry();
+}
+
+void AppMainWindow::applyDefaultCenteredGeometry() {
     resize(kDefaultWidth, kDefaultHeight);
     if (const auto *screen = QGuiApplication::primaryScreen()) {
         const auto sg = screen->availableGeometry();
         move(sg.x() + (sg.width() - kDefaultWidth) / 2,
              sg.y() + (sg.height() - kDefaultHeight) / 2);
     }
-
-    _positionPersistenceEnabled = restoreSave;
 }
 
 void AppMainWindow::bringToFront() {
@@ -645,6 +665,9 @@ void AppMainWindow::bringToFront() {
 
 void AppMainWindow::restoreWindowState() {
     _positionPersistenceEnabled = false;
+    // Reclaim the geometry from a welcome/unlock screen: whichever branch below
+    // runs decides the size now, and saving resumes once it settles.
+    _defaultCentered = false;
 
     const auto &pos = _controller->settings().windowPosition();
     auto applySavedGeometry = [this, &pos] {
@@ -694,7 +717,14 @@ void AppMainWindow::restoreWindowState() {
 
 void AppMainWindow::settleRestoredGeometry() {
     // Queued so the platform's post-show move/resize burst runs first.
-    QTimer::singleShot(0, this, [this] {
+    const auto epoch = ++_geometryEpoch;
+    QTimer::singleShot(0, this, [this, epoch] {
+        // A useDefaultCentered() since this was queued owns the geometry now —
+        // including the persistence flag below, which has to stay off so the
+        // centred size never lands in settings as the user's window position.
+        if (epoch != _geometryEpoch) {
+            return;
+        }
         if (_restoreGeometry.isValid() && !isMinimized()) {
             // Apply the normal rect even when the target state is maximized, so
             // the platform records what to restore DOWN to. Skipping this is why
@@ -707,7 +737,11 @@ void AppMainWindow::settleRestoredGeometry() {
         if (_restoreMaximized && !isMaximized()) {
             showMaximized();
         }
+        // The geometry is the user's from here: save it, and stop re-centring on
+        // window-state changes (this also runs for a first start, which centres
+        // because nothing was saved yet — not because a transient screen is up).
         _positionPersistenceEnabled = true;
+        _defaultCentered = false;
     });
 }
 
@@ -789,6 +823,13 @@ void AppMainWindow::changeEvent(QEvent *e) {
     if (e->type() == QEvent::ActivationChange) {
         _windowActive = isActiveWindow();
         emit windowActiveChanged(_windowActive);
+    } else if (e->type() == QEvent::WindowStateChange
+               && _defaultCentered
+               && !isFullScreen() && !isMaximized() && !isMinimized()) {
+        // Leaving a macOS fullscreen Space is animated, and the geometry set before
+        // the transition finished is discarded with it. Re-apply now that the normal
+        // state has landed, so the unlock screen doesn't stay screen-filling.
+        applyDefaultCenteredGeometry();
     }
 }
 

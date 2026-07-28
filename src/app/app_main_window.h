@@ -41,7 +41,9 @@ public:
     /// app on macOS to defeat focus-stealing prevention).
     void bringToFront();
 
-    /// Reset to default size and center on the primary screen.
+    /// Reset to default size and center on the primary screen. Supersedes any
+    /// pending geometry restore, and stops the centred size from being persisted
+    /// over the user's own — restoreWindowState() owns the geometry again.
     void useDefaultCentered();
 
     /// Whether the window is currently the active (focused) window.
@@ -87,7 +89,15 @@ private:
     QRect _restoreGeometry;
     bool _restoreMaximized = false;
     bool _restorePendingShow = false;
+    // Bumped every time the intended geometry changes. A queued restore carries
+    // the epoch it was scheduled under and gives up when it no longer matches, so
+    // it can never undo a centring that happened after it was queued.
+    quint64 _geometryEpoch = 0;
+    // True while the window shows a transient full-window screen (welcome, vault
+    // unlock) at the default centred size.
+    bool _defaultCentered = false;
     void settleRestoredGeometry();
+    void applyDefaultCenteredGeometry();
 };
 
 } // namespace TeleMatrix
