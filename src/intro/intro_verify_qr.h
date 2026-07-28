@@ -20,7 +20,7 @@ class IntroVerifyQr : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroVerifyQr(IntroWidget *parent, ProtocolBridge *bridge);
+    explicit IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     void submit() override;
@@ -40,6 +40,7 @@ signals:
 protected:
     void paintEvent(QPaintEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
+    void updateSkipVisibility() override;
 
 private:
     void startVerification();

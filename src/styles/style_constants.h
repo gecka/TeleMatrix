@@ -1100,8 +1100,12 @@ inline int boxWideWidth            = 364;                   // boxWideWidth: 364
 // Add-account popup card. Wide enough that the intro's fixed-width in-login
 // verification steps (recovery-key input 492px) are not clipped; height clamped
 // to the window at runtime.
-inline int addAccountBoxWidth      = 540;
-inline int addAccountBoxHeight     = 620;
+inline int introBoxWidth      = 540;
+inline int introBoxHeight     = 620;
+// The same card hosting only the verification screens, which are shorter than
+// the sign-in forms: the tallest of them (compare-emoji / scan-QR, showing a
+// failure message) ends ~470px down, so this leaves ~50px under it.
+inline int verifyBoxHeight    = 540;
 inline int signOutConfirmWidth     = 350;
 inline int boxMaxListHeight        = 492;                   // boxMaxListHeight: 492px
 inline int boxTitleHeight          = 48;                    // boxTitleHeight: 48px
@@ -2027,8 +2031,9 @@ inline void initPxValues() {
     boxRadius = ConvertScale(8);
     boxWidth = ConvertScale(320);
     boxWideWidth = ConvertScale(364);
-    addAccountBoxWidth = ConvertScale(540);
-    addAccountBoxHeight = ConvertScale(620);
+    introBoxWidth = ConvertScale(540);
+    introBoxHeight = ConvertScale(620);
+    verifyBoxHeight = ConvertScale(540);
     signOutConfirmWidth = ConvertScale(350);
     boxMaxListHeight = ConvertScale(492);
     boxTitleHeight = ConvertScale(48);

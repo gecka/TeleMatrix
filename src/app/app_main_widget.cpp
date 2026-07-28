@@ -35,7 +35,8 @@
 #include "../history/room_settings_widget.h"
 #include "../history/user_profile_popup.h"
 #include "../settings/appearance/theme_selector_panel.h"
-#include "../settings/dialogs/verify_session_dialog.h"
+#include "../settings/dialogs/verify_session_popup.h"
+#include "../settings/dialogs/verify_user_dialog.h"
 #include "../settings/settings_widget.h"
 #include "../styles/style_constants.h"
 #include "../ui/layers/layer_stack_widget.h"
@@ -1484,11 +1485,9 @@ void AppMainWidget::openVerifySessionDialog() {
         return;
     }
 
-    auto *dialog = new VerifySessionDialog(_bridge, this);
-    if (dialog->exec() == VerifySessionDialog::Accepted) {
+    if (ShowVerifySessionPopup(_bridge, this)) {
         _bridge->getEncryptionOverview();
     }
-    dialog->deleteLater();
 }
 
 void AppMainWidget::openIncomingVerifySessionDialog(const QString &transactionId) {
@@ -1496,15 +1495,9 @@ void AppMainWidget::openIncomingVerifySessionDialog(const QString &transactionId
         return;
     }
 
-    auto *dialog = new VerifySessionDialog(
-        _bridge,
-        this,
-        VerifySessionDialog::StartMode::Emoji,
-        transactionId);
-    if (dialog->exec() == VerifySessionDialog::Accepted) {
+    if (ShowVerifySessionPopup(_bridge, this, transactionId)) {
         _bridge->getEncryptionOverview();
     }
-    dialog->deleteLater();
 }
 
 void AppMainWidget::openIncomingUserVerifyDialog(
@@ -1517,13 +1510,12 @@ void AppMainWidget::openIncomingUserVerifyDialog(
     // Incoming cross-user request: the request already exists in the active
     // context, so start SAS on it by flow id (empty targetUserId), while the
     // display name titles the dialog "Verify <name>".
-    auto *dialog = new VerifySessionDialog(
+    auto *dialog = new VerifyUserDialog(
         _bridge,
         this,
-        VerifySessionDialog::StartMode::Emoji,
-        flowId,
         QString(),
-        displayName);
+        displayName,
+        flowId);
     dialog->exec();
     dialog->deleteLater();
 }

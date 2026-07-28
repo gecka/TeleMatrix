@@ -110,7 +110,7 @@ int sizeLabelToOneLine(QLabel *label, int windowWidth, int top) {
 } // namespace
 
 
-IntroVerifyEmoji::IntroVerifyEmoji(IntroWidget *parent, ProtocolBridge *bridge)
+IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
     , _bridge(bridge)
 {
@@ -216,7 +216,8 @@ void IntroVerifyEmoji::startVerification() {
     // Show waiting state until emojis arrive.
     setDescriptionText(tr("Waiting for the other device\xE2\x80\xA6"));
 
-    _bridge->startSasVerification();
+    _bridge->startSasVerification(_requestFlowId);
+    _requestFlowId.clear();
     updateEmojiLayout();
     update();
 }
@@ -305,6 +306,10 @@ void IntroVerifyEmoji::showFailure(const QString &message) {
     _retryLink->raise();
     updateEmojiLayout();
     update();
+}
+
+void IntroVerifyEmoji::updateSkipVisibility() {
+    _skipLink->setVisible(allowsSkip());
 }
 
 void IntroVerifyEmoji::paintEvent(QPaintEvent *e) {

@@ -117,7 +117,7 @@ void placeFieldButton(QLineEdit *field, QPushButton *button) {
 
 } // namespace
 
-IntroRegister::IntroRegister(IntroWidget *parent, ProtocolBridge *bridge)
+IntroRegister::IntroRegister(QWidget *parent, ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
     , _bridge(bridge)
 {

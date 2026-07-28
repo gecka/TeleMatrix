@@ -17,7 +17,7 @@
 
 namespace TeleMatrix {
 
-IntroVerifySuccess::IntroVerifySuccess(IntroWidget *parent)
+IntroVerifySuccess::IntroVerifySuccess(QWidget *parent)
     : IntroStep(parent, false /* hasCover */)
 {
     setTitleText(tr("Session Verified"));

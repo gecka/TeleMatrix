@@ -44,7 +44,7 @@ QLineEdit *makeField(QWidget *parent, const QString &placeholder) {
 
 } // namespace
 
-IntroCreatePassword::IntroCreatePassword(IntroWidget *parent)
+IntroCreatePassword::IntroCreatePassword(QWidget *parent)
     : IntroStep(parent, false /* hasCover */) {
     setTitleText(tr("Create a master password"));
 

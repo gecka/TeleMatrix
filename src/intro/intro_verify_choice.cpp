@@ -97,7 +97,7 @@ private:
 
 } // namespace
 
-IntroVerifyChoice::IntroVerifyChoice(IntroWidget *parent, ProtocolBridge *bridge)
+IntroVerifyChoice::IntroVerifyChoice(QWidget *parent, ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
     , _bridge(bridge)
 {
@@ -249,7 +249,13 @@ void IntroVerifyChoice::revealChoices() {
     _qrCard->show();
     _emojiCard->show();
     _recoveryCard->show();
-    _skipButton->show();
+    _skipButton->setVisible(allowsSkip());
+}
+
+void IntroVerifyChoice::updateSkipVisibility() {
+    // Nothing appears while the probe is still out — the cards and this link are
+    // revealed together (see the header).
+    _skipButton->setVisible(allowsSkip() && !_checking);
 }
 
 void IntroVerifyChoice::setCardEnabled(QPushButton *card, bool enabled) {

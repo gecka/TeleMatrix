@@ -20,7 +20,7 @@ class IntroVerifyChoice : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroVerifyChoice(IntroWidget *parent, ProtocolBridge *bridge);
+    explicit IntroVerifyChoice(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     void submit() override;
@@ -37,6 +37,7 @@ signals:
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    void updateSkipVisibility() override;
 
 private:
     void updateChoiceLayout();

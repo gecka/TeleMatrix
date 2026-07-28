@@ -29,7 +29,7 @@ namespace {
 
 } // namespace
 
-IntroVerifyQr::IntroVerifyQr(IntroWidget *parent, ProtocolBridge *bridge)
+IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
     , _bridge(bridge)
 {
@@ -254,6 +254,10 @@ void IntroVerifyQr::paintQrContainer(QPainter &p) {
 void IntroVerifyQr::resizeEvent(QResizeEvent *e) {
     IntroStep::resizeEvent(e);
     updateLayout();
+}
+
+void IntroVerifyQr::updateSkipVisibility() {
+    _skipLink->setVisible(allowsSkip());
 }
 
 void IntroVerifyQr::updateLayout() {

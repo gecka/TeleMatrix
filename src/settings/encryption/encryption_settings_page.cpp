@@ -13,7 +13,7 @@
 #include "settings/dialogs/recovery_key_dialog.h"
 #include "settings/dialogs/reset_identity_dialog.h"
 #include "settings/dialogs/settings_passphrase_dialog.h"
-#include "settings/dialogs/verify_session_dialog.h"
+#include "settings/dialogs/verify_session_popup.h"
 #include "settings/encryption/encryption_action_row.h"
 #include "settings/settings_common_widgets.h"
 #include "styles/style_constants.h"
@@ -391,12 +391,10 @@ void EncryptionSettingsPage::openVerifySessionDialog() {
         return;
     }
 
-    auto *dialog = new VerifySessionDialog(bridge, this);
-    if (dialog->exec() == VerifySessionDialog::Accepted) {
+    if (ShowVerifySessionPopup(bridge, this)) {
         refreshOverview();
         Q_EMIT sessionsRefreshRequested();
     }
-    dialog->deleteLater();
 }
 
 void EncryptionSettingsPage::enterRecoveryKey() {

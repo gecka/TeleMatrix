@@ -4,19 +4,16 @@
 // or later, with an OpenSSL linking exception. See the LICENSE and LEGAL
 // files in the project root for full terms.
 
-#include "verify_session_dialog.h"
+#include "verify_user_dialog.h"
 #include "ui/style/runtime_scale.h"
 
 #include <QAbstractButton>
-#include <QByteArray>
 #include <QEventLoop>
 #include <QFont>
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
-#include <QLineEdit>
-#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPalette>
@@ -30,23 +27,17 @@
 #include "styles/style_constants.h"
 #include "ui/focus_restore.h"
 #include "ui/painter.h"
-#include "ui/recovery_key_format.h"
-#include "ui/qr_code_image.h"
 #include "ui/emoji_sprites.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
-#include "ui/widgets/input_fields.h"
 
 namespace TeleMatrix {
 
 namespace {
 
 constexpr int kShadowExtend = 10;
-constexpr int kPageChoice   = 0;
-constexpr int kPageEmoji    = 1;
-constexpr int kPageRecovery = 2;
-constexpr int kPageSuccess  = 3;
-constexpr int kPageQr       = 4;
+constexpr int kPageEmoji   = 0;
+constexpr int kPageSuccess = 1;
 
 void paintBoxShadow(QPainter &p, const QRect &boxRect) {
     PainterHighQualityEnabler hq(p);
@@ -106,32 +97,6 @@ private:
     bool _showBackground = false;
 };
 
-// Shows a QR module grid (fixed black-on-white for reliable scanning).
-class QrDisplay final : public QWidget {
-public:
-    explicit QrDisplay(QWidget *parent) : QWidget(parent) {}
-
-    void setQr(const QByteArray &modules, int size) {
-        _modules = modules;
-        _size = size;
-        update();
-    }
-
-protected:
-    void paintEvent(QPaintEvent *) override {
-        if (_modules.isEmpty() || _size <= 0) {
-            return;
-        }
-        QPainter p(this);
-        paintQrModules(
-            p, rect(), _modules, _size, QColor(Qt::black), QColor(Qt::white));
-    }
-
-private:
-    QByteArray _modules;
-    int _size = 0;
-};
-
 // "Danger" text link button: transparent, no background hover; only the text
 // color shifts on hover (attentionButtonFg -> attentionButtonFgOver). Painted
 // from live st:: colors. (TextButton has no per-state fg, hence a dedicated
@@ -183,21 +148,6 @@ private:
     return button;
 }
 
-// Create a "light" (flat) TextButton with live st:: colors.
-::Ui::TextButton *makeLightButton(
-        const QString &text, int height, QWidget *parent) {
-    ::Ui::TextButton::Style style;
-    style.bgOver = &st::lightButtonBgOver;  // transparent until hovered
-    style.fg = &st::lightButtonFg;
-    style.radius = st::boxRadius;
-    style.height = height;
-    auto *button = new ::Ui::TextButton(text, style, parent);
-    auto font = st::baseFont(14);
-    font.setWeight(QFont::DemiBold);
-    button->setFont(font);
-    return button;
-}
-
 // Enabled (filled accent) style for an "active" button at the given height.
 ::Ui::TextButton::Style enabledActiveStyle(int height) {
     ::Ui::TextButton::Style s;
@@ -236,24 +186,22 @@ void applyLabelColor(QLabel *label, const QColor &color) {
     label->setPalette(pal);
 }
 
-// Process-wide handle to the currently-open verification dialog. The backend
-// keeps a single active verification flow, so a second dialog would strand the
-// first; opening a new one supersedes any existing one.
-VerifySessionDialog *g_activeVerifyDialog = nullptr;
+// Process-wide handle to the currently-open dialog. The backend keeps a single
+// active verification flow, so a second dialog would strand the first; opening a
+// new one supersedes any existing one.
+VerifyUserDialog *g_activeVerifyDialog = nullptr;
 
 } // namespace
 
-VerifySessionDialog::VerifySessionDialog(
+VerifyUserDialog::VerifyUserDialog(
     ProtocolBridge *bridge,
     QWidget *parent,
-    StartMode startMode,
-    const QString &transactionId,
     const QString &targetUserId,
-    const QString &targetDisplayName)
+    const QString &targetDisplayName,
+    const QString &flowId)
     : QWidget(parent ? parent->window() : nullptr)
     , _bridge(bridge)
-    , _startMode(startMode)
-    , _transactionId(transactionId)
+    , _transactionId(flowId)
     , _targetUserId(targetUserId)
     , _targetDisplayName(targetDisplayName)
 {
@@ -320,7 +268,7 @@ VerifySessionDialog::VerifySessionDialog(
     titleBar->setFixedHeight(st::boxTitleHeight);
     panelLayout->addWidget(titleBar);
 
-    _titleLabel = new QLabel(tr("Verify this session"), titleBar);
+    _titleLabel = new QLabel(titleBar);
     _titleLabel->setFont(st::boxTitleFont);
     applyLabelColor(_titleLabel, st::boxTitleFg);
     _titleLabel->setFixedWidth(
@@ -336,16 +284,15 @@ VerifySessionDialog::VerifySessionDialog(
             [this] { reject(); });
     _closeButton = close;
 
-    // Stacked widget for the 4 pages.
     _stack = new QStackedWidget(_panel);
     panelLayout->addWidget(_stack);
 
-    // Latch our flow id from the first state that carries one. The outgoing
-    // cross-user path (and a freshly-started self verify) has no flow id up
-    // front — startUserVerification returns only emojis — so without this the
-    // per-page guards below (which ignore Cancelled from a *different* flow)
-    // stay disabled and any unrelated flow's Cancelled would fail this dialog.
-    // Connected before the page builders so it runs first for each state.
+    // Latch our flow id from the first state that carries one. The outgoing path
+    // has no flow id up front — startUserVerification returns only emojis — so
+    // without this the page guard below (which ignores Cancelled from a
+    // *different* flow) stays disabled and any unrelated flow's Cancelled would
+    // fail this dialog. Connected before the page builders so it runs first for
+    // each state.
     if (_bridge) {
         connect(_bridge, &ProtocolBridge::verificationStateChanged, this,
                 [this](int, const QString &flowId) {
@@ -355,34 +302,24 @@ VerifySessionDialog::VerifySessionDialog(
         });
     }
 
-    buildChoicePage();
     buildEmojiPage();
-    buildRecoveryPage();
     buildSuccessPage();
-    buildQrPage();
 
-    if (!_targetUserId.isEmpty()) {
-        // Verifying ANOTHER user: straight to emoji via the cross-user start
-        // (the Choice/Recovery pages are session-only and never shown here).
-        showPage(kPageEmoji);
-        QTimer::singleShot(0, this, [this] {
-            if (_bridge) {
-                _bridge->startUserVerification(_targetUserId);
-            }
-        });
-    } else if (_startMode == StartMode::Emoji) {
-        showPage(kPageEmoji);
-        QTimer::singleShot(0, this, [this] {
-            if (_bridge) {
-                _bridge->startSasVerification(_transactionId);
-            }
-        });
-    } else {
-        showPage(kPageChoice);
-    }
+    showPage(kPageEmoji);
+    QTimer::singleShot(0, this, [this] {
+        if (!_bridge) {
+            return;
+        }
+        if (!_targetUserId.isEmpty()) {
+            _bridge->startUserVerification(_targetUserId);
+        } else {
+            // Incoming request: attach to the flow it arrived on.
+            _bridge->startSasVerification(_transactionId);
+        }
+    });
 }
 
-VerifySessionDialog::~VerifySessionDialog() {
+VerifyUserDialog::~VerifyUserDialog() {
     if (g_activeVerifyDialog == this) {
         g_activeVerifyDialog = nullptr;
     }
@@ -392,94 +329,9 @@ VerifySessionDialog::~VerifySessionDialog() {
     }
 }
 
-// --- Page 0: Choice ---
+// --- Page 0: Emoji SAS ---
 
-void VerifySessionDialog::buildChoicePage() {
-    auto *page = new QWidget(_stack);
-    auto *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(
-        st::boxPadding.left(),
-        st::boxPadding.top(),
-        st::boxPadding.right(),
-        4);
-    layout->setSpacing(10);
-
-    auto *descLabel = new QLabel(
-        tr("Choose how to verify this session to access "
-            "your encrypted messages."),
-        page);
-    descLabel->setFont(st::baseFont(14));
-    descLabel->setWordWrap(true);
-    applyLabelColor(descLabel, st::windowFg);
-    layout->addWidget(descLabel);
-
-    layout->addSpacing(4);
-
-    // All three options share the light style on purpose: the user is picking a
-    // method, not confirming a recommendation, so none of them is the default.
-    auto *emojiBtn = makeLightButton(
-        tr("Verify with emoji"),
-        TeleMatrix::Style::ConvertScale(36),
-        page);
-    connect(emojiBtn, &QAbstractButton::clicked, this, [this] {
-        showPage(kPageEmoji);
-        // Start the SAS flow.
-        if (_bridge) {
-            _bridge->startSasVerification(_transactionId);
-        }
-    });
-    layout->addWidget(emojiBtn);
-
-    // "Verify with QR code" button.
-    auto *qrBtn = makeLightButton(
-        tr("Verify with QR code"),
-        TeleMatrix::Style::ConvertScale(36),
-        page);
-    connect(qrBtn, &QAbstractButton::clicked, this, [this] {
-        showPage(kPageQr);
-        if (_bridge) {
-            _bridge->startQrVerification(_transactionId);
-        }
-    });
-    layout->addWidget(qrBtn);
-
-    // "Enter recovery key" button.
-    auto *recoveryBtn = makeLightButton(
-        tr("Enter recovery key"),
-        TeleMatrix::Style::ConvertScale(36),
-        page);
-    connect(recoveryBtn, &QAbstractButton::clicked, this, [this] {
-        showPage(kPageRecovery);
-    });
-    layout->addWidget(recoveryBtn);
-
-    layout->addSpacing(4);
-
-    // Cancel button row.
-    auto *buttonsContainer = new QWidget(page);
-    buttonsContainer->setFixedHeight(
-        st::boxButtonPadding.top()
-        + st::boxButtonHeight
-        + st::boxButtonPadding.bottom());
-
-    auto *buttonsLayout = new QHBoxLayout(buttonsContainer);
-    buttonsLayout->setContentsMargins(0, st::boxButtonPadding.top(), 0, st::boxButtonPadding.bottom());
-    buttonsLayout->setSpacing(8);
-    buttonsLayout->addStretch(1);
-
-    auto *cancelBtn = makeLightButton(
-        tr("Cancel"), st::boxButtonHeight, buttonsContainer);
-    connect(cancelBtn, &QAbstractButton::clicked, this, [this] { reject(); });
-    buttonsLayout->addWidget(cancelBtn);
-
-    layout->addWidget(buttonsContainer);
-
-    _stack->addWidget(page); // index 0
-}
-
-// --- Page 1: Emoji SAS ---
-
-void VerifySessionDialog::buildEmojiPage() {
+void VerifyUserDialog::buildEmojiPage() {
     _emojiPage = new QWidget(_stack);
     auto *layout = new QVBoxLayout(_emojiPage);
     layout->setContentsMargins(
@@ -500,8 +352,6 @@ void VerifySessionDialog::buildEmojiPage() {
     layout->addWidget(_emojiWaitLabel);
 
     // Emoji container — hidden until emojis arrive.
-    // We use a custom-painted widget for the emoji grid, following
-    // the same approach as IntroVerifyEmoji.
     auto *emojiContainer = new EmojiContainer(_emojiPage);
     _emojiContainer = emojiContainer;
     _emojiContainer->setFixedSize(
@@ -531,7 +381,7 @@ void VerifySessionDialog::buildEmojiPage() {
     buttonsLayout->addStretch(1);
 
     _emojiNoMatchButton = new DangerLinkButton(
-        tr("They Don\u2019t Match"), buttonsContainer);
+        tr("They Don’t Match"), buttonsContainer);
     _emojiNoMatchButton->setFixedHeight(st::boxButtonHeight);
     connect(_emojiNoMatchButton, &QAbstractButton::clicked, this, [this] {
         if (_bridge) {
@@ -688,285 +538,19 @@ void VerifySessionDialog::buildEmojiPage() {
         if (state != kCancelled || _stack->currentIndex() != kPageEmoji) {
             return;
         }
-        // Ignore a Cancelled belonging to a different flow (e.g. a QR flow torn
-        // down when switching to emoji).
+        // Ignore a Cancelled belonging to a different flow.
         if (!flowId.isEmpty() && !_transactionId.isEmpty() && flowId != _transactionId) {
             return;
         }
         showEmojiFailure();
     });
 
-    _stack->addWidget(_emojiPage); // index 1
+    _stack->addWidget(_emojiPage); // index 0
 }
 
-// --- Page 4: QR code ---
+// --- Page 1: Success ---
 
-void VerifySessionDialog::buildQrPage() {
-    _qrPage = new QWidget(_stack);
-    auto *layout = new QVBoxLayout(_qrPage);
-    layout->setContentsMargins(
-        st::boxPadding.left(),
-        st::boxPadding.top(),
-        st::boxPadding.right(),
-        4);
-    layout->setSpacing(10);
-
-    _qrWaitLabel = new QLabel(tr("Waiting for your other session..."), _qrPage);
-    _qrWaitLabel->setFont(st::baseFont(14));
-    _qrWaitLabel->setAlignment(Qt::AlignCenter);
-    applyLabelColor(_qrWaitLabel, st::windowSubTextFg);
-    _qrWaitLabel->setFixedHeight(st::introVerifyEmojiContainerH);
-    layout->addWidget(_qrWaitLabel);
-
-    auto *qrDisplay = new QrDisplay(_qrPage);
-    _qrDisplay = qrDisplay;
-    qrDisplay->setFixedSize(
-        st::introVerifyEmojiContainerH, st::introVerifyEmojiContainerH);
-    qrDisplay->hide();
-    layout->addWidget(qrDisplay, 0, Qt::AlignHCenter);
-
-    _qrErrorLabel = new QLabel(_qrPage);
-    _qrErrorLabel->setFont(st::baseFont(12));
-    applyLabelColor(_qrErrorLabel, st::attentionButtonFg);
-    _qrErrorLabel->setWordWrap(true);
-    _qrErrorLabel->hide();
-    layout->addWidget(_qrErrorLabel);
-
-    auto *buttonsContainer = new QWidget(_qrPage);
-    buttonsContainer->setFixedHeight(
-        st::boxButtonPadding.top()
-        + st::boxButtonHeight
-        + st::boxButtonPadding.bottom());
-
-    auto *buttonsLayout = new QHBoxLayout(buttonsContainer);
-    buttonsLayout->setContentsMargins(0, st::boxButtonPadding.top(), 0, st::boxButtonPadding.bottom());
-    buttonsLayout->setSpacing(8);
-    buttonsLayout->addStretch(1);
-
-    auto *cancelBtn = new DangerLinkButton(tr("Cancel"), buttonsContainer);
-    cancelBtn->setFixedHeight(st::boxButtonHeight);
-    connect(cancelBtn, &QAbstractButton::clicked, this, [this] {
-        if (_bridge) {
-            _bridge->cancelVerification(_transactionId);
-        }
-        reject();
-    });
-    buttonsLayout->addWidget(cancelBtn);
-
-    _qrConfirmButton = makeActiveButton(
-        tr("Continue"), st::boxButtonHeight, buttonsContainer);
-    setActiveButtonEnabled(_qrConfirmButton, false, st::boxButtonHeight);
-    connect(_qrConfirmButton, &QAbstractButton::clicked, this, [this] {
-        setActiveButtonEnabled(_qrConfirmButton, false, st::boxButtonHeight);
-        _qrConfirmButton->setText(tr("Confirming..."));
-        if (_bridge) {
-            _bridge->confirmQrScanned();
-        }
-    });
-    buttonsLayout->addWidget(_qrConfirmButton);
-
-    layout->addWidget(buttonsContainer);
-
-    const auto showQrFailure = [this] {
-        _qrWaitLabel->hide();
-        if (_qrDisplay) {
-            _qrDisplay->hide();
-        }
-        _titleLabel->setText(tr("Verification failed"));
-        _qrErrorLabel->setText(tr(
-            "The request was denied or timed out, "
-            "or there was a verification mismatch"));
-        _qrErrorLabel->show();
-        _qrConfirmButton->setText(tr("Close"));
-        setActiveButtonEnabled(_qrConfirmButton, true, st::boxButtonHeight);
-        _qrConfirmButton->disconnect();
-        connect(_qrConfirmButton, &QAbstractButton::clicked, this, [this] {
-            reject();
-        });
-    };
-
-    connect(_bridge, &ProtocolBridge::qrCodeReady,
-            this, [this, qrDisplay, showQrFailure](
-                bool success, const QByteArray &modules, int size) {
-        if (_stack->currentIndex() != kPageQr) {
-            return;
-        }
-        if (!success || modules.isEmpty() || size <= 0) {
-            showQrFailure();
-            return;
-        }
-        _qrWaitLabel->hide();
-        _qrErrorLabel->hide();
-        qrDisplay->setQr(modules, size);
-        qrDisplay->show();
-    });
-
-    connect(_bridge, &ProtocolBridge::qrScanConfirmed,
-            this, [this, showQrFailure](bool success) {
-        if (_stack->currentIndex() != kPageQr) {
-            return;
-        }
-        if (success) {
-            showPage(kPageSuccess);
-        } else {
-            showQrFailure();
-        }
-    });
-
-    connect(_bridge, &ProtocolBridge::verificationStateChanged,
-            this, [this, showQrFailure](int state, const QString &flowId) {
-        if (_stack->currentIndex() != kPageQr) {
-            return;
-        }
-        // Ignore states belonging to a different flow than the one this dialog runs.
-        if (!flowId.isEmpty() && !_transactionId.isEmpty() && flowId != _transactionId) {
-            return;
-        }
-        constexpr int kQrCodeScanned = 7;
-        constexpr int kCancelled = 9;
-        if (state == kQrCodeScanned) {
-            _titleLabel->setText(tr("Confirm on your other session"));
-            setActiveButtonEnabled(_qrConfirmButton, true, st::boxButtonHeight);
-        } else if (state == kCancelled) {
-            showQrFailure();
-        }
-    });
-
-    _stack->addWidget(_qrPage); // index 4
-}
-
-// --- Page 2: Recovery Key Entry ---
-
-void VerifySessionDialog::buildRecoveryPage() {
-    _recoveryPage = new QWidget(_stack);
-    auto *layout = new QVBoxLayout(_recoveryPage);
-    layout->setContentsMargins(
-        st::boxPadding.left(),
-        st::boxPadding.top(),
-        st::boxPadding.right(),
-        4);
-    layout->setSpacing(10);
-
-    // The stack sizes every page to its tallest sibling; without stretches the
-    // spare height spreads between the rows. Bracketing stretches centre the
-    // description+input block between the title and the bottom buttons.
-    layout->addStretch(1);
-
-    auto *descLabel = new QLabel(
-        tr("Enter your recovery key to verify this session "
-            "and restore access to encrypted messages."),
-        _recoveryPage);
-    descLabel->setFont(st::baseFont(14));
-    descLabel->setWordWrap(true);
-    applyLabelColor(descLabel, st::windowFg);
-    layout->addWidget(descLabel);
-
-    _recoveryInput = new ::Ui::BorderedLineEdit(_recoveryPage);
-    _recoveryInput->setPlaceholderText(tr("Recovery key"));
-    _recoveryInput->setFixedHeight(TeleMatrix::Style::ConvertScale(36));
-    _recoveryInput->setMaxLength(59);
-    _recoveryInput->setFont(st::monospaceFont(12));
-    // Type the key in groups of four, as it was shown when it was created.
-    connect(_recoveryInput, &QLineEdit::textEdited, this, [this] {
-        const auto formatted = TeleMatrix::FormatRecoveryKey(
-            _recoveryInput->text(), _recoveryInput->cursorPosition());
-        if (formatted.text == _recoveryInput->text()) {
-            return;
-        }
-        _recoveryInput->setText(formatted.text);
-        _recoveryInput->setCursorPosition(formatted.cursor);
-    });
-    layout->addWidget(_recoveryInput);
-
-    // Error label.
-    _recoveryErrorLabel = new QLabel(_recoveryPage);
-    _recoveryErrorLabel->setFont(st::baseFont(12));
-    applyLabelColor(_recoveryErrorLabel, st::attentionButtonFg);
-    _recoveryErrorLabel->setWordWrap(true);
-    _recoveryErrorLabel->hide();
-    layout->addWidget(_recoveryErrorLabel);
-
-    layout->addStretch(1);
-
-    // Buttons.
-    auto *buttonsContainer = new QWidget(_recoveryPage);
-    buttonsContainer->setFixedHeight(
-        st::boxButtonPadding.top()
-        + st::boxButtonHeight
-        + st::boxButtonPadding.bottom());
-
-    auto *buttonsLayout = new QHBoxLayout(buttonsContainer);
-    buttonsLayout->setContentsMargins(0, st::boxButtonPadding.top(), 0, st::boxButtonPadding.bottom());
-    buttonsLayout->setSpacing(8);
-    buttonsLayout->addStretch(1);
-
-    auto *backBtn = makeLightButton(
-        tr("Back"), st::boxButtonHeight, buttonsContainer);
-    connect(backBtn, &QAbstractButton::clicked, this, [this] {
-        _recoveryErrorLabel->hide();
-        _recoveryInput->clear();
-        showPage(kPageChoice);
-    });
-    buttonsLayout->addWidget(backBtn);
-
-    _recoverySubmitButton = makeActiveButton(
-        tr("Verify"), st::boxButtonHeight, buttonsContainer);
-    setActiveButtonEnabled(_recoverySubmitButton, false, st::boxButtonHeight);
-    connect(_recoverySubmitButton, &QAbstractButton::clicked, this, [this] {
-        const auto key = _recoveryInput->text().trimmed();
-        if (key.isEmpty()) return;
-
-        setActiveButtonEnabled(_recoverySubmitButton, false, st::boxButtonHeight);
-        _recoverySubmitButton->setText(tr("Verifying..."));
-        _recoveryInput->setEnabled(false);
-        _recoveryErrorLabel->hide();
-
-        if (_bridge) {
-            _bridge->verifyWithRecoveryKey(key);
-        }
-    });
-    buttonsLayout->addWidget(_recoverySubmitButton);
-
-    layout->addWidget(buttonsContainer);
-
-    // Enable submit button when input has text.
-    connect(_recoveryInput, &QLineEdit::textChanged, this, [this] {
-        const bool hasText = !_recoveryInput->text().trimmed().isEmpty();
-        setActiveButtonEnabled(_recoverySubmitButton, hasText, st::boxButtonHeight);
-        if (_recoveryErrorLabel->isVisible()) {
-            _recoveryErrorLabel->hide();
-        }
-    });
-
-    // Enter key submits.
-    connect(_recoveryInput, &QLineEdit::returnPressed, this, [this] {
-        if (_recoverySubmitButton->isEnabled()) {
-            _recoverySubmitButton->click();
-        }
-    });
-
-    // Connect bridge signal for recovery key result.
-    connect(_bridge, &ProtocolBridge::recoveryKeyVerified,
-            this, [this](bool success) {
-        if (success) {
-            showPage(kPageSuccess);
-        } else {
-            setActiveButtonEnabled(_recoverySubmitButton, true, st::boxButtonHeight);
-            _recoverySubmitButton->setText(tr("Verify"));
-            _recoveryInput->setEnabled(true);
-            _recoveryErrorLabel->setText(
-                tr("Invalid recovery key. Please check and try again."));
-            _recoveryErrorLabel->show();
-            _recoveryInput->setFocus();
-        }
-    });
-
-    _stack->addWidget(_recoveryPage); // index 2
-}
-
-// --- Page 3: Success ---
-
-void VerifySessionDialog::buildSuccessPage() {
+void VerifyUserDialog::buildSuccessPage() {
     auto *page = new QWidget(_stack);
     auto *layout = new QVBoxLayout(page);
     layout->setContentsMargins(
@@ -1014,15 +598,18 @@ void VerifySessionDialog::buildSuccessPage() {
     layout->addSpacing(8);
 
     auto *successTitle = new QLabel(
-        tr("Session Verified"), page);
+        _targetDisplayName.isEmpty()
+            ? tr("Verified")
+            : tr("%1 verified").arg(_targetDisplayName),
+        page);
     successTitle->setFont(st::boxTitleFont);
     successTitle->setAlignment(Qt::AlignCenter);
     applyLabelColor(successTitle, st::windowFg);
     layout->addWidget(successTitle);
 
     auto *successDesc = new QLabel(
-        tr("This session is now verified. "
-            "Your encrypted messages are secure."),
+        tr("Their identity is confirmed. "
+            "Your messages with them are secure."),
         page);
     successDesc->setFont(st::baseFont(14));
     successDesc->setWordWrap(true);
@@ -1051,39 +638,27 @@ void VerifySessionDialog::buildSuccessPage() {
 
     layout->addWidget(buttonsContainer);
 
-    _stack->addWidget(page); // index 3
+    _stack->addWidget(page); // index 1
 }
 
-void VerifySessionDialog::showPage(int index) {
+void VerifyUserDialog::showPage(int index) {
     _stack->setCurrentIndex(index);
 
     switch (index) {
-    case kPageChoice:
-        _titleLabel->setText(tr("Verify this session"));
-        break;
     case kPageEmoji:
         _titleLabel->setText(_targetDisplayName.isEmpty()
             ? tr("Compare emojis")
             : tr("Verify %1").arg(_targetDisplayName));
         break;
-    case kPageRecovery:
-        _titleLabel->setText(tr("Enter recovery key"));
-        QTimer::singleShot(0, _recoveryInput, [this] {
-            _recoveryInput->setFocus();
-        });
-        break;
     case kPageSuccess:
         _titleLabel->setText(_targetDisplayName.isEmpty()
-            ? tr("Session verified")
+            ? tr("Verified")
             : tr("%1 verified").arg(_targetDisplayName));
-        break;
-    case kPageQr:
-        _titleLabel->setText(tr("Scan QR code"));
         break;
     }
 }
 
-int VerifySessionDialog::exec() {
+int VerifyUserDialog::exec() {
     const auto restoreFocus = ::TeleMatrix::Focus::saveFocusForPopup();
 
     raise();
@@ -1103,12 +678,12 @@ int VerifySessionDialog::exec() {
     return _result;
 }
 
-void VerifySessionDialog::accept() {
+void VerifyUserDialog::accept() {
     _result = Accepted;
     if (_loop) _loop->quit();
 }
 
-void VerifySessionDialog::reject() {
+void VerifyUserDialog::reject() {
     // Cancel any in-flight verification to avoid orphaned backend operations.
     if (_bridge) {
         _bridge->cancelVerification(_transactionId);
@@ -1117,7 +692,7 @@ void VerifySessionDialog::reject() {
     if (_loop) _loop->quit();
 }
 
-void VerifySessionDialog::paintEvent(QPaintEvent *) {
+void VerifyUserDialog::paintEvent(QPaintEvent *) {
     QPainter p(this);
 
     p.setOpacity(_bgOpacity);
@@ -1129,7 +704,7 @@ void VerifySessionDialog::paintEvent(QPaintEvent *) {
     }
 }
 
-void VerifySessionDialog::keyPressEvent(QKeyEvent *event) {
+void VerifyUserDialog::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_Escape) {
         reject();
         return;
@@ -1137,7 +712,7 @@ void VerifySessionDialog::keyPressEvent(QKeyEvent *event) {
     QWidget::keyPressEvent(event);
 }
 
-bool VerifySessionDialog::eventFilter(QObject *obj, QEvent *event) {
+bool VerifyUserDialog::eventFilter(QObject *obj, QEvent *event) {
     if (obj == parentWidget() && event->type() == QEvent::Resize) {
         setGeometry(parentWidget()->rect());
     }

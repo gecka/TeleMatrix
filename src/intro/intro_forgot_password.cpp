@@ -113,7 +113,7 @@ private:
 
 } // namespace
 
-IntroForgotPassword::IntroForgotPassword(IntroWidget *parent, ProtocolBridge *bridge)
+IntroForgotPassword::IntroForgotPassword(QWidget *parent, ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
     , _bridge(bridge)
 {

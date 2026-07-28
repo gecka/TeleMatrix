@@ -30,7 +30,7 @@ constexpr int kTitleSize = 29;
 
 } // namespace
 
-IntroStart::IntroStart(IntroWidget *parent)
+IntroStart::IntroStart(QWidget *parent)
     : IntroStep(parent, false /* hasCover */)
 {
     // The wordmark and the buttons are the whole screen; the base class's

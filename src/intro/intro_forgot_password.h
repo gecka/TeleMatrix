@@ -24,7 +24,7 @@ class IntroForgotPassword : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroForgotPassword(IntroWidget *parent, ProtocolBridge *bridge);
+    explicit IntroForgotPassword(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     void submit() override;

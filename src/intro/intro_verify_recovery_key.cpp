@@ -32,7 +32,7 @@ using IntroKeyLineEdit = intro::Field;
 } // namespace
 
 IntroVerifyRecoveryKey::IntroVerifyRecoveryKey(
-    IntroWidget *parent,
+    QWidget *parent,
     ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
     , _bridge(bridge)
@@ -214,6 +214,13 @@ void IntroVerifyRecoveryKey::updateSubmitState() {
 
 void IntroVerifyRecoveryKey::resizeEvent(QResizeEvent *e) {
     IntroStep::resizeEvent(e);
+    updateKeyLayout();
+}
+
+void IntroVerifyRecoveryKey::updateSkipVisibility() {
+    _skipLink->setVisible(allowsSkip());
+    // Unlike the other verify screens this one centres its block as a whole, so
+    // dropping a link has to re-centre what is left.
     updateKeyLayout();
 }
 

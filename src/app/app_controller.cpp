@@ -11,7 +11,7 @@
 #include "tray_icon.h"
 #include "unread_state_store.h"
 
-#include "../dialogs/dialogs_add_account_box.h"
+#include "../dialogs/dialogs_intro_box.h"
 #include "../intro/intro_colors.h"
 #include "../intro/intro_widget.h"
 #include "../intro/intro_vault_unlock.h"
@@ -1571,7 +1571,7 @@ void AppController::showAddAccountIntro() {
     // signed in stays visible (dimmed) behind it, and dismissing it cancels
     // adding an account rather than quitting the app. IntroWidget is laid out at
     // its designed proportions inside a large centered card (see
-    // DialogsAddAccountBox / st::addAccountBox*).
+    // DialogsIntroBox / st::introBox*).
     //
     // The popup sits over the running (themed) app, so render the intro in the
     // live theme. Must run BEFORE the IntroWidget/card are built — their palette
@@ -1585,7 +1585,7 @@ void AppController::showAddAccountIntro() {
     // A dialog over the running app: the version and key-storage lines belong
     // to the first-run stage, not here.
     intro->setEmbedded(true);
-    auto *popup = new DialogsAddAccountBox(intro, _window);
+    auto *popup = new DialogsIntroBox(intro, _window);
 
     connect(account->bridge(), &ProtocolBridge::loginResult, popup,
             [this, account](bool success,
@@ -1616,7 +1616,7 @@ void AppController::showAddAccountIntro() {
     // persistSessionFor removes an entry), and a stale index then reads a
     // different account — skipping the discard (a ghost stays behind) or
     // activating the wrong account.
-    connect(popup, &DialogsAddAccountBox::finished, this,
+    connect(popup, &DialogsIntroBox::finished, this,
             [this, dirName = account->dirName()](int) {
         const auto account = _domain.account(_domain.indexOfDirName(dirName));
         if (!account) {

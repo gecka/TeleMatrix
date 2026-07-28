@@ -14,7 +14,7 @@ class IntroVerifySuccess : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroVerifySuccess(IntroWidget *parent);
+    explicit IntroVerifySuccess(QWidget *parent);
 
     void activate() override;
     void submit() override;

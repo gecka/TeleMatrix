@@ -21,7 +21,7 @@ class IntroSecretBackend : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroSecretBackend(IntroWidget *parent);
+    explicit IntroSecretBackend(QWidget *parent);
 
     void activate() override;
     void submit() override;

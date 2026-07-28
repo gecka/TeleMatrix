@@ -26,7 +26,8 @@
 #include "history_send_files_dialog.h"
 #include "../dialogs/dialogs_invite_users_box.h"
 #include "../dialogs/dialogs_room_info_box.h"
-#include "../settings/dialogs/verify_session_dialog.h"
+#include "../settings/dialogs/verify_session_popup.h"
+#include "../settings/dialogs/verify_user_dialog.h"
 #include "../ui/empty_userpic.h"
 #include "../ui/widgets/connecting_radial.h"
 
@@ -2802,11 +2803,9 @@ void HistoryWidget::setupTopBar() {
                 : userId;
             hideTrustWarning();
             if (_bridge && !userId.isEmpty()) {
-                auto *dialog = new VerifySessionDialog(
+                auto *dialog = new VerifyUserDialog(
                     _bridge,
                     window(),
-                    VerifySessionDialog::StartMode::Emoji,
-                    QString(),
                     userId,
                     name);
                 dialog->exec();
@@ -3731,10 +3730,8 @@ void HistoryWidget::setupMessageList() {
         emit openUserProfileRequested(_currentRoomId, userId, displayName);
     });
     connect(_list, &HistoryList::verifySessionRequested, this, [this] {
-        auto *dialog = new VerifySessionDialog(_bridge, window());
-        const auto result = dialog->exec();
-        dialog->deleteLater();
-        if (result == VerifySessionDialog::Accepted && !_currentRoomId.isEmpty()) {
+        const auto verified = ShowVerifySessionPopup(_bridge, window());
+        if (verified && !_currentRoomId.isEmpty()) {
             _list->setSessionVerified(true);
             onTimelineChanged(_currentRoomId);
         }

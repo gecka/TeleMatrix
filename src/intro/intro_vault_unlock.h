@@ -18,12 +18,12 @@ namespace TeleMatrix {
 // of the intro flow). Verifies the password against the vault itself, so a wrong
 // one shows an inline error rather than silently re-prompting; the Unlock button
 // is disabled while the field is empty. Hosted by AppController via a nested loop,
-// not the IntroWidget stack, so its IntroWidget parent is null.
+// not the IntroWidget stack, so it has no parent at all.
 class IntroVaultUnlock final : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroVaultUnlock(IntroWidget *parent = nullptr);
+    explicit IntroVaultUnlock(QWidget *parent = nullptr);
 
     void activate() override;
     void submit() override;

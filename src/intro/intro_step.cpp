@@ -73,9 +73,8 @@ private:
 
 } // namespace
 
-IntroStep::IntroStep(IntroWidget *parent, bool hasCover)
+IntroStep::IntroStep(QWidget *parent, bool hasCover)
     : QWidget(parent)
-    , _introWidget(parent)
     , _hasCover(hasCover)
 {
     // Title label — styled differently for cover vs non-cover in updateLayout.
@@ -472,6 +471,14 @@ void IntroStep::setShowsVersion(bool shows) {
     }
     _showsVersion = shows;
     update();
+}
+
+void IntroStep::setAllowsSkip(bool allows) {
+    if (_allowsSkip == allows) {
+        return;
+    }
+    _allowsSkip = allows;
+    updateSkipVisibility();
 }
 
 void IntroStep::setKeysLabel(const QString &label) {

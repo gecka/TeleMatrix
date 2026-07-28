@@ -12,19 +12,19 @@
 
 namespace TeleMatrix {
 
-class IntroWidget;
-
 /// Base class for intro flow steps (Start, Login).
 /// Provides a title, description, error label, and "Next" button.
 /// Supports two layout modes: cover (welcome screen with gradient)
 /// and no-cover (login screen with white background).
 ///
-/// Built from raw Qt widgets.
+/// Built from raw Qt widgets. The parent is a plain QWidget, not IntroWidget:
+/// the verification steps are also hosted outside the intro, by the in-app
+/// VerificationFlow.
 class IntroStep : public QWidget {
     Q_OBJECT
 
 public:
-    explicit IntroStep(IntroWidget *parent, bool hasCover);
+    explicit IntroStep(QWidget *parent, bool hasCover);
     ~IntroStep() override = default;
 
     /// Called when this step becomes visible. Override to set focus.
@@ -51,6 +51,13 @@ public:
     /// Whether the version line shows. Off inside the Add-Account popup, which
     /// is a dialog over the running app rather than the first-run stage.
     void setShowsVersion(bool shows);
+    /// Whether this step offers "Skip for now". On while signing in or creating
+    /// an account, where refusing to verify has to leave a way into the app, and
+    /// off in the in-app verification popup — there the app is already open
+    /// behind the card, so closing it is the way out and a skip that also tells
+    /// the backend "never mind" would be a worse version of that.
+    void setAllowsSkip(bool allows);
+    [[nodiscard]] bool allowsSkip() const { return _allowsSkip; }
 
 signals:
     /// Emitted when the step wants to navigate forward.
@@ -64,8 +71,6 @@ signals:
 protected:
     void setTitleText(const QString &text);
     void setDescriptionText(const QString &text);
-
-    IntroWidget *introWidget() const { return _introWidget; }
 
     void paintEvent(QPaintEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
@@ -97,6 +102,11 @@ protected:
     [[nodiscard]] QString friendlyError(
         const QString &raw,
         const QString &homeserver = QString()) const;
+
+    /// Show or hide this step's own "Skip for now" control to match
+    /// allowsSkip(). Called when that answer changes; steps without such a
+    /// control need not override it.
+    virtual void updateSkipVisibility() {}
 
     /// Re-run this step's layout. The base re-places the shared chrome only;
     /// steps that position their own controls override it so error show/hide
@@ -136,12 +146,12 @@ private:
     void paintCover(QPainter &p);
     void paintStageFurniture(QPainter &p);
 
-    IntroWidget *_introWidget = nullptr;
     bool _hasCover = false;
 
     bool _managesHeadings = false;
     bool _showsKeysLine = false;
     bool _showsVersion = true;
+    bool _allowsSkip = true;
     QString _keysLabel;
     /// Hit rect for the "Change" link, recomputed on every paint (the line is
     /// centred, so it moves with the window).

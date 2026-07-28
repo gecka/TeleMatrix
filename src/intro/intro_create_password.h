@@ -21,7 +21,7 @@ class IntroCreatePassword final : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroCreatePassword(IntroWidget *parent);
+    explicit IntroCreatePassword(QWidget *parent);
 
     void activate() override;
     void submit() override;

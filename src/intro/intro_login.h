@@ -23,7 +23,7 @@ class IntroLogin : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroLogin(IntroWidget *parent, ProtocolBridge *bridge);
+    explicit IntroLogin(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     void submit() override;

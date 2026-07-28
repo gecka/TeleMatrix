@@ -20,7 +20,7 @@ class IntroVerifyEmoji : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroVerifyEmoji(IntroWidget *parent, ProtocolBridge *bridge);
+    explicit IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     void submit() override;
@@ -30,6 +30,12 @@ public:
     // here from a QR flow we deliberately tore down ("compare emoji instead"),
     // so that flow's cancellation does not surface as a failure on this page.
     void ignoreFlow(const QString &flowId) { _ignoredFlowId = flowId; }
+
+    // Attach to an existing verification request rather than starting a fresh
+    // outgoing one — set when this page is opened from an incoming request.
+    // Consumed by the first start: once that request is cancelled or times out
+    // there is nothing left to attach to, so Retry starts our own flow instead.
+    void setRequestFlowId(const QString &flowId) { _requestFlowId = flowId; }
 
 signals:
     void mismatch();
@@ -41,6 +47,7 @@ signals:
 protected:
     void paintEvent(QPaintEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
+    void updateSkipVisibility() override;
 
 private:
     void startVerification();
@@ -62,6 +69,7 @@ private:
     QStringList _labels;
     bool _waiting = false;
     QString _ignoredFlowId;
+    QString _requestFlowId;
 };
 
 } // namespace TeleMatrix

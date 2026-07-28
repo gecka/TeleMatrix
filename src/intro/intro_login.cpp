@@ -40,7 +40,7 @@ using IntroLineEdit = intro::Field;
 
 } // namespace
 
-IntroLogin::IntroLogin(IntroWidget *parent, ProtocolBridge *bridge)
+IntroLogin::IntroLogin(QWidget *parent, ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
     , _bridge(bridge)
 {

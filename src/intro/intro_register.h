@@ -27,7 +27,7 @@ class IntroRegister : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroRegister(IntroWidget *parent, ProtocolBridge *bridge);
+    explicit IntroRegister(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     /// Called when navigating away from this step. Prevents stale backend

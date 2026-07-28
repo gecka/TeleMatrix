@@ -799,42 +799,42 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
 <context>
     <name>EmojiPicker</name>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="590"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="595"/>
         <source>Search</source>
         <translation>Buscar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="186"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="191"/>
         <source>Smileys &amp; People</source>
         <translation>Emoticonos y personas</translation>
     </message>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="191"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="196"/>
         <source>Animals &amp; Nature</source>
         <translation>Animales y naturaleza</translation>
     </message>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="196"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="201"/>
         <source>Food &amp; Drink</source>
         <translation>Comida y bebida</translation>
     </message>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="201"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="206"/>
         <source>Activity</source>
         <translation>Actividades</translation>
     </message>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="206"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="211"/>
         <source>Travel &amp; Places</source>
         <translation>Viajes y lugares</translation>
     </message>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="211"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="216"/>
         <source>Objects</source>
         <translation>Objetos</translation>
     </message>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="216"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="221"/>
         <source>Symbols &amp; Flags</source>
         <translation>Símbolos y banderas</translation>
     </message>
@@ -854,128 +854,128 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
         <translation type="vanished">No se puede reproducir este video</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="5045"/>
+        <location filename="../src/history/history_message.cpp" line="5049"/>
         <source>Unable to decrypt message</source>
         <translation>No se puede descifrar el mensaje</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="5011"/>
+        <location filename="../src/history/history_message.cpp" line="5015"/>
         <source>Decrypting message</source>
         <translation>Descifrando mensaje</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="5052"/>
+        <location filename="../src/history/history_message.cpp" line="5056"/>
         <source>Verify this device</source>
         <translation>Verificar este dispositivo</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="288"/>
+        <location filename="../src/history/history_message.cpp" line="289"/>
         <source>Forwarded from %1</source>
         <translation>Reenviado de %1</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="565"/>
+        <location filename="../src/history/history_message.cpp" line="566"/>
         <source>Decrypting...</source>
         <translation>Descifrando...</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="591"/>
+        <location filename="../src/history/history_message.cpp" line="592"/>
         <source>Download</source>
         <translation>Descargar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="755"/>
+        <location filename="../src/history/history_message.cpp" line="756"/>
         <source>Can&apos;t play this video — click to retry</source>
         <translation>No se puede reproducir el vídeo: haz clic para reintentar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="794"/>
+        <location filename="../src/history/history_message.cpp" line="795"/>
         <source>Waiting for network...</source>
         <translation>Esperando la red...</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="800"/>
+        <location filename="../src/history/history_message.cpp" line="801"/>
         <source>Preparing...</source>
         <translation>Preparando...</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="810"/>
+        <location filename="../src/history/history_message.cpp" line="811"/>
         <source>Sending...</source>
         <translation>Enviando...</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="850"/>
+        <location filename="../src/history/history_message.cpp" line="851"/>
         <source>edited</source>
         <translation>editado</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1006"/>
-        <location filename="../src/history/history_message.cpp" line="1296"/>
+        <location filename="../src/history/history_message.cpp" line="1007"/>
+        <location filename="../src/history/history_message.cpp" line="1297"/>
         <source>Reply</source>
         <translation>Responder</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1162"/>
+        <location filename="../src/history/history_message.cpp" line="1163"/>
         <source>Photo</source>
         <translation>Foto</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1170"/>
+        <location filename="../src/history/history_message.cpp" line="1171"/>
         <source>File</source>
         <translation>Archivo</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1178"/>
+        <location filename="../src/history/history_message.cpp" line="1179"/>
         <source>Audio</source>
         <translation>Audio</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1186"/>
+        <location filename="../src/history/history_message.cpp" line="1187"/>
         <source>Video</source>
         <translation>Vídeo</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1191"/>
-        <location filename="../src/history/history_message.cpp" line="4515"/>
+        <location filename="../src/history/history_message.cpp" line="1192"/>
+        <location filename="../src/history/history_message.cpp" line="4519"/>
         <source>Service message</source>
         <translation>Mensaje de servicio</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1199"/>
+        <location filename="../src/history/history_message.cpp" line="1200"/>
         <source>Poll</source>
         <translation>Encuesta</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1229"/>
-        <location filename="../src/history/history_message.cpp" line="1299"/>
+        <location filename="../src/history/history_message.cpp" line="1230"/>
+        <location filename="../src/history/history_message.cpp" line="1300"/>
         <source>Message</source>
         <translation>Mensaje</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="1248"/>
-        <location filename="../src/history/history_message.cpp" line="1271"/>
-        <location filename="../src/history/history_message.cpp" line="7467"/>
+        <location filename="../src/history/history_message.cpp" line="1249"/>
+        <location filename="../src/history/history_message.cpp" line="1272"/>
+        <location filename="../src/history/history_message.cpp" line="7471"/>
         <source>Deleted message</source>
         <translation>Mensaje eliminado</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="3105"/>
+        <location filename="../src/history/history_message.cpp" line="3106"/>
         <source>copy</source>
         <translation>copiar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="574"/>
-        <location filename="../src/history/history_message.cpp" line="579"/>
+        <location filename="../src/history/history_message.cpp" line="575"/>
+        <location filename="../src/history/history_message.cpp" line="580"/>
         <source> · Downloading</source>
         <translation> · Descargando</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="594"/>
+        <location filename="../src/history/history_message.cpp" line="595"/>
         <source> · Download</source>
         <translation> · Descargar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_message.cpp" line="581"/>
+        <location filename="../src/history/history_message.cpp" line="582"/>
         <source>Downloading...</source>
         <translation>Descargando...</translation>
     </message>
@@ -983,12 +983,12 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
 <context>
     <name>HistoryTrustWarningBar</name>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="944"/>
+        <location filename="../src/history/history_widget.cpp" line="945"/>
         <source>%1&apos;s identity has changed</source>
         <translation>La identidad de %1 ha cambiado</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="986"/>
+        <location filename="../src/history/history_widget.cpp" line="987"/>
         <source>Re-verify</source>
         <translation>Volver a verificar</translation>
     </message>
@@ -1034,43 +1034,43 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
 <context>
     <name>HistoryWidget</name>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="1554"/>
+        <location filename="../src/history/history_widget.cpp" line="1555"/>
         <source>Syncing members data</source>
         <translation>Sincronizando datos de miembros</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="640"/>
+        <location filename="../src/history/history_widget.cpp" line="641"/>
         <source>Photo</source>
         <translation>Foto</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="646"/>
+        <location filename="../src/history/history_widget.cpp" line="647"/>
         <source>Video</source>
         <translation>Vídeo</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="654"/>
+        <location filename="../src/history/history_widget.cpp" line="655"/>
         <source>File</source>
         <translation>Archivo</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="659"/>
+        <location filename="../src/history/history_widget.cpp" line="660"/>
         <source>Audio</source>
         <translation>Audio</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="662"/>
+        <location filename="../src/history/history_widget.cpp" line="663"/>
         <source>Service message</source>
         <translation>Mensaje de servicio</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="667"/>
+        <location filename="../src/history/history_widget.cpp" line="668"/>
         <source>Poll</source>
         <translation>Encuesta</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="671"/>
-        <location filename="../src/history/history_widget.cpp" line="702"/>
+        <location filename="../src/history/history_widget.cpp" line="672"/>
+        <location filename="../src/history/history_widget.cpp" line="703"/>
         <source>Message</source>
         <translation>Mensaje</translation>
     </message>
@@ -1785,54 +1785,54 @@ Esta acción es permanente y no se puede deshacer. Todos tus datos se perderán.
 <context>
     <name>TeleMatrix::AppController</name>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="926"/>
-        <location filename="../src/app/app_controller.cpp" line="1527"/>
+        <location filename="../src/app/app_controller.cpp" line="939"/>
+        <location filename="../src/app/app_controller.cpp" line="1540"/>
         <source>Secure storage unavailable</source>
         <translation>Almacenamiento seguro no disponible</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="927"/>
+        <location filename="../src/app/app_controller.cpp" line="940"/>
         <source>TeleMatrix can&apos;t reach your system keyring, so it can&apos;t open your saved session. Your data is safe — make sure your keyring and D-Bus are running, then reopen TeleMatrix.</source>
         <translation>TeleMatrix no puede acceder al llavero del sistema, por lo que no puede abrir tu sesión guardada. Tus datos están seguros: asegúrate de que el llavero y D-Bus estén en ejecución y vuelve a abrir TeleMatrix.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="930"/>
+        <location filename="../src/app/app_controller.cpp" line="943"/>
         <source>Quit</source>
         <translation>Salir</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="989"/>
+        <location filename="../src/app/app_controller.cpp" line="1002"/>
         <source>Can&apos;t read your saved sign-in</source>
         <translation>No se puede leer tu sesión guardada</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="990"/>
+        <location filename="../src/app/app_controller.cpp" line="1003"/>
         <source>TeleMatrix couldn&apos;t read your saved sign-in from the system keychain, so it can&apos;t open your session. Nothing has been deleted — your data is safe. Allow TeleMatrix to access the keychain, then try again.</source>
         <translation>TeleMatrix no ha podido leer tu sesión guardada en el llavero del sistema, así que no puede abrirla. No se ha borrado nada: tus datos están a salvo. Permite que TeleMatrix acceda al llavero y vuelve a intentarlo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="994"/>
-        <location filename="../src/app/app_controller.cpp" line="1096"/>
+        <location filename="../src/app/app_controller.cpp" line="1007"/>
+        <location filename="../src/app/app_controller.cpp" line="1109"/>
         <source>Try again</source>
         <translation>Reintentar</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1010"/>
+        <location filename="../src/app/app_controller.cpp" line="1023"/>
         <source>Sign out and erase local data?</source>
         <translation>¿Cerrar sesión y borrar los datos locales?</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1011"/>
+        <location filename="../src/app/app_controller.cpp" line="1024"/>
         <source>This deletes the keys that decrypt the copy of your messages stored on this device. They cannot be recovered, and everything will be downloaded again after you sign in.</source>
         <translation>Esto elimina las claves que descifran la copia de tus mensajes guardada en este dispositivo. No se pueden recuperar, y todo se descargará de nuevo cuando inicies sesión.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1092"/>
+        <location filename="../src/app/app_controller.cpp" line="1105"/>
         <source>Couldn&apos;t open your session</source>
         <translation>No se pudo abrir tu sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1093"/>
+        <location filename="../src/app/app_controller.cpp" line="1106"/>
         <source>TeleMatrix couldn&apos;t restore your session. The homeserver may be unreachable, or startup may have taken too long. Nothing has been deleted — your data is safe.
 
 %1</source>
@@ -1841,51 +1841,51 @@ Esta acción es permanente y no se puede deshacer. Todos tus datos se perderán.
 %1</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1380"/>
+        <location filename="../src/app/app_controller.cpp" line="1393"/>
         <source>Couldn&apos;t open this account</source>
         <translation>No se pudo abrir esta cuenta</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1381"/>
+        <location filename="../src/app/app_controller.cpp" line="1394"/>
         <source>Its saved sign-in can&apos;t be read right now. Nothing has been deleted — you can try again later, or sign this account out of this device.</source>
         <translation>Su sesión guardada no se puede leer ahora mismo. No se ha borrado nada: puedes reintentarlo más tarde o cerrar la sesión de esta cuenta en este dispositivo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1384"/>
+        <location filename="../src/app/app_controller.cpp" line="1397"/>
         <source>Sign out account</source>
         <translation>Cerrar sesión de la cuenta</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1385"/>
+        <location filename="../src/app/app_controller.cpp" line="1398"/>
         <source>Not now</source>
         <translation>Ahora no</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1528"/>
+        <location filename="../src/app/app_controller.cpp" line="1541"/>
         <source>TeleMatrix can&apos;t reach secure storage, so it can&apos;t save a new account&apos;s sign-in. Unlock your keyring and try again.</source>
         <translation>TeleMatrix no puede acceder al almacenamiento seguro, así que no puede guardar el inicio de sesión de una cuenta nueva. Desbloquea tu llavero e inténtalo de nuevo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2039"/>
+        <location filename="../src/app/app_controller.cpp" line="2052"/>
         <source>Are you sure you want to sign out?</source>
         <translation>¿Seguro que quieres cerrar sesión?</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="995"/>
-        <location filename="../src/app/app_controller.cpp" line="1014"/>
-        <location filename="../src/app/app_controller.cpp" line="1097"/>
-        <location filename="../src/app/app_controller.cpp" line="2040"/>
-        <location filename="../src/app/app_controller.cpp" line="2306"/>
+        <location filename="../src/app/app_controller.cpp" line="1008"/>
+        <location filename="../src/app/app_controller.cpp" line="1027"/>
+        <location filename="../src/app/app_controller.cpp" line="1110"/>
+        <location filename="../src/app/app_controller.cpp" line="2053"/>
+        <location filename="../src/app/app_controller.cpp" line="2319"/>
         <source>Sign out</source>
         <translation>Cerrar sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2301"/>
+        <location filename="../src/app/app_controller.cpp" line="2314"/>
         <source>Data is corrupted. Forcing logout</source>
         <translation>Los datos están dañados. Forzando el cierre de sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2302"/>
+        <location filename="../src/app/app_controller.cpp" line="2315"/>
         <source>TeleMatrix&apos;s local data is corrupted and can&apos;t be repaired, so you will be signed out and the local data cleared.
 
 Make sure your recovery key is backed up — you&apos;ll need it to restore your encrypted message history after signing back in.</source>
@@ -1906,7 +1906,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="obsolete">Activar</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1530"/>
+        <location filename="../src/app/app_controller.cpp" line="1543"/>
         <source>OK</source>
         <translation>Aceptar</translation>
     </message>
@@ -1923,33 +1923,33 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Introduce tu contraseña maestra para desbloquear tus datos locales.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2365"/>
+        <location filename="../src/app/app_controller.cpp" line="2378"/>
         <source>Reset local data?</source>
         <translation>¿Restablecer los datos locales?</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2366"/>
+        <location filename="../src/app/app_controller.cpp" line="2379"/>
         <source>Without your master password, TeleMatrix can&apos;t open your local data. Reset and sign in again? Your messages stay on the server and re-download after you sign in.</source>
         <translation>Sin tu contraseña maestra, TeleMatrix no puede abrir tus datos locales. ¿Restablecer e iniciar sesión de nuevo? Tus mensajes permanecen en el servidor y se vuelven a descargar tras iniciar sesión.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2369"/>
+        <location filename="../src/app/app_controller.cpp" line="2382"/>
         <source>Reset</source>
         <translation>Restablecer</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1015"/>
-        <location filename="../src/app/app_controller.cpp" line="2370"/>
+        <location filename="../src/app/app_controller.cpp" line="1028"/>
+        <location filename="../src/app/app_controller.cpp" line="2383"/>
         <source>Back</source>
         <translation>Atrás</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2419"/>
+        <location filename="../src/app/app_controller.cpp" line="2432"/>
         <source>Preparing</source>
         <translation>Preparando</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2420"/>
+        <location filename="../src/app/app_controller.cpp" line="2433"/>
         <source>Clearing leftover data…</source>
         <translation>Borrando datos sobrantes…</translation>
     </message>
@@ -1961,7 +1961,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
 <context>
     <name>TeleMatrix::AppMainWidget</name>
     <message>
-        <location filename="../src/app/app_main_widget.cpp" line="718"/>
+        <location filename="../src/app/app_main_widget.cpp" line="719"/>
         <source>Failed to create room. Check the room settings and try again.</source>
         <translation>No se pudo crear la sala. Comprueba los ajustes de la sala e inténtalo de nuevo.</translation>
     </message>
@@ -2574,117 +2574,117 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation>Error al restablecer la identidad criptográfica.</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="510"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="508"/>
         <source>Verify this session to access your encrypted messages and prove your identity to others.</source>
         <translation>Verifica esta sesión para acceder a tus mensajes cifrados y demostrar tu identidad a otros.</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="527"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="525"/>
         <source>Verify with another device</source>
         <translation>Verificar con otro dispositivo</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="532"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="554"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="530"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="552"/>
         <source>Enter recovery key</source>
         <translation>Introducir clave de recuperación</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="537"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="535"/>
         <source>Enter your recovery key to sync encryption keys across your devices.</source>
         <translation>Introduce tu clave de recuperación para sincronizar las claves de cifrado en todos tus dispositivos.</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="574"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="572"/>
         <source>Forgot recovery key?</source>
         <translation>¿Olvidaste la clave de recuperación?</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="584"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="582"/>
         <source>Your encryption keys are no longer available. Reset to create new ones. You will lose access to previously encrypted messages.</source>
         <translation>Tus claves de cifrado ya no están disponibles. Restablece para crear nuevas. Perderás el acceso a los mensajes cifrados anteriormente.</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="602"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="600"/>
         <source>Reset identity</source>
         <translation>Restablecer identidad</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="609"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="607"/>
         <source>Device ID</source>
         <translation>ID de dispositivo</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="611"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="609"/>
         <source>Session Key</source>
         <translation>Clave de sesión</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="616"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="614"/>
         <source>Allow key storage</source>
         <translation>Permitir almacenamiento de claves</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="621"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="619"/>
         <source>Disable Key Storage</source>
         <translation>Deshabilitar almacenamiento de claves</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="622"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="620"/>
         <source>Disabling key storage means new devices won&apos;t be able to access your message history. Continue?</source>
         <translation>Deshabilitar el almacenamiento de claves significa que los nuevos dispositivos no podrán acceder a tu historial de mensajes. ¿Continuar?</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="624"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="622"/>
         <source>Disable</source>
         <translation>Desactivar</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="625"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="623"/>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="653"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="651"/>
         <source>Change recovery key</source>
         <translation>Cambiar clave de recuperación</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="663"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="666"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="661"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="664"/>
         <source>Import E2EE room keys</source>
         <translation>Importar claves E2EE de sala</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="668"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="692"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="666"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="690"/>
         <source>Key files (*.txt *.bin);;All files (*)</source>
         <translation>Archivos de claves (*.txt *.bin);;Todos los archivos (*)</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="673"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="697"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="671"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="695"/>
         <source>Passphrase</source>
         <translation>Frase de paso</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="674"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="672"/>
         <source>Enter the passphrase for the key file:</source>
         <translation>Introduce la frase de paso para el archivo de claves:</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="687"/>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="690"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="685"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="688"/>
         <source>Export E2EE room keys</source>
         <translation>Exportar claves E2EE de sala</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="698"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="696"/>
         <source>Enter a passphrase to protect the exported keys:</source>
         <translation>Introduce una frase de paso para proteger las claves exportadas:</translation>
     </message>
     <message>
-        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="711"/>
+        <location filename="../src/settings/encryption/encryption_settings_page.cpp" line="709"/>
         <source>Reset cryptographic identity</source>
         <translation>Restablecer identidad criptográfica</translation>
     </message>
@@ -2899,7 +2899,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
 <context>
     <name>TeleMatrix::HistoryEmojiPicker</name>
     <message>
-        <location filename="../src/history/history_emoji_picker.cpp" line="1316"/>
+        <location filename="../src/history/history_emoji_picker.cpp" line="1337"/>
         <source>No emoji found</source>
         <translation>No se encontraron emojis</translation>
     </message>
@@ -3264,13 +3264,13 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
 <context>
     <name>TeleMatrix::HistoryTopBar</name>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="1348"/>
+        <location filename="../src/history/history_widget.cpp" line="1349"/>
         <source>Pinned Messages</source>
         <translation>Mensajes fijados</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="1401"/>
-        <location filename="../src/history/history_widget.cpp" line="1762"/>
+        <location filename="../src/history/history_widget.cpp" line="1402"/>
+        <location filename="../src/history/history_widget.cpp" line="1763"/>
         <source>Forward</source>
         <translation>Reenviar</translation>
     </message>
@@ -3279,13 +3279,13 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Eliminar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="1404"/>
-        <location filename="../src/history/history_widget.cpp" line="1765"/>
+        <location filename="../src/history/history_widget.cpp" line="1405"/>
+        <location filename="../src/history/history_widget.cpp" line="1766"/>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="1502"/>
+        <location filename="../src/history/history_widget.cpp" line="1503"/>
         <source>connecting...</source>
         <translation>conectando...</translation>
     </message>
@@ -3311,56 +3311,56 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
 <context>
     <name>TeleMatrix::HistoryWidget</name>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3157"/>
-        <location filename="../src/history/history_widget.cpp" line="3566"/>
-        <location filename="../src/history/history_widget.cpp" line="4245"/>
-        <location filename="../src/history/history_widget.cpp" line="5577"/>
+        <location filename="../src/history/history_widget.cpp" line="3156"/>
+        <location filename="../src/history/history_widget.cpp" line="3565"/>
+        <location filename="../src/history/history_widget.cpp" line="4242"/>
+        <location filename="../src/history/history_widget.cpp" line="5574"/>
         <source>Delete</source>
         <translation>Eliminar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="2161"/>
-        <location filename="../src/history/history_widget.cpp" line="8570"/>
+        <location filename="../src/history/history_widget.cpp" line="2162"/>
+        <location filename="../src/history/history_widget.cpp" line="8567"/>
         <source>online</source>
         <translation>en línea</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="2779"/>
+        <location filename="../src/history/history_widget.cpp" line="2780"/>
         <source>Failed to send message.</source>
         <translation>Error al enviar el mensaje.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3031"/>
+        <location filename="../src/history/history_widget.cpp" line="3030"/>
         <source>Unmute</source>
         <translation>Activar sonido</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3042"/>
+        <location filename="../src/history/history_widget.cpp" line="3041"/>
         <source>Except mentions and keywords</source>
         <translation>Excepto menciones y palabras clave</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3047"/>
+        <location filename="../src/history/history_widget.cpp" line="3046"/>
         <source>All messages</source>
         <translation>Todos los mensajes</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3054"/>
+        <location filename="../src/history/history_widget.cpp" line="3053"/>
         <source>Mute</source>
         <translation>Silenciar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3064"/>
+        <location filename="../src/history/history_widget.cpp" line="3063"/>
         <source>Add Members</source>
         <translation>Añadir miembros</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3075"/>
+        <location filename="../src/history/history_widget.cpp" line="3074"/>
         <source>Manage Members</source>
         <translation>Administrar miembros</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3084"/>
+        <location filename="../src/history/history_widget.cpp" line="3083"/>
         <source>Copy Room Link</source>
         <translation>Copiar enlace de la sala</translation>
     </message>
@@ -3369,48 +3369,48 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Enlace de la sala copiado al portapapeles.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3107"/>
-        <location filename="../src/history/history_widget.cpp" line="3226"/>
+        <location filename="../src/history/history_widget.cpp" line="3106"/>
+        <location filename="../src/history/history_widget.cpp" line="3225"/>
         <source>Export History</source>
         <translation>Exportar historial</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3128"/>
+        <location filename="../src/history/history_widget.cpp" line="3127"/>
         <source>Leave Room</source>
         <translation>Abandonar sala</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3134"/>
+        <location filename="../src/history/history_widget.cpp" line="3133"/>
         <source>Are you sure you want to leave this room?</source>
         <translation>¿Seguro que quieres abandonar esta sala?</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3135"/>
+        <location filename="../src/history/history_widget.cpp" line="3134"/>
         <source>Leave</source>
         <translation>Abandonar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3155"/>
+        <location filename="../src/history/history_widget.cpp" line="3154"/>
         <source>This permanently deletes Saved Messages and everything in it. This can&apos;t be undone.</source>
         <translation>Esto elimina permanentemente Mensajes guardados y todo su contenido. No se puede deshacer.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3197"/>
+        <location filename="../src/history/history_widget.cpp" line="3196"/>
         <source>No messages to export.</source>
         <translation>No hay mensajes para exportar.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3228"/>
+        <location filename="../src/history/history_widget.cpp" line="3227"/>
         <source>JSON Files (*.json);;Text Files (*.txt);;All Files (*)</source>
         <translation>Archivos JSON (*.json);;Archivos de texto (*.txt);;Todos los archivos (*)</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3237"/>
+        <location filename="../src/history/history_widget.cpp" line="3236"/>
         <source>Failed to write export file.</source>
         <translation>Error al escribir el archivo de exportación.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3285"/>
+        <location filename="../src/history/history_widget.cpp" line="3284"/>
         <source>History exported successfully.</source>
         <translation>Historial exportado correctamente.</translation>
     </message>
@@ -3419,44 +3419,44 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Código copiado al portapapeles.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3565"/>
-        <location filename="../src/history/history_widget.cpp" line="4244"/>
-        <location filename="../src/history/history_widget.cpp" line="5576"/>
+        <location filename="../src/history/history_widget.cpp" line="3564"/>
+        <location filename="../src/history/history_widget.cpp" line="4241"/>
+        <location filename="../src/history/history_widget.cpp" line="5573"/>
         <source>Do you want to delete this message?</source>
         <translation>¿Quieres eliminar este mensaje?</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3564"/>
+        <location filename="../src/history/history_widget.cpp" line="3563"/>
         <source>Do you want to cancel this upload?</source>
         <translation>¿Quieres cancelar esta subida?</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3566"/>
+        <location filename="../src/history/history_widget.cpp" line="3565"/>
         <source>Cancel upload</source>
         <translation>Cancelar subida</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4096"/>
+        <location filename="../src/history/history_widget.cpp" line="4093"/>
         <source>File saved.</source>
         <translation>Archivo guardado.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4096"/>
+        <location filename="../src/history/history_widget.cpp" line="4093"/>
         <source>Failed to save file.</source>
         <translation>No se pudo guardar el archivo.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4265"/>
+        <location filename="../src/history/history_widget.cpp" line="4262"/>
         <source>Cancel editing?</source>
         <translation>¿Cancelar edición?</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4266"/>
+        <location filename="../src/history/history_widget.cpp" line="4263"/>
         <source>Yes</source>
         <translation>Sí</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4267"/>
+        <location filename="../src/history/history_widget.cpp" line="4264"/>
         <source>No</source>
         <translation>No</translation>
     </message>
@@ -3465,39 +3465,39 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">No se admite reenviar medios.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3101"/>
+        <location filename="../src/history/history_widget.cpp" line="3100"/>
         <source>Room link copied to clipboard</source>
         <translation>Enlace de la sala copiado al portapapeles</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3116"/>
+        <location filename="../src/history/history_widget.cpp" line="3115"/>
         <source>Pinned Messages</source>
         <translation>Mensajes fijados</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3438"/>
+        <location filename="../src/history/history_widget.cpp" line="3437"/>
         <source>Code copied to clipboard</source>
         <translation>Código copiado al portapapeles</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3600"/>
+        <location filename="../src/history/history_widget.cpp" line="3599"/>
         <source>Can&apos;t resend this upload.</source>
         <translation>No se puede reenviar esta subida.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3654"/>
+        <location filename="../src/history/history_widget.cpp" line="3653"/>
         <source>Failed to delete message.</source>
         <translation>Error al eliminar el mensaje.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3665"/>
+        <location filename="../src/history/history_widget.cpp" line="3664"/>
         <source>Failed to change notification mode.</source>
         <translation>Error al cambiar el modo de notificación.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3790"/>
-        <location filename="../src/history/history_widget.cpp" line="3820"/>
-        <location filename="../src/history/history_widget.cpp" line="5551"/>
+        <location filename="../src/history/history_widget.cpp" line="3787"/>
+        <location filename="../src/history/history_widget.cpp" line="3817"/>
+        <location filename="../src/history/history_widget.cpp" line="5548"/>
         <source>No destination rooms available.</source>
         <translation>No hay salas de destino disponibles.</translation>
     </message>
@@ -3509,60 +3509,60 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         </translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3891"/>
+        <location filename="../src/history/history_widget.cpp" line="3888"/>
         <source>Unable to pin message. You may not have permission.</source>
         <translation>No se puede fijar el mensaje. Es posible que no tengas permiso.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3900"/>
+        <location filename="../src/history/history_widget.cpp" line="3897"/>
         <source>Message forwarded.</source>
         <translation>Mensaje reenviado.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3903"/>
+        <location filename="../src/history/history_widget.cpp" line="3900"/>
         <source>Failed to forward message.</source>
         <translation>Error al reenviar el mensaje.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3912"/>
+        <location filename="../src/history/history_widget.cpp" line="3909"/>
         <source>Failed to set reaction.</source>
         <translation>Error al establecer la reacción.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3924"/>
+        <location filename="../src/history/history_widget.cpp" line="3921"/>
         <source>User banned.</source>
         <translation>Usuario vetado.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3925"/>
+        <location filename="../src/history/history_widget.cpp" line="3922"/>
         <source>Failed to ban user.</source>
         <translation>Error al vetar al usuario.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3931"/>
+        <location filename="../src/history/history_widget.cpp" line="3928"/>
         <source>User unbanned.</source>
         <translation>Se quitó el veto al usuario.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3932"/>
+        <location filename="../src/history/history_widget.cpp" line="3929"/>
         <source>Failed to unban user.</source>
         <translation>Error al quitar el veto al usuario.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4958"/>
-        <location filename="../src/history/history_widget.cpp" line="5046"/>
-        <location filename="../src/history/history_widget.cpp" line="5137"/>
-        <location filename="../src/history/history_widget.cpp" line="5298"/>
+        <location filename="../src/history/history_widget.cpp" line="4955"/>
+        <location filename="../src/history/history_widget.cpp" line="5043"/>
+        <location filename="../src/history/history_widget.cpp" line="5134"/>
+        <location filename="../src/history/history_widget.cpp" line="5295"/>
         <source>JOIN</source>
         <translation>UNIRSE</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4975"/>
+        <location filename="../src/history/history_widget.cpp" line="4972"/>
         <source>ASKING...</source>
         <translation>SOLICITANDO...</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4978"/>
+        <location filename="../src/history/history_widget.cpp" line="4975"/>
         <source>JOINING...</source>
         <translation>UNIÉNDOSE...</translation>
     </message>
@@ -3571,39 +3571,39 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">No se pudo cargar esta sala.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="5137"/>
-        <location filename="../src/history/history_widget.cpp" line="5324"/>
+        <location filename="../src/history/history_widget.cpp" line="5134"/>
+        <location filename="../src/history/history_widget.cpp" line="5321"/>
         <source>ASK TO JOIN</source>
         <translation>SOLICITAR UNIRSE</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="5299"/>
+        <location filename="../src/history/history_widget.cpp" line="5296"/>
         <source>Couldn&apos;t join this room.</source>
         <translation>No se pudo unir a esta sala.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="5325"/>
+        <location filename="../src/history/history_widget.cpp" line="5322"/>
         <source>Couldn&apos;t send the request.</source>
         <translation>No se pudo enviar la solicitud.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="5334"/>
+        <location filename="../src/history/history_widget.cpp" line="5331"/>
         <source>REQUEST SENT</source>
         <translation>SOLICITUD ENVIADA</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="5936"/>
+        <location filename="../src/history/history_widget.cpp" line="5933"/>
         <source>Couldn&apos;t load that message.</source>
         <translation>No se pudo cargar ese mensaje.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6753"/>
+        <location filename="../src/history/history_widget.cpp" line="6750"/>
         <source>%1 of %2 Pinned Messages</source>
         <translation>%1 de %2 mensajes fijados</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6754"/>
-        <location filename="../src/history/history_widget.cpp" line="6760"/>
+        <location filename="../src/history/history_widget.cpp" line="6751"/>
+        <location filename="../src/history/history_widget.cpp" line="6757"/>
         <source>Pinned Message</source>
         <translation>Mensaje fijado</translation>
     </message>
@@ -3612,52 +3612,52 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Desplazando...</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4280"/>
+        <location filename="../src/history/history_widget.cpp" line="4277"/>
         <source>Send File</source>
         <translation>Enviar archivo</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4282"/>
+        <location filename="../src/history/history_widget.cpp" line="4279"/>
         <source>All Files (*)</source>
         <translation>Todos los archivos (*)</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4341"/>
+        <location filename="../src/history/history_widget.cpp" line="4338"/>
         <source>Failed to edit message.</source>
         <translation>Error al editar el mensaje.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4364"/>
+        <location filename="../src/history/history_widget.cpp" line="4361"/>
         <source>Failed to send media.</source>
         <translation>Error al enviar el medio.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4711"/>
+        <location filename="../src/history/history_widget.cpp" line="4708"/>
         <source>Invitation</source>
         <translation>Invitación</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4712"/>
+        <location filename="../src/history/history_widget.cpp" line="4709"/>
         <source>Invited by %1</source>
         <translation>Invitado por %1</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4810"/>
+        <location filename="../src/history/history_widget.cpp" line="4807"/>
         <source>%1 wants to chat</source>
         <translation>%1 quiere chatear</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4876"/>
+        <location filename="../src/history/history_widget.cpp" line="4873"/>
         <source>DECLINE</source>
         <translation>RECHAZAR</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="4883"/>
+        <location filename="../src/history/history_widget.cpp" line="4880"/>
         <source>ACCEPT</source>
         <translation>ACEPTAR</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="5433"/>
+        <location filename="../src/history/history_widget.cpp" line="5430"/>
         <source>No pinned messages</source>
         <translation>No hay mensajes fijados</translation>
     </message>
@@ -3674,58 +3674,58 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">DESFIJAR TODOS LOS MENSAJES</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6718"/>
+        <location filename="../src/history/history_widget.cpp" line="6715"/>
         <source>Voice message</source>
         <translation>Mensaje de voz</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6722"/>
+        <location filename="../src/history/history_widget.cpp" line="6719"/>
         <source>Photo</source>
         <translation>Foto</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6723"/>
+        <location filename="../src/history/history_widget.cpp" line="6720"/>
         <source>Video</source>
         <translation>Vídeo</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6724"/>
+        <location filename="../src/history/history_widget.cpp" line="6721"/>
         <source>File</source>
         <translation>Archivo</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6728"/>
+        <location filename="../src/history/history_widget.cpp" line="6725"/>
         <source>Poll</source>
         <translation>Encuesta</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6729"/>
+        <location filename="../src/history/history_widget.cpp" line="6726"/>
         <source>Message</source>
         <translation>Mensaje</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="5037"/>
-        <location filename="../src/history/history_widget.cpp" line="6761"/>
+        <location filename="../src/history/history_widget.cpp" line="5034"/>
+        <location filename="../src/history/history_widget.cpp" line="6758"/>
         <source>Loading...</source>
         <translation>Cargando...</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="2914"/>
+        <location filename="../src/history/history_widget.cpp" line="2913"/>
         <source>This room could not be reached through your homeserver — federation may be disabled, or the room is unknown to it. Open the link in your browser instead?</source>
         <translation>No se pudo acceder a esta sala a través de tu servidor: la federación puede estar desactivada o la sala le es desconocida. ¿Abrir el enlace en el navegador?</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="2917"/>
+        <location filename="../src/history/history_widget.cpp" line="2916"/>
         <source>Open</source>
         <translation>Abrir</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3149"/>
+        <location filename="../src/history/history_widget.cpp" line="3148"/>
         <source>Delete chat</source>
         <translation>Eliminar chat</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="3154"/>
+        <location filename="../src/history/history_widget.cpp" line="3153"/>
         <source>Delete Saved Messages</source>
         <translation>Eliminar mensajes guardados</translation>
     </message>
@@ -3734,28 +3734,28 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Esto elimina todos los mensajes guardados y quita Mensajes guardados de tu lista de chats. Al abrirlo de nuevo, vuelve a aparecer, vacío.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="6844"/>
+        <location filename="../src/history/history_widget.cpp" line="6841"/>
         <source>Could not create Saved Messages.</source>
         <translation>No se pudieron crear los Mensajes guardados.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="7010"/>
+        <location filename="../src/history/history_widget.cpp" line="7007"/>
         <source>Join the room to view this message.</source>
         <translation>Únete a la sala para ver este mensaje.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="7033"/>
-        <location filename="../src/history/history_widget.cpp" line="8583"/>
+        <location filename="../src/history/history_widget.cpp" line="7030"/>
+        <location filename="../src/history/history_widget.cpp" line="8580"/>
         <source>last seen recently</source>
         <translation>visto recientemente</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="7041"/>
+        <location filename="../src/history/history_widget.cpp" line="7038"/>
         <source>last seen just now</source>
         <translation>visto hace un momento</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/history/history_widget.cpp" line="7044"/>
+        <location filename="../src/history/history_widget.cpp" line="7041"/>
         <source>last seen %n minute(s) ago</source>
         <translation>
             <numerusform>visto hace %n minuto</numerusform>
@@ -3763,7 +3763,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/history/history_widget.cpp" line="7047"/>
+        <location filename="../src/history/history_widget.cpp" line="7044"/>
         <source>last seen %n hour(s) ago</source>
         <translation>
             <numerusform>visto hace %n hora</numerusform>
@@ -3771,28 +3771,28 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         </translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="7054"/>
+        <location filename="../src/history/history_widget.cpp" line="7051"/>
         <source>last seen today at %1</source>
         <translation>visto hoy a las %1</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="7058"/>
+        <location filename="../src/history/history_widget.cpp" line="7055"/>
         <source>last seen yesterday at %1</source>
         <translation>visto ayer a las %1</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="7063"/>
+        <location filename="../src/history/history_widget.cpp" line="7060"/>
         <source>last seen %1</source>
         <translation>visto el %1</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="7830"/>
+        <location filename="../src/history/history_widget.cpp" line="7827"/>
         <source>&quot;%1&quot; is too large to upload (server limit %2 MB).</source>
         <translation>&quot;%1&quot; es demasiado grande para subir (límite del servidor %2 MB).</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/history/history_widget.cpp" line="5130"/>
-        <location filename="../src/history/history_widget.cpp" line="8574"/>
+        <location filename="../src/history/history_widget.cpp" line="5127"/>
+        <location filename="../src/history/history_widget.cpp" line="8571"/>
         <source>%n member(s)</source>
         <translation>
             <numerusform>%n miembro</numerusform>
@@ -3800,9 +3800,9 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         </translation>
     </message>
     <message>
+        <location filename="../src/history/history_widget.cpp" line="7970"/>
         <location filename="../src/history/history_widget.cpp" line="7973"/>
-        <location filename="../src/history/history_widget.cpp" line="7976"/>
-        <location filename="../src/history/history_widget.cpp" line="8692"/>
+        <location filename="../src/history/history_widget.cpp" line="8689"/>
         <source>Me</source>
         <translation>Yo</translation>
     </message>
@@ -4640,62 +4640,62 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
         <translation>No se pudo configurar el cifrado.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="241"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="242"/>
         <source>Setting up encryption</source>
         <translation>Configurando el cifrado</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="242"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="243"/>
         <source>Just a moment while we secure your messages.</source>
         <translation>Un momento mientras protegemos tus mensajes.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="246"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="247"/>
         <source>Set up encryption</source>
         <translation>Configura el cifrado</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="247"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="248"/>
         <source>Save your recovery key. It restores your encrypted messages on a new device, and it is the only way back in if you lose this one.</source>
         <translation>Guarda tu clave de recuperación. Restaura tus mensajes cifrados en un dispositivo nuevo y es la única forma de recuperarlos si pierdes este.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="252"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="253"/>
         <source>Encryption needs a reset</source>
         <translation>El cifrado necesita restablecerse</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="253"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="254"/>
         <source>This account already has a key backup, but it cannot be unlocked without its recovery key. Resetting replaces it with a new backup and a new recovery key. Messages that only exist in the old backup will stay unreadable.</source>
         <translation>Esta cuenta ya tiene una copia de seguridad de claves, pero no se puede desbloquear sin su clave de recuperación. Al restablecerla se reemplaza por una copia y una clave de recuperación nuevas. Los mensajes que solo existan en la copia antigua seguirán siendo ilegibles.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="260"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="261"/>
         <source>Encryption setup failed</source>
         <translation>No se pudo configurar el cifrado</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="261"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="262"/>
         <source>Your account is signed in and works, but your encrypted messages are not backed up yet. You can set this up later in Settings.</source>
         <translation>Tu cuenta ha iniciado sesión y funciona, pero tus mensajes cifrados aún no tienen copia de seguridad. Puedes configurarlo más tarde en Ajustes.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="281"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="282"/>
         <source>Reset key backup</source>
         <translation>Restablecer la copia de claves</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="283"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="284"/>
         <source>Try again</source>
         <translation>Reintentar</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="285"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="286"/>
         <source>Continue</source>
         <translation>Continuar</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_setup_encryption.cpp" line="316"/>
+        <location filename="../src/intro/intro_setup_encryption.cpp" line="317"/>
         <source>Recovery key copied to clipboard</source>
         <translation>Clave de recuperación copiada al portapapeles</translation>
     </message>
@@ -4729,42 +4729,42 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
 <context>
     <name>TeleMatrix::IntroStep</name>
     <message>
-        <location filename="../src/intro/intro_step.cpp" line="195"/>
+        <location filename="../src/intro/intro_step.cpp" line="194"/>
         <source>Couldn&apos;t reach the server. Check your internet connection.</source>
         <translation>No se pudo conectar con el servidor. Comprueba tu conexión a internet.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_step.cpp" line="196"/>
+        <location filename="../src/intro/intro_step.cpp" line="195"/>
         <source>Couldn&apos;t reach %1. Check the address and your internet connection.</source>
         <translation>No se pudo conectar con %1. Comprueba la dirección y tu conexión a internet.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_step.cpp" line="202"/>
+        <location filename="../src/intro/intro_step.cpp" line="201"/>
         <source>The server took too long to respond. Please try again.</source>
         <translation>El servidor tardó demasiado en responder. Inténtalo de nuevo.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_step.cpp" line="203"/>
+        <location filename="../src/intro/intro_step.cpp" line="202"/>
         <source>%1 took too long to respond. Please try again.</source>
         <translation>%1 tardó demasiado en responder. Inténtalo de nuevo.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_step.cpp" line="218"/>
+        <location filename="../src/intro/intro_step.cpp" line="217"/>
         <source>Something went wrong. Please try again.</source>
         <translation>Algo salió mal. Inténtalo de nuevo.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_step.cpp" line="417"/>
+        <location filename="../src/intro/intro_step.cpp" line="416"/>
         <source>Keys: %1</source>
         <translation>Claves: %1</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_step.cpp" line="418"/>
+        <location filename="../src/intro/intro_step.cpp" line="417"/>
         <source>Change</source>
         <translation>Cambiar</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_step.cpp" line="450"/>
+        <location filename="../src/intro/intro_step.cpp" line="449"/>
         <source>Version %1</source>
         <translation>Versión %1</translation>
     </message>
@@ -4922,7 +4922,7 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
         <translation type="vanished">No coinciden</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="140"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="141"/>
         <source>Retry</source>
         <translation>Reintentar</translation>
     </message>
@@ -4939,51 +4939,51 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
         <translation type="vanished">O omitir por ahora</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="116"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="117"/>
         <source>Compare emoji</source>
         <translation>Comparar emojis</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="117"/>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="240"/>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="279"/>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="294"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="118"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="242"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="281"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="296"/>
         <source>They should appear in the same order on both sessions.</source>
         <translation>Deberían aparecer en el mismo orden en ambas sesiones.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="135"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="136"/>
         <source>They don’t match</source>
         <translation>No coinciden</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="148"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="149"/>
         <source>Use recovery key instead</source>
         <translation>Usar la clave de recuperación</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="156"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="157"/>
         <source>Scan QR code instead</source>
         <translation>Escanear un código QR</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="164"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="165"/>
         <source>Skip for now</source>
         <translation>Omitir por ahora</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="189"/>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="260"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="190"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="262"/>
         <source>The request was denied or timed out, or there was a verification mismatch</source>
         <translation>La solicitud fue denegada o expiró, o hubo una discrepancia en la verificación</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="216"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="217"/>
         <source>Waiting for the other device…</source>
         <translation>Esperando al otro dispositivo…</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="232"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="234"/>
         <source>They match</source>
         <translation>Coinciden</translation>
     </message>
@@ -4992,12 +4992,12 @@ Si la olvidas, tendrás que iniciar sesión de nuevo; tus mensajes seguirán a s
         <translation type="vanished">Coinciden</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="250"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="252"/>
         <source>Failed to start emoji verification</source>
         <translation>Error al iniciar la verificación por emoji</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="270"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="272"/>
         <source>Waiting for your other device to confirm...</source>
         <translation>Esperando confirmación de tu otro dispositivo...</translation>
     </message>
@@ -5333,12 +5333,12 @@ o pulsa Enter sobre un ID exacto @usuario:servidor para añadirlo directamente.<
 <context>
     <name>TeleMatrix::NoChatPlaceholder</name>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="1907"/>
+        <location filename="../src/history/history_widget.cpp" line="1908"/>
         <source>Waiting for network...</source>
         <translation>Esperando la red...</translation>
     </message>
     <message>
-        <location filename="../src/history/history_widget.cpp" line="1908"/>
+        <location filename="../src/history/history_widget.cpp" line="1909"/>
         <source>Select a chat to start messaging</source>
         <translation>Selecciona un chat para empezar a chatear</translation>
     </message>
@@ -6611,7 +6611,7 @@ Are you sure you want to enable encryption for this room?</source>
     </message>
     <message>
         <location filename="../src/history/user_profile_popup.cpp" line="481"/>
-        <location filename="../src/history/user_profile_popup.cpp" line="908"/>
+        <location filename="../src/history/user_profile_popup.cpp" line="906"/>
         <source>Power level</source>
         <translation>Nivel de permisos</translation>
     </message>
@@ -6666,37 +6666,37 @@ Are you sure you want to enable encryption for this room?</source>
         <translation>Configura la verificación primero</translation>
     </message>
     <message>
-        <location filename="../src/history/user_profile_popup.cpp" line="610"/>
+        <location filename="../src/history/user_profile_popup.cpp" line="608"/>
         <source>Unignore User</source>
         <translation>Dejar de ignorar usuario</translation>
     </message>
     <message>
-        <location filename="../src/history/user_profile_popup.cpp" line="611"/>
+        <location filename="../src/history/user_profile_popup.cpp" line="609"/>
         <source>Ignore User</source>
         <translation>Ignorar usuario</translation>
     </message>
     <message>
-        <location filename="../src/history/user_profile_popup.cpp" line="625"/>
+        <location filename="../src/history/user_profile_popup.cpp" line="623"/>
         <source>Remove from Room</source>
         <translation>Expulsar de la sala</translation>
     </message>
     <message>
-        <location filename="../src/history/user_profile_popup.cpp" line="641"/>
+        <location filename="../src/history/user_profile_popup.cpp" line="639"/>
         <source>Unban User</source>
         <translation>Quitar veto al usuario</translation>
     </message>
     <message>
-        <location filename="../src/history/user_profile_popup.cpp" line="654"/>
+        <location filename="../src/history/user_profile_popup.cpp" line="652"/>
         <source>Ban User</source>
         <translation>Vetar usuario</translation>
     </message>
     <message>
-        <location filename="../src/history/user_profile_popup.cpp" line="723"/>
+        <location filename="../src/history/user_profile_popup.cpp" line="721"/>
         <source>User Info</source>
         <translation>Información del usuario</translation>
     </message>
     <message>
-        <location filename="../src/history/user_profile_popup.cpp" line="950"/>
+        <location filename="../src/history/user_profile_popup.cpp" line="948"/>
         <source>User ID copied to clipboard</source>
         <translation>ID de usuario copiado al portapapeles</translation>
     </message>
@@ -6704,162 +6704,194 @@ Are you sure you want to enable encryption for this room?</source>
 <context>
     <name>TeleMatrix::VerifySessionDialog</name>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="322"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1052"/>
         <source>Verify this session</source>
-        <translation>Verificar esta sesión</translation>
+        <translation type="vanished">Verificar esta sesión</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="407"/>
         <source>Choose how to verify this session to access your encrypted messages.</source>
-        <translation>Elige cómo verificar esta sesión para acceder a tus mensajes cifrados.</translation>
+        <translation type="vanished">Elige cómo verificar esta sesión para acceder a tus mensajes cifrados.</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="420"/>
         <source>Verify with emoji</source>
-        <translation>Verificar con emoji</translation>
+        <translation type="vanished">Verificar con emoji</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="434"/>
         <source>Verify with QR code</source>
-        <translation>Verificar con código QR</translation>
+        <translation type="vanished">Verificar con código QR</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="447"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1060"/>
         <source>Enter recovery key</source>
-        <translation>Introducir clave de recuperación</translation>
+        <translation type="vanished">Introducir clave de recuperación</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="470"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="736"/>
         <source>Cancel</source>
-        <translation>Cancelar</translation>
+        <translation type="vanished">Cancelar</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="493"/>
+        <source>Waiting for the other device...</source>
+        <translation type="vanished">Esperando al otro dispositivo...</translation>
+    </message>
+    <message>
+        <source>They Don’t Match</source>
+        <translation type="vanished">No coinciden</translation>
+    </message>
+    <message>
+        <source>They Match</source>
+        <translation type="vanished">Coinciden</translation>
+    </message>
+    <message>
+        <source>Confirming...</source>
+        <translation type="vanished">Confirmando...</translation>
+    </message>
+    <message>
+        <source>The request was denied or timed out, or there was a verification mismatch</source>
+        <translation type="vanished">La solicitud fue denegada o expiró, o hubo una discrepancia en la verificación</translation>
+    </message>
+    <message>
+        <source>Verification failed</source>
+        <translation type="vanished">Verificación fallida</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="vanished">Cerrar</translation>
+    </message>
+    <message>
+        <source>Waiting for your other session...</source>
+        <translation type="vanished">Esperando a tu otra sesión...</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation type="vanished">Continuar</translation>
+    </message>
+    <message>
+        <source>Confirm on your other session</source>
+        <translation type="vanished">Confirma en tu otra sesión</translation>
+    </message>
+    <message>
+        <source>Enter your recovery key to verify this session and restore access to encrypted messages.</source>
+        <translation type="vanished">Introduce tu clave de recuperación para verificar esta sesión y restaurar el acceso a los mensajes cifrados.</translation>
+    </message>
+    <message>
+        <source>Recovery key</source>
+        <translation type="vanished">Clave de recuperación</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation type="vanished">Atrás</translation>
+    </message>
+    <message>
+        <source>Verify</source>
+        <translation type="vanished">Verificar</translation>
+    </message>
+    <message>
+        <source>Verifying...</source>
+        <translation type="vanished">Verificando...</translation>
+    </message>
+    <message>
+        <source>Invalid recovery key. Please check and try again.</source>
+        <translation type="vanished">Clave de recuperación no válida. Compruébala e inténtalo de nuevo.</translation>
+    </message>
+    <message>
+        <source>Session Verified</source>
+        <translation type="vanished">Sesión verificada</translation>
+    </message>
+    <message>
+        <source>This session is now verified. Your encrypted messages are secure.</source>
+        <translation type="vanished">Esta sesión ya está verificada. Tus mensajes cifrados están seguros.</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation type="vanished">Listo</translation>
+    </message>
+    <message>
+        <source>Compare emojis</source>
+        <translation type="vanished">Comparar emojis</translation>
+    </message>
+    <message>
+        <source>Verify %1</source>
+        <translation type="vanished">Verificar %1</translation>
+    </message>
+    <message>
+        <source>Session verified</source>
+        <translation type="vanished">Sesión verificada</translation>
+    </message>
+    <message>
+        <source>%1 verified</source>
+        <translation type="vanished">%1 verificado</translation>
+    </message>
+    <message>
+        <source>Scan QR code</source>
+        <translation type="vanished">Escanear código QR</translation>
+    </message>
+</context>
+<context>
+    <name>TeleMatrix::VerifyUserDialog</name>
+    <message>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="346"/>
         <source>Waiting for the other device...</source>
         <translation>Esperando al otro dispositivo...</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="533"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="384"/>
         <source>They Don’t Match</source>
         <translation>No coinciden</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="544"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="395"/>
         <source>They Match</source>
         <translation>Coinciden</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="548"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="751"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="399"/>
         <source>Confirming...</source>
         <translation>Confirmando...</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="571"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="766"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="422"/>
         <source>The request was denied or timed out, or there was a verification mismatch</source>
         <translation>La solicitud fue denegada o expiró, o hubo una discrepancia en la verificación</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="582"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="765"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="433"/>
         <source>Verification failed</source>
         <translation>Verificación fallida</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="585"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="770"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="436"/>
         <source>Close</source>
         <translation>Cerrar</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="704"/>
-        <source>Waiting for your other session...</source>
-        <translation>Esperando a tu otra sesión...</translation>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="602"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="655"/>
+        <source>Verified</source>
+        <translation>Verificado</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="747"/>
-        <source>Continue</source>
-        <translation>Continuar</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="818"/>
-        <source>Confirm on your other session</source>
-        <translation>Confirma en tu otra sesión</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="846"/>
-        <source>Enter your recovery key to verify this session and restore access to encrypted messages.</source>
-        <translation>Introduce tu clave de recuperación para verificar esta sesión y restaurar el acceso a los mensajes cifrados.</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="855"/>
-        <source>Recovery key</source>
-        <translation>Clave de recuperación</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="894"/>
-        <source>Back</source>
-        <translation>Atrás</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="903"/>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="945"/>
-        <source>Verify</source>
-        <translation>Verificar</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="910"/>
-        <source>Verifying...</source>
-        <translation>Verificando...</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="948"/>
-        <source>Invalid recovery key. Please check and try again.</source>
-        <translation>Clave de recuperación no válida. Compruébala e inténtalo de nuevo.</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1007"/>
-        <source>Session Verified</source>
-        <translation>Sesión verificada</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1014"/>
-        <source>This session is now verified. Your encrypted messages are secure.</source>
-        <translation>Esta sesión ya está verificada. Tus mensajes cifrados están seguros.</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1038"/>
-        <source>Done</source>
-        <translation>Listo</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1056"/>
-        <source>Compare emojis</source>
-        <translation>Comparar emojis</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1057"/>
-        <source>Verify %1</source>
-        <translation>Verificar %1</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1067"/>
-        <source>Session verified</source>
-        <translation>Sesión verificada</translation>
-    </message>
-    <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1068"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="603"/>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="656"/>
         <source>%1 verified</source>
         <translation>%1 verificado</translation>
     </message>
     <message>
-        <location filename="../src/settings/dialogs/verify_session_dialog.cpp" line="1071"/>
-        <source>Scan QR code</source>
-        <translation>Escanear código QR</translation>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="611"/>
+        <source>Their identity is confirmed. Your messages with them are secure.</source>
+        <translation>Su identidad está confirmada. Tus mensajes con esta persona son seguros.</translation>
+    </message>
+    <message>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="635"/>
+        <source>Done</source>
+        <translation>Listo</translation>
+    </message>
+    <message>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="650"/>
+        <source>Compare emojis</source>
+        <translation>Comparar emojis</translation>
+    </message>
+    <message>
+        <location filename="../src/settings/dialogs/verify_user_dialog.cpp" line="651"/>
+        <source>Verify %1</source>
+        <translation>Verificar %1</translation>
     </message>
 </context>
 <context>

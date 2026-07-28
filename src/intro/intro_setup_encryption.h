@@ -23,7 +23,7 @@ class IntroSetupEncryption : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroSetupEncryption(IntroWidget *parent, ProtocolBridge *bridge);
+    explicit IntroSetupEncryption(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     void deactivate();
@@ -38,6 +38,7 @@ signals:
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    void updateSkipVisibility() override;
 
 private:
     enum class State {

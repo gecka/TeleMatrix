@@ -20,7 +20,7 @@
 
 #include "protocol/media_cache.h"
 #include "protocol/protocol_bridge.h"
-#include "settings/dialogs/verify_session_dialog.h"
+#include "settings/dialogs/verify_user_dialog.h"
 #include "styles/style_constants.h"
 #include "ui/internal_choice_dialog.h"
 #include "ui/painter.h"
@@ -590,11 +590,9 @@ void UserProfilePopup::buildActions() {
                         const auto name = _details.displayName.isEmpty()
                             ? _userId
                             : _details.displayName;
-                        auto *dialog = new VerifySessionDialog(
+                        auto *dialog = new VerifyUserDialog(
                             _bridge,
                             window(),
-                            VerifySessionDialog::StartMode::Emoji,
-                            QString(),
                             _userId,
                             name);
                         dialog->exec();

@@ -21,7 +21,7 @@ class IntroVerifyRecoveryKey : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroVerifyRecoveryKey(IntroWidget *parent, ProtocolBridge *bridge);
+    explicit IntroVerifyRecoveryKey(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     void showError(const QString &text);
@@ -40,6 +40,7 @@ signals:
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    void updateSkipVisibility() override;
 
 private:
     void onVerifyResult(bool success);

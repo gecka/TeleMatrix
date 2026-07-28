@@ -39,7 +39,7 @@ constexpr int kColumnWidth = 392;
 
 } // namespace
 
-IntroSecretBackend::IntroSecretBackend(IntroWidget *parent)
+IntroSecretBackend::IntroSecretBackend(QWidget *parent)
     : IntroStep(parent, false /* hasCover */)
 {
     // This screen lays its heading out itself, left-aligned in a wider column.

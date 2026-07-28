@@ -35,7 +35,7 @@ using IntroLinkButton = intro::LinkButton;
 
 } // namespace
 
-IntroVaultUnlock::IntroVaultUnlock(IntroWidget *parent)
+IntroVaultUnlock::IntroVaultUnlock(QWidget *parent)
     : IntroStep(parent, false /* hasCover */) {
     setTitleText(tr("Unlock TeleMatrix"));
     setDescriptionText(tr("Enter your master password to open your local data"));

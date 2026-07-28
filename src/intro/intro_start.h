@@ -23,7 +23,7 @@ class IntroStart : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroStart(IntroWidget *parent);
+    explicit IntroStart(QWidget *parent);
 
     void activate() override;
     void submit() override;

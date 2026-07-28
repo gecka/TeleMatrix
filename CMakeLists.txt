@@ -385,8 +385,8 @@ add_executable(TeleMatrix
     src/dialogs/dialogs_include_chats_box.cpp
     src/dialogs/dialogs_leave_space_box.h
     src/dialogs/dialogs_leave_space_box.cpp
-    src/dialogs/dialogs_add_account_box.h
-    src/dialogs/dialogs_add_account_box.cpp
+    src/dialogs/dialogs_intro_box.h
+    src/dialogs/dialogs_intro_box.cpp
     src/dialogs/dialogs_new_chat_box.h
     src/dialogs/dialogs_new_chat_box.cpp
     src/dialogs/dialogs_explore_rooms_box.h
@@ -435,6 +435,8 @@ add_executable(TeleMatrix
     src/intro/intro_verify_success.cpp
     src/intro/intro_setup_encryption.h
     src/intro/intro_setup_encryption.cpp
+    src/intro/verification_flow.h
+    src/intro/verification_flow.cpp
     src/intro/intro_widget.h
     src/intro/intro_widget.cpp
     src/intro/intro_widgets.h
@@ -566,8 +568,10 @@ add_executable(TeleMatrix
     src/settings/dialogs/reset_identity_dialog.cpp
     src/settings/dialogs/settings_passphrase_dialog.h
     src/settings/dialogs/settings_passphrase_dialog.cpp
-    src/settings/dialogs/verify_session_dialog.h
-    src/settings/dialogs/verify_session_dialog.cpp
+    src/settings/dialogs/verify_user_dialog.h
+    src/settings/dialogs/verify_user_dialog.cpp
+    src/settings/dialogs/verify_session_popup.h
+    src/settings/dialogs/verify_session_popup.cpp
     src/ui/rp_widget.h
     src/ui/rp_widget.cpp
     src/ui/widgets/input_fields.h

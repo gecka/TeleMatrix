@@ -116,7 +116,7 @@ private:
 
 } // namespace
 
-IntroSetupEncryption::IntroSetupEncryption(IntroWidget *parent, ProtocolBridge *bridge)
+IntroSetupEncryption::IntroSetupEncryption(QWidget *parent, ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
     , _bridge(bridge)
 {
@@ -229,11 +229,12 @@ void IntroSetupEncryption::setState(State state) {
     _savedCheckbox->setVisible(ready);
     _statusLabel->setVisible(!ready);
 
-    // Skipping is always allowed, including while the homeserver is still being waited on — a
-    // request that never comes back must not trap anyone in onboarding. It leaves any key that was
-    // already provisioned in place; it only means the user chose not to write it down now, and
-    // Settings can show it again later.
-    _skipLink->setVisible(true);
+    // Where skipping is offered at all it is offered in every state, including while the homeserver
+    // is still being waited on — a request that never comes back must not trap anyone in onboarding.
+    // It leaves any key that was already provisioned in place; it only means the user chose not to
+    // write it down now, and Settings can show it again later. (The in-app verification popup turns
+    // it off wholesale — see IntroStep::setAllowsSkip.)
+    _skipLink->setVisible(allowsSkip());
     nextButton()->setVisible(state != State::Working);
 
     switch (state) {
@@ -329,6 +330,12 @@ void IntroSetupEncryption::resizeEvent(QResizeEvent *e) {
     updateSetupLayout();
 }
 
+void IntroSetupEncryption::updateSkipVisibility() {
+    _skipLink->setVisible(allowsSkip());
+    // This screen centres its block as a whole, so losing the link re-centres it.
+    updateSetupLayout();
+}
+
 void IntroSetupEncryption::updateSetupLayout() {
     _copyButton->adjustSize();
     _skipLink->adjustSize();
@@ -354,11 +361,15 @@ void IntroSetupEncryption::updateSetupLayout() {
     const auto continueBlock = (_state != State::Working)
         ? (st::introNextButtonHeight + st::introLinkTop)
         : 0;
+    // Same reasoning as continueBlock for the skip link, which the popup drops
+    // entirely: keyed off allowsSkip() rather than isVisible(), which is false
+    // for every child of an off-screen stack page.
+    const auto skipBlock = allowsSkip() ? _skipLink->height() : 0;
     const auto groupHeight = st::introStepFieldTop
         + bodyHeight
         + kRowGap * 2
         + continueBlock
-        + _skipLink->height();
+        + skipBlock;
     const auto top = qMax(st::introStepTopMin, (this->height() - groupHeight) / 2);
 
     titleLabel()->move(left, top + st::introTitleTop);
