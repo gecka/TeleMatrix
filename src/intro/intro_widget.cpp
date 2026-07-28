@@ -18,6 +18,7 @@
 #include "intro_verify_success.h"
 #include "intro_setup_encryption.h"
 
+#include "../app/app_controller.h"
 #include "../protocol/protocol_bridge.h"
 #include "../styles/style_constants.h"
 #include "intro_colors.h"
@@ -77,7 +78,7 @@ IntroWidget::IntroWidget(
     // Wire step navigation — IntroStart and IntroLogin.
     connect(_startStep, &IntroStep::goNext, this, &IntroWidget::onStartNext);
     connect(_startStep, &IntroStart::createAccountRequested,
-            this, [this] { showStep(2); });
+            this, [this] { showAccountStep(2); });
     connect(_secretBackendStep, &IntroStep::goBack, this, &IntroWidget::onSecretBackendBack);
     connect(_secretBackendStep, &IntroStep::goNext, this, &IntroWidget::onSecretBackendNext);
     connect(_secretBackendStep, &IntroSecretBackend::secretBackendChosen,
@@ -123,7 +124,9 @@ IntroWidget::IntroWidget(
     connect(_loginStep, &IntroStep::goBack, this, &IntroWidget::onLoginBack);
     connect(_loginStep, &IntroLogin::goRegister, this, &IntroWidget::onLoginGoRegister);
     connect(_loginStep, &IntroLogin::goForgotPassword, this, &IntroWidget::onLoginGoForgotPassword);
-    // No usable secret store at submit time: set the vault up, then come back.
+    // Backstop for a store that became unusable while the form was open (the
+    // ordinary case is handled before the form, in showAccountStep): set the
+    // vault up, then come back.
     connect(_loginStep, &IntroLogin::needMasterPassword, this, [this] {
         _createPasswordReturnStep = 1;
         showStep(10);
@@ -201,7 +204,11 @@ IntroWidget::IntroWidget(
         }
     });
 
-    showStep(initialStep == InitialStep::Login ? 1 : 0);
+    if (initialStep == InitialStep::Login) {
+        showAccountStep(1);
+    } else {
+        showStep(0);
+    }
 }
 
 void IntroWidget::setInnerFocus() {
@@ -223,12 +230,27 @@ void IntroWidget::showStep(int index) {
 
 // --- Navigation handlers ---
 
+void IntroWidget::showAccountStep(int index) {
+    // Only a missing master password reorders the flow. A keychain that merely
+    // refused a read (macOS/Windows) is retryable, so those still go to the form
+    // and report inline on submit — bouncing them to a vault setup would move the
+    // device off a working keychain over a hiccup.
+    if (AppController::checkSecretBackendForNewSession()
+            != AppController::SecretSetup::NeedsMasterPassword) {
+        showStep(index);
+        return;
+    }
+    _createPasswordReturnStep = index;
+    showStep(10);
+}
+
 void IntroWidget::onStartNext() {
-    // Straight to sign-in. Key storage is NOT a step in the forward flow — it
-    // has a sensible default and is reached from the "Keys: … Change" line at
-    // the bottom of the stage, so nobody is stopped by a security question
-    // before they have even signed in.
-    showStep(1);
+    // Straight to sign-in — unless the vault still needs its master password.
+    // Which backend holds the secrets is NOT a step in the forward flow (it has
+    // a sensible default and lives behind the "Keys: … Change" line), but a
+    // vault with no password can't take the secrets sign-in is about to write,
+    // so that one screen comes first.
+    showAccountStep(1);
 }
 
 void IntroWidget::onSecretBackendBack() {
@@ -263,8 +285,8 @@ void IntroWidget::refreshKeysLine() {
     // With no Secret Service there is no choice to offer: the private vault is
     // the only backend, so a "Change" link would open a screen with one
     // selectable option. Hide the whole line rather than advertise a decision
-    // that cannot be made. (Sign-in and sign-up still force the master password
-    // to be set first — see checkSecretBackendForNewSession.)
+    // that cannot be made. (The master password is still asked for before
+    // sign-in or sign-up — see showAccountStep.)
     const auto hasChoice = !_embedded
         && ProtocolBridge::secretServiceAvailable();
     // Per the design the line shows on first run, sign in and create only —
@@ -288,7 +310,7 @@ void IntroWidget::onLoginNext() {
 }
 
 void IntroWidget::onLoginGoRegister() {
-    showStep(2); // Login -> Register.
+    showAccountStep(2); // Login -> Register.
 }
 
 void IntroWidget::onLoginGoForgotPassword() {

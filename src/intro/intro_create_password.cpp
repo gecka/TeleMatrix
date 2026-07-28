@@ -57,6 +57,22 @@ IntroCreatePassword::IntroCreatePassword(QWidget *parent)
     connect(_passwordToggle, &QPushButton::clicked,
             this, &IntroCreatePassword::togglePasswordVisibility);
 
+    // What the old explanation popup said, in the form itself.
+    _hint = new QLabel(
+        tr("This password encrypts TeleMatrix's data on this device. It never "
+           "leaves your computer and is asked for each time you open the app. "
+           "It cannot be recovered — if you forget it, the local data has to be "
+           "reset and downloaded again."),
+        this);
+    _hint->setAlignment(Qt::AlignHCenter);
+    _hint->setWordWrap(true);
+    _hint->setFont(st::baseFont(13));
+    {
+        QPalette pal = _hint->palette();
+        pal.setColor(QPalette::WindowText, intro::subtextFg);
+        _hint->setPalette(pal);
+    }
+
     // "Skip and use system keychain" -- only when a keychain is actually available
     // (on Linux without a Secret Service the vault is the only option).
     if (ProtocolBridge::secretServiceAvailable()) {
@@ -99,7 +115,6 @@ void IntroCreatePassword::submit() {
         showError(tr("The passwords don't match"));
         _confirm->selectAll();
         _confirm->setFocus();
-        updateFieldLayout();
         return;
     }
 
@@ -134,7 +149,6 @@ void IntroCreatePassword::submit() {
     updateButtonEnabled();
     showError(tr("Couldn't set up the vault. Please try again"));
     _password->setFocus();
-    updateFieldLayout();
 }
 
 void IntroCreatePassword::togglePasswordVisibility() {
@@ -151,7 +165,8 @@ void IntroCreatePassword::togglePasswordVisibility() {
 }
 
 void IntroCreatePassword::updateButtonEnabled() {
-    nextButton()->setEnabled(!_password->text().isEmpty());
+    nextButton()->setEnabled(
+        !_password->text().isEmpty() && !_confirm->text().isEmpty());
 }
 
 void IntroCreatePassword::resizeEvent(QResizeEvent *e) {
@@ -161,10 +176,11 @@ void IntroCreatePassword::resizeEvent(QResizeEvent *e) {
 
 void IntroCreatePassword::updateFieldLayout() {
     const auto left = contentLeft();
-    const auto top = contentTop();
     const auto fieldLeft = left + (st::introStepWidth - st::introCountryWidth) / 2;
 
-    int y = top + st::introStepFieldTop;
+    int y = contentStartTop();
+    placeErrorAbove(y);
+
     _password->move(fieldLeft, y);
 
     // Show/hide toggle inside the password field, reserving right text-margin so
@@ -183,16 +199,15 @@ void IntroCreatePassword::updateFieldLayout() {
     const auto nextTop = fieldsBottom + 16;
     nextButton()->move(nextLeft, nextTop);
 
-    int below = nextTop + st::introNextButtonHeight;
+    int below = nextTop + st::introNextButtonHeight + 16;
+    const auto hintHeight = _hint->heightForWidth(st::introStepWidth);
+    _hint->setGeometry(left, below, st::introStepWidth, hintHeight);
+    below += hintHeight;
+
     if (_skipLink) {
         const auto linkY = below + st::introLinkTop;
         _skipLink->move((width() - _skipLink->width()) / 2, linkY);
-        below = linkY + _skipLink->height();
     }
-
-    const auto errorY = below + 12;
-    errorLabel()->move(left, errorY);
-    errorLabel()->setFixedWidth(st::introStepWidth);
 
     centerContentVertically();
 }

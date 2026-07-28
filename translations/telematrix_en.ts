@@ -3590,37 +3590,42 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
     </message>
     <message>
         <location filename="../src/intro/intro_create_password.cpp" line="54"/>
-        <location filename="../src/intro/intro_create_password.cpp" line="147"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="161"/>
         <source>Show</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="63"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="62"/>
+        <source>This password encrypts TeleMatrix&apos;s data on this device. It never leaves your computer and is asked for each time you open the app. It cannot be recovered — if you forget it, the local data has to be reset and downloaded again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/intro/intro_create_password.cpp" line="79"/>
         <source>Or skip and use system keychain</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="90"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="106"/>
         <source>Continue</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="99"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="115"/>
         <source>The passwords don&apos;t match</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="135"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="150"/>
         <source>Couldn&apos;t set up the vault. Please try again</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="108"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="123"/>
         <source>Creating...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="147"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="161"/>
         <source>Hide</source>
         <translation type="unfinished"></translation>
     </message>

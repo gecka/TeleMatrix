@@ -3866,27 +3866,32 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     </message>
     <message>
         <location filename="../src/intro/intro_create_password.cpp" line="54"/>
-        <location filename="../src/intro/intro_create_password.cpp" line="147"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="161"/>
         <source>Show</source>
         <translation>Mostrar</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="63"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="62"/>
+        <source>This password encrypts TeleMatrix&apos;s data on this device. It never leaves your computer and is asked for each time you open the app. It cannot be recovered — if you forget it, the local data has to be reset and downloaded again.</source>
+        <translation>Esta contraseña cifra los datos de TeleMatrix en este dispositivo. Nunca sale de tu ordenador y se te pedirá cada vez que abras la aplicación. No se puede recuperar: si la olvidas, habrá que restablecer los datos locales y descargarlos de nuevo.</translation>
+    </message>
+    <message>
+        <location filename="../src/intro/intro_create_password.cpp" line="79"/>
         <source>Or skip and use system keychain</source>
         <translation>O sáltalo y usa el llavero del sistema</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="90"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="106"/>
         <source>Continue</source>
         <translation>Continuar</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="99"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="115"/>
         <source>The passwords don&apos;t match</source>
         <translation>Las contraseñas no coinciden</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="135"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="150"/>
         <source>Couldn&apos;t set up the vault. Please try again</source>
         <translation>No se pudo configurar la caja fuerte. Inténtalo de nuevo</translation>
     </message>
@@ -3895,7 +3900,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Las contraseñas no coinciden.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="108"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="123"/>
         <source>Creating...</source>
         <translation>Creando...</translation>
     </message>
@@ -3904,7 +3909,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">No se pudo configurar la caja fuerte. Inténtalo de nuevo.</translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_create_password.cpp" line="147"/>
+        <location filename="../src/intro/intro_create_password.cpp" line="161"/>
         <source>Hide</source>
         <translation>Ocultar</translation>
     </message>

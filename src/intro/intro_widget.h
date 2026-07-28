@@ -74,6 +74,12 @@ protected:
 
 private:
     void showStep(int index);
+    /// Show an account-entry form (Login or Register) — but on a device whose
+    /// vault has no master password yet, show the create-password step first and
+    /// come back to `index` once it is set. Sign-in and sign-up write secrets the
+    /// moment they succeed, so the store has to be ready before the form, not
+    /// after it.
+    void showAccountStep(int index);
 
     // Navigation handlers.
     void onStartNext();
@@ -126,7 +132,8 @@ private:
     ProtocolBridge *_bridge = nullptr;
     QString _pendingUserId;
     // Step to return to once the master password is set (or skipped): the form
-    // that needed the vault — Login (1), or Register (2).
+    // the user was heading for — Login (1), or Register (2) — or, when the visit
+    // came from the key-storage screen, wherever that visit started.
     int _createPasswordReturnStep = 1;
     // Where the key-storage screen returns to. It is opened from the "Change"
     // link rather than reached in sequence, so it has no fixed predecessor.

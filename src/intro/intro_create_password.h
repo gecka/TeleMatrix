@@ -8,6 +8,7 @@
 
 #include "intro_step.h"
 
+class QLabel;
 class QLineEdit;
 class QPushButton;
 
@@ -15,8 +16,9 @@ namespace TeleMatrix {
 
 // In-window "Create a master password" form, shown after the user picks the
 // private vault on IntroSecretBackend (in place of a modal popup). Two fields
-// with a confirm; the Continue button is disabled while the password is empty
-// and shows a busy state while the key is derived (Argon2id, ~1s, off-thread).
+// with a confirm; the Continue button waits for both to be filled and shows a
+// busy state while the key is derived (Argon2id, ~1s, off-thread). The hint
+// under the button carries the explanation the old popup used to.
 class IntroCreatePassword final : public IntroStep {
     Q_OBJECT
 
@@ -35,6 +37,7 @@ signals:
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    void relayout() override { updateFieldLayout(); }
 
 private:
     void updateFieldLayout();
@@ -44,6 +47,7 @@ private:
     QLineEdit *_password = nullptr;
     QLineEdit *_confirm = nullptr;
     QPushButton *_passwordToggle = nullptr;
+    QLabel *_hint = nullptr;
     QPushButton *_skipLink = nullptr; // null when no system keychain is available
 };
 
