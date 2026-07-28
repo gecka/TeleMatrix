@@ -342,6 +342,11 @@ void HistoryConfirmDialog::reject() {
     if (_loop) _loop->quit();
 }
 
+void HistoryConfirmDialog::dismiss() {
+    _result = Dismissed;
+    if (_loop) _loop->quit();
+}
+
 void HistoryConfirmDialog::setBusyOnConfirm(std::function<void()> callback) {
     _busyOnConfirm = std::move(callback);
 }
@@ -382,7 +387,7 @@ void HistoryConfirmDialog::paintEvent(QPaintEvent *) {
 void HistoryConfirmDialog::mousePressEvent(QMouseEvent *event) {
     // While busy (async action running) the dialog can't be dismissed.
     if (!_busy && _panel && !_panel->geometry().contains(event->pos())) {
-        reject();
+        dismiss();
         return;
     }
     QWidget::mousePressEvent(event);
@@ -393,7 +398,7 @@ void HistoryConfirmDialog::keyPressEvent(QKeyEvent *event) {
         return; // Ignore Esc/Enter while the async action runs.
     }
     if (event->key() == Qt::Key_Escape) {
-        reject();
+        dismiss();
         return;
     }
     // Enter/Return triggers confirm button.

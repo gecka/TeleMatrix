@@ -28,7 +28,10 @@ class HistoryConfirmDialog final : public QWidget {
     Q_OBJECT
 
 public:
-    enum DialogCode { Rejected = 0, Accepted = 1 };
+    // Dismissed (Esc / click outside) is deliberately distinct from Rejected (the
+    // cancel button): when cancelling is destructive, dismissing must not reach it.
+    // Callers that only test for Accepted keep treating Dismissed as a refusal.
+    enum DialogCode { Rejected = 0, Accepted = 1, Dismissed = 2 };
 
     // Attention style uses red text for destructive actions.
     enum ConfirmStyle { Normal = 0, Attention = 1, FilledAttention = 2 };
@@ -61,6 +64,7 @@ private:
 
     void accept();
     void reject();
+    void dismiss();
     void enterBusyState();
 
     QWidget *_panel = nullptr;

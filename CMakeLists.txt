@@ -752,10 +752,13 @@ if (APPLE)
         # transient timestamp-authority failures retried, and a hard
         # `codesign --verify --deep --strict` before the build is allowed to
         # succeed. The script never falls back to ad-hoc when a real identity was
-        # asked for — the keychain binds our stored secrets to the *signing
-        # identity* (the item's ACL requires `certificate leaf[subject.OU] =
-        # <team>`), so an ad-hoc bundle cannot see them at all and would sign the
-        # user out.
+        # asked for: macOS pins a keychain item's ACL to the designated requirement
+        # of the binary that CREATED it. A Developer ID requirement is stable, so
+        # rebuilds and shipped updates keep access; an ad-hoc requirement is a bare
+        # `cdhash H"..."` that changes every build, so each rebuild is denied
+        # (errSecAuthFailed) — and an ad-hoc build that writes the item locks the
+        # released app out of it. keychain.rs gives such builds their own service
+        # name, but an ad-hoc bundle still cannot share this one's session.
         add_custom_command(TARGET TeleMatrix POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E env
                 "APP_BUNDLE=$<TARGET_BUNDLE_DIR:TeleMatrix>"

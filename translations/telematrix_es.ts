@@ -1786,7 +1786,7 @@ Esta acción es permanente y no se puede deshacer. Todos tus datos se perderán.
     <name>TeleMatrix::AppController</name>
     <message>
         <location filename="../src/app/app_controller.cpp" line="926"/>
-        <location filename="../src/app/app_controller.cpp" line="1503"/>
+        <location filename="../src/app/app_controller.cpp" line="1527"/>
         <source>Secure storage unavailable</source>
         <translation>Almacenamiento seguro no disponible</translation>
     </message>
@@ -1801,28 +1801,38 @@ Esta acción es permanente y no se puede deshacer. Todos tus datos se perderán.
         <translation>Salir</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="987"/>
+        <location filename="../src/app/app_controller.cpp" line="989"/>
         <source>Can&apos;t read your saved sign-in</source>
         <translation>No se puede leer tu sesión guardada</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="988"/>
+        <location filename="../src/app/app_controller.cpp" line="990"/>
         <source>TeleMatrix couldn&apos;t read your saved sign-in from the system keychain, so it can&apos;t open your session. Nothing has been deleted — your data is safe. Allow TeleMatrix to access the keychain, then try again.</source>
         <translation>TeleMatrix no ha podido leer tu sesión guardada en el llavero del sistema, así que no puede abrirla. No se ha borrado nada: tus datos están a salvo. Permite que TeleMatrix acceda al llavero y vuelve a intentarlo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="992"/>
-        <location filename="../src/app/app_controller.cpp" line="1072"/>
+        <location filename="../src/app/app_controller.cpp" line="994"/>
+        <location filename="../src/app/app_controller.cpp" line="1096"/>
         <source>Try again</source>
         <translation>Reintentar</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1068"/>
+        <location filename="../src/app/app_controller.cpp" line="1010"/>
+        <source>Sign out and erase local data?</source>
+        <translation>¿Cerrar sesión y borrar los datos locales?</translation>
+    </message>
+    <message>
+        <location filename="../src/app/app_controller.cpp" line="1011"/>
+        <source>This deletes the keys that decrypt the copy of your messages stored on this device. They cannot be recovered, and everything will be downloaded again after you sign in.</source>
+        <translation>Esto elimina las claves que descifran la copia de tus mensajes guardada en este dispositivo. No se pueden recuperar, y todo se descargará de nuevo cuando inicies sesión.</translation>
+    </message>
+    <message>
+        <location filename="../src/app/app_controller.cpp" line="1092"/>
         <source>Couldn&apos;t open your session</source>
         <translation>No se pudo abrir tu sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1069"/>
+        <location filename="../src/app/app_controller.cpp" line="1093"/>
         <source>TeleMatrix couldn&apos;t restore your session. The homeserver may be unreachable, or startup may have taken too long. Nothing has been deleted — your data is safe.
 
 %1</source>
@@ -1831,50 +1841,51 @@ Esta acción es permanente y no se puede deshacer. Todos tus datos se perderán.
 %1</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1356"/>
+        <location filename="../src/app/app_controller.cpp" line="1380"/>
         <source>Couldn&apos;t open this account</source>
         <translation>No se pudo abrir esta cuenta</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1357"/>
+        <location filename="../src/app/app_controller.cpp" line="1381"/>
         <source>Its saved sign-in can&apos;t be read right now. Nothing has been deleted — you can try again later, or sign this account out of this device.</source>
         <translation>Su sesión guardada no se puede leer ahora mismo. No se ha borrado nada: puedes reintentarlo más tarde o cerrar la sesión de esta cuenta en este dispositivo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1360"/>
+        <location filename="../src/app/app_controller.cpp" line="1384"/>
         <source>Sign out account</source>
         <translation>Cerrar sesión de la cuenta</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1361"/>
+        <location filename="../src/app/app_controller.cpp" line="1385"/>
         <source>Not now</source>
         <translation>Ahora no</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1504"/>
+        <location filename="../src/app/app_controller.cpp" line="1528"/>
         <source>TeleMatrix can&apos;t reach secure storage, so it can&apos;t save a new account&apos;s sign-in. Unlock your keyring and try again.</source>
         <translation>TeleMatrix no puede acceder al almacenamiento seguro, así que no puede guardar el inicio de sesión de una cuenta nueva. Desbloquea tu llavero e inténtalo de nuevo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2015"/>
+        <location filename="../src/app/app_controller.cpp" line="2039"/>
         <source>Are you sure you want to sign out?</source>
         <translation>¿Seguro que quieres cerrar sesión?</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="993"/>
-        <location filename="../src/app/app_controller.cpp" line="1073"/>
-        <location filename="../src/app/app_controller.cpp" line="2016"/>
-        <location filename="../src/app/app_controller.cpp" line="2282"/>
+        <location filename="../src/app/app_controller.cpp" line="995"/>
+        <location filename="../src/app/app_controller.cpp" line="1014"/>
+        <location filename="../src/app/app_controller.cpp" line="1097"/>
+        <location filename="../src/app/app_controller.cpp" line="2040"/>
+        <location filename="../src/app/app_controller.cpp" line="2306"/>
         <source>Sign out</source>
         <translation>Cerrar sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2277"/>
+        <location filename="../src/app/app_controller.cpp" line="2301"/>
         <source>Data is corrupted. Forcing logout</source>
         <translation>Los datos están dañados. Forzando el cierre de sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2278"/>
+        <location filename="../src/app/app_controller.cpp" line="2302"/>
         <source>TeleMatrix&apos;s local data is corrupted and can&apos;t be repaired, so you will be signed out and the local data cleared.
 
 Make sure your recovery key is backed up — you&apos;ll need it to restore your encrypted message history after signing back in.</source>
@@ -1895,7 +1906,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="obsolete">Activar</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1506"/>
+        <location filename="../src/app/app_controller.cpp" line="1530"/>
         <source>OK</source>
         <translation>Aceptar</translation>
     </message>
@@ -1912,32 +1923,33 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Introduce tu contraseña maestra para desbloquear tus datos locales.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2341"/>
+        <location filename="../src/app/app_controller.cpp" line="2365"/>
         <source>Reset local data?</source>
         <translation>¿Restablecer los datos locales?</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2342"/>
+        <location filename="../src/app/app_controller.cpp" line="2366"/>
         <source>Without your master password, TeleMatrix can&apos;t open your local data. Reset and sign in again? Your messages stay on the server and re-download after you sign in.</source>
         <translation>Sin tu contraseña maestra, TeleMatrix no puede abrir tus datos locales. ¿Restablecer e iniciar sesión de nuevo? Tus mensajes permanecen en el servidor y se vuelven a descargar tras iniciar sesión.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2345"/>
+        <location filename="../src/app/app_controller.cpp" line="2369"/>
         <source>Reset</source>
         <translation>Restablecer</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2346"/>
+        <location filename="../src/app/app_controller.cpp" line="1015"/>
+        <location filename="../src/app/app_controller.cpp" line="2370"/>
         <source>Back</source>
         <translation>Atrás</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2395"/>
+        <location filename="../src/app/app_controller.cpp" line="2419"/>
         <source>Preparing</source>
         <translation>Preparando</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2396"/>
+        <location filename="../src/app/app_controller.cpp" line="2420"/>
         <source>Clearing leftover data…</source>
         <translation>Borrando datos sobrantes…</translation>
     </message>

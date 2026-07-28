@@ -83,6 +83,13 @@ semver = "1"
 #   Linux   -> Secret Service (DBus; needs a running provider e.g. GNOME Keyring)
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
+# Already present transitively (keyring -> security-framework); made explicit for the
+# code-identity check in keychain.rs that decides which service name to address. Pure
+# system-framework bindings, no extra native linkage beyond the Security framework
+# CMakeLists.txt already links.
+security-framework-sys = "2"
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }

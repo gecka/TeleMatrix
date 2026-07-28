@@ -18,6 +18,10 @@ use zeroize::{Zeroize, Zeroizing};
 use crate::secret_vault::KdfParams;
 
 const SERVICE_NAME: &str = "dev.telematrix.TeleMatrix";
+// Addressed instead of SERVICE_NAME by builds whose code identity is not stable across
+// rebuilds — see `service_name()`.
+#[cfg(target_os = "macos")]
+const SERVICE_NAME_UNSTABLE: &str = "dev.telematrix.TeleMatrix.adhoc";
 const BUNDLE_KEY: &str = "app_secrets";
 const BUNDLE_VERSION: u32 = 1;
 // Declaring the keychain unavailable is expensive — the UI's only remedy is a
@@ -330,13 +334,78 @@ fn collection_usable() -> bool {
     routing().is_some()
 }
 
+// ----- macOS: which service name this build is allowed to address -----
+
+/// Whether this process's signature is certificate-backed, i.e. its designated
+/// requirement is stable across rebuilds.
+///
+/// macOS pins a keychain item's ACL to the designated requirement of the binary that
+/// *created* it. A Developer ID requirement (`identifier "…" and … certificate
+/// leaf[subject.OU] = "…"`) is stable, so every later build — rebuilt, re-signed,
+/// moved, or shipped as an update — keeps access. An ad-hoc requirement is
+/// `cdhash H"…"`, which changes on every single rebuild: the next build reads the
+/// previous build's item as `errSecAuthFailed`, and worse, an ad-hoc build that
+/// creates the item locks the *released* app out of it. Such builds get their own
+/// service name so they can never read, overwrite or wipe the real one.
+#[cfg(target_os = "macos")]
+fn has_stable_code_identity() -> bool {
+    use core_foundation::base::TCFType;
+    use core_foundation::string::CFString;
+    use core_foundation_sys::base::CFRelease;
+    use security_framework_sys::code_signing::{
+        SecCodeCheckValidity, SecCodeCopySelf, SecCodeRef, SecRequirementCreateWithString,
+        SecRequirementRef,
+    };
+
+    // "anchor apple generic" holds for anything signed by an Apple-issued certificate
+    // (Developer ID, App Store) and fails for ad-hoc and unsigned code.
+    unsafe {
+        let mut code: SecCodeRef = std::ptr::null_mut();
+        if SecCodeCopySelf(0, &mut code) != 0 || code.is_null() {
+            return false;
+        }
+        let text = CFString::new("anchor apple generic");
+        let mut requirement: SecRequirementRef = std::ptr::null_mut();
+        let stable =
+            SecRequirementCreateWithString(text.as_concrete_TypeRef(), 0, &mut requirement) == 0
+                && !requirement.is_null()
+                && SecCodeCheckValidity(code, 0, requirement) == 0;
+        if !requirement.is_null() {
+            CFRelease(requirement.cast());
+        }
+        CFRelease(code.cast());
+        stable
+    }
+}
+
+fn service_name() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        static STABLE: OnceLock<bool> = OnceLock::new();
+        if !*STABLE.get_or_init(|| {
+            let stable = has_stable_code_identity();
+            if !stable {
+                warn!(
+                    "[SECRET_STORE] this build is not signed with a stable identity; \
+                     addressing {SERVICE_NAME_UNSTABLE} so it cannot disturb {SERVICE_NAME}"
+                );
+            }
+            stable
+        }) {
+            return SERVICE_NAME_UNSTABLE;
+        }
+    }
+    SERVICE_NAME
+}
+
 fn entry(key: &str) -> Result<keyring::Entry> {
+    let service = service_name();
     #[cfg(target_os = "linux")]
     if let Some(target) = collection_target() {
-        return keyring::Entry::new_with_target(target, SERVICE_NAME, key)
+        return keyring::Entry::new_with_target(target, service, key)
             .map_err(|e| anyhow!("Keychain entry error: {e}"));
     }
-    keyring::Entry::new(SERVICE_NAME, key).map_err(|e| anyhow!("Keychain entry error: {e}"))
+    keyring::Entry::new(service, key).map_err(|e| anyhow!("Keychain entry error: {e}"))
 }
 
 fn direct_store(key: &str, value: &str) -> Result<()> {
@@ -362,10 +431,10 @@ fn direct_delete(key: &str) -> Result<()> {
 }
 
 fn load_bundle_from_keychain() -> Result<SecretBundle> {
-    // Retried like the reachability probe, and for the same reason: a refused read
-    // is not an empty keychain. macOS ties an item to the code identity that wrote
-    // it, so a rebuilt (re-signed) binary is a different app as far as the ACL is
-    // concerned and the read is denied until the user allows it again. The caller
+    // Retried like the reachability probe, and for the same reason: a refused read is
+    // not an empty keychain. macOS pins the item to the designated requirement of the
+    // binary that wrote it (see `has_stable_code_identity`), so an item left behind by
+    // a differently-signed build is refused rather than reported missing. The caller
     // cannot tell those apart from the outside, and reads "no secrets" as "dead
     // session" — so a single bad read must not be allowed to stand.
     let mut stored = None;

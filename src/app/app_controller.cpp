@@ -959,11 +959,13 @@ void AppController::start() {
             accountSettings().setRecentEmoji(ToRecentEmoji(recentEmoji));
         }
 
-        // A refused read is not an absent session. macOS binds a keychain item to
-        // the code identity that wrote it, so a rebuilt (re-signed) binary reads as
-        // a different app to the item's ACL and is denied until the user allows it
-        // again — and the reachability probe above can pass while this very read is
-        // refused. Wiping on that destroys a working session, so offer a retry and
+        // A refused read is not an absent session. macOS pins a keychain item's ACL to
+        // the designated requirement of the binary that *created* it. A Developer ID
+        // requirement is stable, so rebuilds, re-signs and shipped updates all keep
+        // access; an ad-hoc requirement is a bare cdhash, so an ad-hoc build locks
+        // every other build — including the released app — out of the item with
+        // errSecAuthFailed. The reachability probe above can pass while this very read
+        // is refused. Wiping on that destroys a working session, so offer a retry and
         // let the user quit with everything intact instead.
         QString accessToken;
         for (;;) {
@@ -991,10 +993,32 @@ void AppController::start() {
                    "keychain, then try again."),
                 tr("Try again"),
                 tr("Sign out"));
-            if (dialog.exec() != HistoryConfirmDialog::Accepted) {
-                // The user would rather start over than keep fighting the keychain.
+            const auto choice = dialog.exec();
+            if (choice == HistoryConfirmDialog::Dismissed) {
+                // Esc or a click outside. Signing out from here erases the passphrases
+                // that decrypt this account's local databases, and dismissing a dialog
+                // is how a user says "leave things alone" — so it quits instead.
+                _startupQuitRequested = true;
+                return;
+            }
+            if (choice != HistoryConfirmDialog::Accepted) {
+                // Pressed "Sign out". Spell out the damage before doing it: the reason
+                // the read failed is usually recoverable (another build of TeleMatrix
+                // owns the keychain item), while this is not.
+                HistoryConfirmDialog confirm(
+                    _window,
+                    tr("Sign out and erase local data?"),
+                    tr("This deletes the keys that decrypt the copy of your messages "
+                       "stored on this device. They cannot be recovered, and everything "
+                       "will be downloaded again after you sign in."),
+                    tr("Sign out"),
+                    tr("Back"),
+                    HistoryConfirmDialog::Attention);
+                if (confirm.exec() != HistoryConfirmDialog::Accepted) {
+                    continue;
+                }
                 // Falling through clears the session and shows the login form; the
-                // secrets are only destroyed here because they asked for it.
+                // secrets are only destroyed here because they asked for it twice.
                 accessToken.clear();
                 break;
             }
@@ -2297,10 +2321,10 @@ AppController::SecretSetup AppController::checkSecretBackendForNewSession() {
         return SecretSetup::Ready;
     }
 #if defined(Q_OS_MAC) || defined(Q_OS_WIN)
-    // These platforms always ship a keychain, so state 1 is a failed *read* (a
-    // locked keychain, an access prompt denied after the app was re-signed), not a
-    // device that lacks one. Reporting it as retryable keeps a transient hiccup
-    // from stickily moving the device off a perfectly good keychain.
+    // These platforms always ship a keychain, so state 1 is a failed *read* (a locked
+    // keychain, or an item whose ACL belongs to a different build — see the ad-hoc note
+    // in keychain.rs), not a device that lacks one. Reporting it as retryable keeps a
+    // transient hiccup from stickily moving the device off a perfectly good keychain.
     if (storeState == 1) {
         return SecretSetup::KeychainError;
     }

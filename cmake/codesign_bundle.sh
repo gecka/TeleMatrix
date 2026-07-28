@@ -48,10 +48,11 @@ sign_one() {
             echo "!! codesign failed on: $target" >&2
             sed 's/^/   /' <<<"$out" >&2
             if [ "$SIGN_IDENTITY" != "-" ]; then
-                echo "   Refusing to fall back to an ad-hoc signature: the keychain binds this" >&2
-                echo "   app's stored secrets to its Developer ID (the item ACL requires" >&2
-                echo "   certificate leaf[subject.OU] = <team>), so an ad-hoc bundle cannot read" >&2
-                echo "   its own session and would sign the user out. Unlock your login keychain" >&2
+                echo "   Refusing to fall back to an ad-hoc signature: macOS pins a keychain" >&2
+                echo "   item's ACL to the designated requirement of the binary that created it." >&2
+                echo "   A Developer ID requirement is stable across rebuilds; an ad-hoc one is a" >&2
+                echo "   bare cdhash that changes every build, so each rebuild reads the previous" >&2
+                echo "   build's secrets as errSecAuthFailed. Unlock your login keychain" >&2
                 echo "   and allow codesign to use the signing key, or configure with" >&2
                 echo "   -DTELEMATRIX_CODESIGN_IDENTITY=- to build unsigned." >&2
             fi
