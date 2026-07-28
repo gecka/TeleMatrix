@@ -2,11 +2,10 @@
 # included (see release.yml). Other branches are short-lived and reach main by merge.
 #
 #   push, any branch -> tests only (Linux). Cheap early signal while iterating.
-#   push to main     -> tests + the full 3-OS package build, unsigned. Every commit
-#                       that can be tagged is therefore packaged before it is,
-#                       so packaging breaks surface on a free run, never mid-release.
 #   pull_request     -> tests only. Package builds are not a PR gate.
-#   dispatch         -> tests + package build, on any branch you pick.
+#   dispatch         -> tests + the full 3-OS package build, unsigned, on any
+#                       branch you pick. Run it before tagging to prove packaging
+#                       still works without spending a release on it.
 name: CI
 
 on:
@@ -32,12 +31,9 @@ jobs:
 
   build:
     name: Build packages
-    # main and explicit dispatches only. Not dev: it takes commits all day and
-    # three OS builds per push is ~90 minutes of runner time for no new signal.
-    # A PR's ref is refs/pull/N/merge, so this excludes pull_request too.
-    if: >-
-      github.event_name == 'workflow_dispatch'
-      || github.ref == 'refs/heads/main'
+    # Explicit dispatches only. Three OS builds are ~90 minutes of runner time,
+    # and on a push nobody is waiting for the result — ask for it when it matters.
+    if: github.event_name == 'workflow_dispatch'
     needs: tests   # gate the package build on green tests
     uses: ./.github/workflows/_reusable-build.yml
     with:
