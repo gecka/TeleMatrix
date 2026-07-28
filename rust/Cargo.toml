@@ -62,7 +62,7 @@ ffmpeg-next = { version = "8.1.0", default-features = false, features = ["codec"
 # All three crates are already transitive via matrix-sdk-crypto; pinning to the
 # same versions avoids a second copy in the artifact.
 aes = "0.8"
-ctr = "0.9"
+ctr = "0.10"
 cipher = "0.5"
 # Refresh a cached file's mtime on read so the on-disk media cache LRU is by
 # last-USE, not last-write (cross-platform: utimensat / SetFileTime).
