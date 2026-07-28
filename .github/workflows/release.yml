@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # the ancestry check below needs real history
 
@@ -116,7 +116,7 @@ jobs:
       contents: write   # create the release + attach assets
     steps:
       - name: Download every platform's artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: telematrix-*
           merge-multiple: true
@@ -322,7 +322,7 @@ jobs:
       - name: Publish release
         # ONE publish for the whole tag. (Previously each platform job called this
         # action concurrently on the same tag, racing to create/update the release.)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           # Any '-' in the tag (-beta.N, -rc.N, -alpha.N) => GitHub pre-release.
