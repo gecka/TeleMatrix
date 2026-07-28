@@ -340,6 +340,7 @@ jobs:
         # becomes /releases/latest and hijacks the stable channel for everyone.
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           # Not `gh release create ... || true`: that swallows an auth or
