@@ -389,7 +389,7 @@ bool AccountSettings::addFromJson(const QJsonObject &object) {
 QJsonObject Settings::toJson() const {
     QJsonObject object;
     object[QStringLiteral("windowPosition")] = SerializeWindowPositionJson(_windowPosition);
-    object[QStringLiteral("dialogsWidthRatio")] = _dialogsWidthRatio;
+    object[QStringLiteral("dialogsWidth")] = _dialogsWidth;
 
     object[QStringLiteral("notifications")] = QJsonObject{
         { QStringLiteral("desktopNotify"), _desktopNotify },
@@ -456,11 +456,14 @@ bool Settings::addFromJson(const QJsonObject &object) {
         _windowPosition = DeserializeWindowPositionJson(windowObject);
     }
 
-    if (object.contains(QStringLiteral("dialogsWidthRatio"))) {
-        _dialogsWidthRatio = std::clamp(
-            object.value(QStringLiteral("dialogsWidthRatio")).toDouble(),
-            0.0,
-            1.0);
+    // The pre-1.0 "dialogsWidthRatio" key is deliberately not migrated: a ratio
+    // cannot be turned back into pixels without the window width it was saved
+    // at, and every stored ratio restored to the minimum anyway. Those files
+    // load with no width set and fall back to the default.
+    if (object.contains(QStringLiteral("dialogsWidth"))) {
+        _dialogsWidth = qMax(
+            object.value(QStringLiteral("dialogsWidth")).toInt(),
+            0);
     }
 
     const auto notifications = object.value(QStringLiteral("notifications")).toObject();

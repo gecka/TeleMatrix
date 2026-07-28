@@ -104,7 +104,7 @@ private:
     void setNetworkOnline(bool online);
     void applyConnectionState();
     void restoreDialogsWidth();
-    void saveDialogsWidthRatio();
+    void saveDialogsWidth();
     void openVerifySessionDialog();
     void openIncomingVerifySessionDialog(const QString &transactionId);
     void openIncomingUserVerifyDialog(const QString &flowId, const QString &displayName);

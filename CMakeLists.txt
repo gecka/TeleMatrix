@@ -227,6 +227,8 @@ add_library(telematrix_core OBJECT
     src/app/unread_state_store.cpp
     src/app/account_index.h
     src/app/account_index.cpp
+    src/app/dialogs_width.h
+    src/app/dialogs_width.cpp
     src/history/history_return_stack.h
     src/history/history_return_stack.cpp
     src/history/history_scroll_state.h

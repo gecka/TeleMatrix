@@ -164,12 +164,15 @@ public:
         _windowPosition = position;
     }
 
-    // Dialogs width as a ratio of total window width (0.0–1.0).
-    [[nodiscard]] double dialogsWidthRatio() const {
-        return _dialogsWidthRatio;
+    // Dialogs column width in pixels (0 = never set, use the default). Stored
+    // absolutely, not as a fraction of the window: the column has stretch
+    // factor 0 and keeps its pixel width across window resizes, so a fraction
+    // would only reproduce the user's width at the window width it was saved at.
+    [[nodiscard]] int dialogsWidth() const {
+        return _dialogsWidth;
     }
-    void setDialogsWidthRatio(double ratio) {
-        _dialogsWidthRatio = ratio;
+    void setDialogsWidth(int width) {
+        _dialogsWidth = width;
     }
 
     // Notification settings.
@@ -289,7 +292,7 @@ public:
 
 private:
     WindowPosition _windowPosition;
-    double _dialogsWidthRatio = 0.0; // 0 = use default
+    int _dialogsWidth = 0; // 0 = use default
     bool _desktopNotify = true;
     bool _soundNotify = true;
     bool _showSenderName = true;

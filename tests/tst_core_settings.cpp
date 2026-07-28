@@ -27,7 +27,7 @@ private slots:
         pos.w = 800;
         pos.h = 600;
         s1.setWindowPosition(pos);
-        s1.setDialogsWidthRatio(0.37);
+        s1.setDialogsWidth(451);
         s1.setThemeMode(1);
         s1.setThemeId("andalusia");
         s1.setConfigScale(125);
@@ -51,7 +51,7 @@ private slots:
         QCOMPARE(rp.scale, 150);
         QCOMPARE(rp.rect(), QRect(10, 20, 800, 600));
 
-        QCOMPARE(s2.dialogsWidthRatio(), 0.37);
+        QCOMPARE(s2.dialogsWidth(), 451);
         QCOMPARE(s2.themeMode(), 1);
         QCOMPARE(s2.themeId(), QString("andalusia"));
         QCOMPARE(s2.configScale(), 125);
@@ -133,9 +133,28 @@ private slots:
         QVERIFY(s2.addFromJson(s1.toJson()));
         QCOMPARE(s2.themeMode(), s1.themeMode());
         QCOMPARE(s2.themeId(), s1.themeId());
-        QCOMPARE(s2.dialogsWidthRatio(), s1.dialogsWidthRatio());
+        QCOMPARE(s2.dialogsWidth(), s1.dialogsWidth());
         QCOMPARE(s2.updatePolicy(), s1.updatePolicy());
         QCOMPARE(s2.installBetaVersions(), s1.installBetaVersions());
+    }
+
+    // The dialogs width used to be stored as a fraction of the window width,
+    // which could not be restored faithfully and always came back at the
+    // minimum. Such a file must load as "never set" (so the column takes the
+    // default) rather than carrying the unusable ratio forward.
+    void legacyDialogsWidthRatioIsNotMigrated() {
+        Settings fresh;
+        QCOMPARE(fresh.dialogsWidth(), 0);
+
+        auto legacy = fresh.toJson();
+        legacy.remove(QStringLiteral("dialogsWidth"));
+        legacy[QStringLiteral("dialogsWidthRatio")] = 0.2506;
+
+        Settings loaded;
+        loaded.setDialogsWidth(451);
+        QVERIFY(loaded.addFromJson(legacy));
+        QCOMPARE(loaded.dialogsWidth(), 451); // absent key leaves the value alone
+        QVERIFY(!loaded.toJson().contains(QStringLiteral("dialogsWidthRatio")));
     }
 
     // The beta channel is opt-in, and an upgrade must not move anyone onto it:

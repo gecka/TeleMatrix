@@ -12,6 +12,7 @@ set(TELEMATRIX_TEST_AREAS
     chat_background
     localization
     core_settings
+    dialogs_width
     account_index
     unread_state_store
     history_return_stack
@@ -58,6 +59,10 @@ foreach(area ${TELEMATRIX_TEST_AREAS})
     set_tests_properties(${area} PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endforeach()
+
+# Drives a real QSplitter through the startup resize sequence, so it needs the
+# widget classes themselves rather than just the pure-logic core.
+target_link_libraries(tst_dialogs_width PRIVATE Qt6::Widgets)
 
 # MediaCache lives in the app target (not telematrix_core), and pulls in
 # Qt Widgets/Concurrent. Give it a dedicated runner that compiles the real

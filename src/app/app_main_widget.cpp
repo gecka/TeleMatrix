@@ -7,6 +7,7 @@
 #include "app_main_widget.h"
 #include "app_main_window.h"
 #include "app_controller.h"
+#include "dialogs_width.h"
 #include "unread_state_store.h"
 #include "theme/theme_manager.h"
 
@@ -212,9 +213,9 @@ void AppMainWidget::setupLayout() {
     _splitter->setStretchFactor(0, 0); // Sidebar doesn't stretch.
     _splitter->setStretchFactor(1, 1); // Content fills remaining space.
 
-    // Save dialogs width ratio when the splitter handle is released.
+    // Save the dialogs width when the splitter handle is released.
     connect(_splitter, &QSplitter::splitterMoved,
-            this, &AppMainWidget::saveDialogsWidthRatio);
+            this, &AppMainWidget::saveDialogsWidth);
 
     layout->addWidget(_splitter);
 
@@ -1460,23 +1461,22 @@ void AppMainWidget::resizeEvent(QResizeEvent *e) {
 }
 
 void AppMainWidget::restoreDialogsWidth() {
-    if (_dialogsWidthRestored) return;
-    const double ratio = _controller->settings().dialogsWidthRatio();
-    if (ratio > 0.0 && width() > 0) {
-        int sidebarWidth = qRound(ratio * width());
-        sidebarWidth = std::clamp(sidebarWidth, kSidebarMinWidth, kSidebarMaxWidth);
-        _splitter->setSizes({ sidebarWidth, width() - sidebarWidth });
-        _dialogsWidthRestored = true;
-    }
+    if (_dialogsWidthRestored || width() <= 0) return;
+
+    const int sidebarWidth = Dialogs::RestoredWidth(
+        _controller->settings().dialogsWidth(),
+        kSidebarDefaultWidth,
+        kSidebarMinWidth,
+        kSidebarMaxWidth);
+    _splitter->setSizes({ sidebarWidth, qMax(0, width() - sidebarWidth) });
+    _dialogsWidthRestored = true;
 }
 
-void AppMainWidget::saveDialogsWidthRatio() {
-    if (width() <= 0) return;
+void AppMainWidget::saveDialogsWidth() {
     const auto sizes = _splitter->sizes();
     if (sizes.size() < 2 || sizes[0] <= 0) return;
 
-    const double ratio = double(sizes[0]) / double(width());
-    _controller->settings().setDialogsWidthRatio(ratio);
+    _controller->settings().setDialogsWidth(sizes[0]);
     _controller->saveSettingsDelayed();
 }
 
