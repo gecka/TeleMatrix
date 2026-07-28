@@ -253,6 +253,8 @@ add_library(telematrix_core OBJECT
     src/history/heic_decode.cpp
     src/history/emoji_data.h
     src/history/emoji_data.cpp
+    src/history/emoji_picker_keys.h
+    src/history/emoji_picker_keys.cpp
     src/history/history_video_placeholder.h
     src/history/history_video_placeholder.cpp
     src/media/video_container.h

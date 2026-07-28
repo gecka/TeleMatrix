@@ -7,6 +7,7 @@
 #include "history_input.h"
 #include "history_draft_state.h"
 #include "history_emoji_picker.h"
+#include "emoji_picker_keys.h"
 #include "history_voice_recorder.h"
 #include "mention_autocomplete.h"
 #include "mention_trigger.h"
@@ -856,13 +857,14 @@ bool HistoryInput::eventFilter(QObject *obj, QEvent *event) {
 	} else if (obj == _emojiPicker) {
 		if (event->type() == QEvent::KeyPress) {
 			// The picker is a Qt::Popup and grabs the keyboard app-wide, so while
-			// it's open keys reach it, not the composer (unless its search field
-			// has focus, in which case they never arrive here). Route everything
-			// but Escape back to the message field: close the panel and replay the
-			// keystroke, so Enter sends + closes and any character keeps typing
-			// where you left off.
+			// it's open keys reach it, not the composer. Route what the user is
+			// actually typing back to the message field: close the panel and
+			// replay the keystroke, so Enter sends + closes and any character
+			// keeps typing where you left off. Keys the focused search field
+			// merely ignored (bare Shift/Cmd/Alt) propagate up to the popup too
+			// and must not be mistaken for that — see ShouldForwardToComposer.
 			auto *ke = static_cast<QKeyEvent *>(event);
-			if (ke->key() != Qt::Key_Escape) {
+			if (EmojiPickerKeys::ShouldForwardToComposer(ke->key())) {
 				_emojiPickerHideTimer.stop();
 				_emojiPicker->hide();
 				if (_field) {
