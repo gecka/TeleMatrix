@@ -164,7 +164,13 @@ VerificationFlow::VerificationFlow(ProtocolBridge *bridge, QWidget *parent)
 
 void VerificationFlow::start(Entry entry, const QString &flowId) {
     if (entry == Entry::Emoji) {
+        // Every incoming request lands here: a request carries the methods its
+        // sender SUPPORTS, never the one its user picked, so there is nothing in
+        // it to route on.
         _emojiStep->setRequestFlowId(flowId);
+        // An incoming request is one specific flow the other session is waiting
+        // on; the remaining links start a different one, so drop them.
+        _emojiStep->setShowsAlternativeMethods(false);
         showStep(kStepEmoji);
         return;
     }

@@ -17,14 +17,6 @@ void tm_get_folders_async(
     void (*callback)(bool success, FfiFolderList list, void *userdata),
     void *userdata);
 
-void tm_set_incoming_verification_request_callback(
-    struct Handle *h,
-    void (*callback)(const char *transaction_id,
-                     const char *device_id,
-                     const char *device_name,
-                     void *userdata),
-    void *userdata);
-
 void tm_start_sas_verification_for(
     struct Handle *h,
     const char *transaction_id,
@@ -62,14 +54,6 @@ void tm_user_trust_state(
 void tm_set_user_trust_changed_callback(
     struct Handle *h,
     void (*callback)(const char *user_id, uint32_t state, void *userdata),
-    void *userdata);
-
-void tm_set_incoming_user_verification_request_callback(
-    struct Handle *h,
-    void (*callback)(const char *flow_id,
-                     const char *user_id,
-                     const char *display_name,
-                     void *userdata),
     void *userdata);
 
 void tm_set_new_login_callback(
@@ -1880,6 +1864,21 @@ static void incomingVerificationRequestCallbackTrampoline(
     });
 }
 
+// An incoming request stopped being answerable (accepted on another session,
+// withdrawn, or expired) — the banner offering it must come down.
+static void verificationRequestClosedTrampoline(
+    const char *flowId,
+    void *userdata)
+{
+    const auto flow = flowId ? QString::fromUtf8(flowId) : QString();
+    withGuardedBridge(userdata, [flow](ProtocolBridge *bridge) {
+        QMetaObject::invokeMethod(bridge,
+            [bridge, flow]() {
+                emit bridge->verificationRequestClosed(flow);
+            }, Qt::QueuedConnection);
+    });
+}
+
 // Another user's cross-signing trust state changed (identity-updates stream).
 static void userTrustChangedTrampoline(
     const char *userId,
@@ -2638,6 +2637,10 @@ void ProtocolBridge::registerCallbacks() {
     tm_set_incoming_verification_request_callback(
         _handle,
         incomingVerificationRequestCallbackTrampoline,
+        guard);
+    tm_set_verification_request_closed_callback(
+        _handle,
+        verificationRequestClosedTrampoline,
         guard);
     tm_set_user_trust_changed_callback(
         _handle,

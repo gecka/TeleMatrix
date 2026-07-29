@@ -199,10 +199,13 @@ public:
         _deviceId = deviceId;
         _deviceName = deviceName.trimmed().isEmpty() ? deviceId : deviceName.trimmed();
         _title = QCoreApplication::translate("DialogsVerificationBanner", "Verify a new device");
+        // Method-neutral: a request advertises capabilities, not the method its
+        // user picked, so naming one here promises something the other session
+        // may never be looking at.
         _description = QCoreApplication::translate(
             "DialogsVerificationBanner",
             "A verification request was received from %1. "
-            "Compare emojis to confirm this session is yours.")
+            "Accept it to confirm this session is yours.")
             .arg(_deviceName.isEmpty()
                 ? QCoreApplication::translate("DialogsVerificationBanner", "another session")
                 : _deviceName);
@@ -225,7 +228,7 @@ public:
         _description = QCoreApplication::translate(
             "DialogsVerificationBanner",
             "%1 wants to verify with you. "
-            "Compare emojis to confirm their identity.")
+            "Accept it to confirm their identity.")
             .arg(_deviceName.isEmpty()
                 ? QCoreApplication::translate("DialogsVerificationBanner", "Someone")
                 : _deviceName);
@@ -1706,6 +1709,21 @@ void DialogsWidget::setupVerificationBanner() {
             const QString &userId,
             const QString &displayName) {
             showUserVerificationBanner(flowId, userId, displayName);
+        });
+
+    // The request stopped being answerable — another of our sessions took it,
+    // the requester withdrew it, or it expired. Without this the banner sits
+    // there offering to accept a request that no longer exists.
+    QObject::connect(
+        _bridge,
+        &ProtocolBridge::verificationRequestClosed,
+        this,
+        [this](const QString &flowId) {
+            if (_verificationBannerTransactionId.isEmpty()
+                || flowId != _verificationBannerTransactionId) {
+                return;
+            }
+            hideVerificationBanner();
         });
 
     QObject::connect(_bridge, &ProtocolBridge::verificationStateChanged, this, [this](int state, const QString &flowId) {

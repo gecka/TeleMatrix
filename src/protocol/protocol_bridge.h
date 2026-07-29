@@ -898,6 +898,9 @@ signals:
         const QString &transactionId,
         const QString &deviceId,
         const QString &deviceName);
+    /// An incoming request can no longer be answered: another of our sessions
+    /// took it, the requester withdrew it, or it expired.
+    void verificationRequestClosed(const QString &flowId);
     void verificationCapabilitiesReady(bool success, bool canDevice, bool canRecovery, bool sasOk, bool qrSupported);
     void qrCodeReady(bool success, const QByteArray &modules, int size);
     void qrScanConfirmed(bool success);

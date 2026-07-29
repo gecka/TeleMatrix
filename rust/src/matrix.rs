@@ -68,6 +68,7 @@ type VerificationIncomingRequestCallback = Box<dyn Fn(&str, &str, &str) + Send>;
 type VerificationStateCallback = Box<dyn Fn(u32, &str) + Send>;
 type UserTrustChangedCallback = Box<dyn Fn(&str, u32) + Send>;
 type VerificationIncomingUserRequestCallback = Box<dyn Fn(&str, &str, &str) + Send>;
+type VerificationRequestClosedCallback = Box<dyn Fn(&str) + Send>;
 
 /// Runtime handles the per-room latest-event preview-refresh tasks need. All
 /// fields are cheap `Arc`/service clones; bundled so the subscribe helper has one
@@ -2211,6 +2212,12 @@ impl MatrixProtocol {
         callback: VerificationIncomingUserRequestCallback,
     ) {
         self.verification.on_incoming_user_request(callback);
+    }
+
+    /// Register a callback that fires when an incoming verification request can
+    /// no longer be answered, so the UI can take its banner down.
+    pub fn on_verification_request_closed(&self, callback: VerificationRequestClosedCallback) {
+        self.verification.on_request_closed(callback);
     }
 
     /// Read another user's cross-signing trust state (for trust shields).

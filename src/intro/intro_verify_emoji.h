@@ -37,6 +37,11 @@ public:
     // there is nothing left to attach to, so Retry starts our own flow instead.
     void setRequestFlowId(const QString &flowId) { _requestFlowId = flowId; }
 
+    // Show or hide the "use another method" links. Off for an incoming request:
+    // it is one specific flow the other session is waiting on, and switching
+    // method cancels it out from under them.
+    void setShowsAlternativeMethods(bool shows);
+
 signals:
     void mismatch();
     void verified();

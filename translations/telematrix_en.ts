@@ -392,19 +392,19 @@ You&apos;ll stay in its rooms unless you tick the ones you also want to leave.</
 <context>
     <name>DialogsNewLoginBanner</name>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="469"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="472"/>
         <source>New login. Was this you?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="547"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="648"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="550"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="651"/>
         <source>Yes, it was me</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="553"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="655"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="556"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="658"/>
         <source>No, sign out</source>
         <translation type="unfinished"></translation>
     </message>
@@ -622,39 +622,39 @@ You&apos;ll stay in its rooms unless you tick the ones you also want to leave.</
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="202"/>
-        <source>A verification request was received from %1. Compare emojis to confirm this session is yours.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="207"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="210"/>
         <source>another session</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="224"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="227"/>
         <source>Verify user</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="225"/>
-        <source>%1 wants to verify with you. Compare emojis to confirm their identity.</source>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="205"/>
+        <source>A verification request was received from %1. Accept it to confirm this session is yours.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="230"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="228"/>
+        <source>%1 wants to verify with you. Accept it to confirm their identity.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="233"/>
         <source>Someone</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="295"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="386"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="298"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="389"/>
         <source>Accept</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="301"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="394"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="304"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="397"/>
         <source>Decline</source>
         <translation type="unfinished"></translation>
     </message>
@@ -677,22 +677,22 @@ You&apos;ll stay in its rooms unless you tick the ones you also want to leave.</
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1206"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1209"/>
         <source>All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1208"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1211"/>
         <source>Personal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1210"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1213"/>
         <source>Unread</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1212"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1215"/>
         <source>Folder %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1087,27 +1087,27 @@ You&apos;ll stay in its rooms unless you tick the ones you also want to leave.</
 <context>
     <name>ProtocolBridge</name>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="161"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="145"/>
         <source>Poll</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="163"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="147"/>
         <source>Poll, results after end</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="165"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="149"/>
         <source>Quiz</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="167"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="151"/>
         <source>Quiz, results after end</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="169"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="153"/>
         <source>Final Results</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2281,79 +2281,79 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
 <context>
     <name>TeleMatrix::DialogsWidget</name>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1584"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1587"/>
         <source>Search</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1929"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1932"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2017"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1947"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1950"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2035"/>
         <source>My Messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1944"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1962"/>
         <source>Search messages in</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1945"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1963"/>
         <source>Search messages in %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2164"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2182"/>
         <source>Couldn&apos;t update folder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2165"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2183"/>
         <source>The change was rejected by the server.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2166"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2184"/>
         <source>OK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2522"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2540"/>
         <source>Leave Room</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2523"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2541"/>
         <source>Are you sure you want to leave &quot;%1&quot;?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2525"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2543"/>
         <source>Leave</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2537"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2555"/>
         <source>Delete Saved Messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2538"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2556"/>
         <source>This permanently deletes Saved Messages and everything in it. This can&apos;t be undone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2540"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2558"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="3250"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="3268"/>
         <source>Couldn&apos;t save the new order.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="3372"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="3390"/>
         <source>Me</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4365,9 +4365,9 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
     </message>
     <message>
         <location filename="../src/intro/intro_verify_emoji.cpp" line="118"/>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="242"/>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="281"/>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="296"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="250"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="289"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="304"/>
         <source>They should appear in the same order on both sessions.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4393,27 +4393,27 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
     </message>
     <message>
         <location filename="../src/intro/intro_verify_emoji.cpp" line="190"/>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="262"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="270"/>
         <source>The request was denied or timed out, or there was a verification mismatch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="217"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="225"/>
         <source>Waiting for the other device…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="234"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="242"/>
         <source>They match</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="252"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="260"/>
         <source>Failed to start emoji verification</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/intro/intro_verify_emoji.cpp" line="272"/>
+        <location filename="../src/intro/intro_verify_emoji.cpp" line="280"/>
         <source>Waiting for your other device to confirm...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4912,20 +4912,20 @@ Preview cache: %2</source>
 <context>
     <name>TeleMatrix::ProtocolBridge</name>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3270"/>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3298"/>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3371"/>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3390"/>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3408"/>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3427"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3273"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3301"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3374"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3393"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3411"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3430"/>
         <source>Not connected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3864"/>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3887"/>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3908"/>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="3929"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3867"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3890"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3911"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="3932"/>
         <source>Not connected</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6087,47 +6087,47 @@ Are you sure you want to enable encryption for this room?</source>
 <context>
     <name>UnableToDecrypt</name>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2189"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2188"/>
         <source>Sent before you joined this chat, so its keys were never shared with you.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2192"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2191"/>
         <source>The sender&apos;s verified identity has changed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2195"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2194"/>
         <source>Sent from a device the sender hasn&apos;t verified.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2198"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2197"/>
         <source>Sent from a device that&apos;s no longer available.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2201"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2200"/>
         <source>Sent before this device was set up. Earlier messages can&apos;t be opened here.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2204"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2203"/>
         <source>The sender didn&apos;t share the keys with this device.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2207"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2206"/>
         <source>The sender chose not to share the keys for this message.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2210"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2209"/>
         <source>Verify this device to read messages sent before you signed in.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/protocol/protocol_bridge.cpp" line="2214"/>
+        <location filename="../src/protocol/protocol_bridge.cpp" line="2213"/>
         <source>Re-establishing the secure session may restore access to this message.</source>
         <translation type="unfinished"></translation>
     </message>

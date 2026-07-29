@@ -193,6 +193,14 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
     });
 }
 
+void IntroVerifyEmoji::setShowsAlternativeMethods(bool shows) {
+    // Widget visibility is the only record — every state helper below touches
+    // enabled-ness, never visibility, so hiding here sticks for the page's life.
+    _qrLink->setVisible(shows);
+    _recoveryKeyLink->setVisible(shows);
+    updateEmojiLayout();
+}
+
 void IntroVerifyEmoji::activate() {
     IntroStep::activate();
     startVerification();
@@ -427,18 +435,17 @@ void IntroVerifyEmoji::updateEmojiLayout() {
     const auto linksTop = errorTop
         + (error->isVisible() ? errorHeight + st::introVerifyCardTextGap : 0);
     // Order per the redesign: the two other methods (QR, then recovery key),
-    // then "Skip for now" last.
-    _qrLink->move(
-        (width() - _qrLink->width()) / 2,
-        linksTop);
-    const auto recoveryY =
-        linksTop + _qrLink->height() + st::introVerifyCardTextGap;
-    _recoveryKeyLink->move(
-        (width() - _recoveryKeyLink->width()) / 2,
-        recoveryY);
-    _skipLink->move(
-        (width() - _skipLink->width()) / 2,
-        recoveryY + _recoveryKeyLink->height() + st::introVerifyCardTextGap);
+    // then "Skip for now" last. Hidden links are stepped over rather than left
+    // as gaps — an incoming request hides both method links, and the popup
+    // hides the skip.
+    auto linkY = linksTop;
+    for (auto *link : { _qrLink, _recoveryKeyLink, _skipLink }) {
+        if (link->isHidden()) {
+            continue;
+        }
+        link->move((width() - link->width()) / 2, linkY);
+        linkY += link->height() + st::introVerifyCardTextGap;
+    }
 }
 
 } // namespace TeleMatrix

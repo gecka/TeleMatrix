@@ -4563,6 +4563,11 @@ pub type TmIncomingUserVerificationRequestCallback = extern "C" fn(
     userdata: *mut libc::c_void,
 );
 
+/// Callback for an incoming verification request that can no longer be
+/// answered (accepted on another session, withdrawn, or expired).
+pub type TmVerificationRequestClosedCallback =
+    extern "C" fn(flow_id: *const c_char, userdata: *mut libc::c_void);
+
 /// C-compatible verification capabilities.
 #[repr(C)]
 pub struct FfiVerificationCapabilities {
@@ -4758,6 +4763,28 @@ pub unsafe extern "C" fn tm_set_incoming_verification_request_callback(
             );
         },
     ));
+}
+
+/// Register the callback for an incoming verification request going away.
+///
+/// # Safety
+/// `h` must be a valid Handle pointer.
+#[no_mangle]
+pub unsafe extern "C" fn tm_set_verification_request_closed_callback(
+    h: *mut Handle,
+    callback: TmVerificationRequestClosedCallback,
+    userdata: *mut libc::c_void,
+) {
+    let handle = unsafe { &*h };
+    let ud = Userdata::new(userdata);
+    handle
+        .matrix
+        .on_verification_request_closed(Box::new(move |flow_id| {
+            let Ok(c_flow_id) = CString::new(flow_id) else {
+                return;
+            };
+            callback(c_flow_id.as_ptr(), ud.as_ptr());
+        }));
 }
 
 /// Query another user's cross-signing trust state (for trust shields).

@@ -42,6 +42,8 @@ type VerificationStateCallback = Box<dyn Fn(u32, &str) + Send>;
 type IncomingVerificationRequestCallback = Box<dyn Fn(&str, &str, &str) + Send>;
 type UserTrustChangedCallback = Box<dyn Fn(&str, u32) + Send>;
 type IncomingUserVerificationRequestCallback = Box<dyn Fn(&str, &str, &str) + Send>;
+/// Fires with a flow id when an incoming request can no longer be answered.
+type VerificationRequestClosedCallback = Box<dyn Fn(&str) + Send>;
 
 macro_rules! verification_debug {
     ($($arg:tt)*) => {{
@@ -100,6 +102,11 @@ pub(crate) struct VerificationService {
     /// from `incoming_request_callback`, which is our own other devices
     /// (to-device).
     incoming_user_request_callback: Arc<Mutex<Option<IncomingUserVerificationRequestCallback>>>,
+    /// Fires when an incoming request stops being answerable — another of our
+    /// sessions accepted it, the requester withdrew it, or it expired. The UI
+    /// uses it to take down the request banner, which otherwise sits there
+    /// offering to accept a request that no longer exists.
+    request_closed_callback: Arc<Mutex<Option<VerificationRequestClosedCallback>>>,
     /// Serializes outgoing start attempts so two near-simultaneous starts
     /// (e.g. tapping "emoji" then "QR") cannot create two requests that clobber
     /// each other's `ctx.request` and strand one flow.
@@ -122,6 +129,7 @@ impl VerificationService {
             incoming_request_callback: Arc::new(Mutex::new(None)),
             user_trust_changed_callback: Arc::new(Mutex::new(None)),
             incoming_user_request_callback: Arc::new(Mutex::new(None)),
+            request_closed_callback: Arc::new(Mutex::new(None)),
             start_guard: Arc::new(tokio::sync::Mutex::new(())),
             current_flow_id: Arc::new(Mutex::new(String::new())),
         }
@@ -163,6 +171,16 @@ impl VerificationService {
         *cb = Some(callback);
     }
 
+    /// Register a callback that fires when an incoming request can no longer be
+    /// answered (accepted elsewhere, withdrawn, or expired).
+    pub(crate) fn on_request_closed(&self, callback: VerificationRequestClosedCallback) {
+        let mut cb = lock_verification_mutex(
+            &self.request_closed_callback,
+            "verification_request_closed_callback",
+        );
+        *cb = Some(callback);
+    }
+
     pub(crate) fn clear_callbacks(&self) {
         {
             let mut cb =
@@ -187,6 +205,13 @@ impl VerificationService {
             let mut cb = lock_verification_mutex(
                 &self.incoming_user_request_callback,
                 "incoming_user_verification_request_callback",
+            );
+            *cb = None;
+        }
+        {
+            let mut cb = lock_verification_mutex(
+                &self.request_closed_callback,
+                "verification_request_closed_callback",
             );
             *cb = None;
         }
@@ -262,6 +287,7 @@ impl VerificationService {
         let verification_ctx = self.ctx.clone();
         let verification_state_callback = self.state_callback.clone();
         let incoming_verification_request_callback = self.incoming_request_callback.clone();
+        let request_closed_callback = self.request_closed_callback.clone();
         let client_for_verification = client.clone();
         verification_debug!("registering incoming self-verification request handler");
         client.add_event_handler(
@@ -270,6 +296,7 @@ impl VerificationService {
                 let verification_state_callback = verification_state_callback.clone();
                 let incoming_verification_request_callback =
                     incoming_verification_request_callback.clone();
+                let request_closed_callback = request_closed_callback.clone();
                 let client = client_for_verification.clone();
                 async move {
                     let Some(own_user_id) = client.user_id() else {
@@ -290,20 +317,10 @@ impl VerificationService {
                             return;
                         }
                     }
-                    if !ev
-                        .content
-                        .methods
-                        .iter()
-                        .any(|method| method == &VerificationMethod::SasV1)
-                    {
-                        verification_debug!(
-                            "incoming request ignored, no SAS method flow_id={} from_device={} methods=[{}]",
-                            transaction_id,
-                            from_device,
-                            Self::verification_methods_debug(&ev.content.methods)
-                        );
-                        return;
-                    }
+                    // No method filter: the list says what the requester
+                    // SUPPORTS, not what its user picked, so it cannot route
+                    // anything. Filtering on it only hid requests, leaving the
+                    // other device waiting on a prompt that never appeared.
                     verification_debug!(
                         "incoming request event sender={} from_device={} flow_id={} methods=[{}]",
                         ev.sender,
@@ -376,7 +393,7 @@ impl VerificationService {
                             Self::verification_request_state_details(&request.state())
                         );
                         if replace {
-                            ctx.request = Some(request);
+                            ctx.request = Some(request.clone());
                             ctx.sas = None;
                             stored_request = true;
                         }
@@ -396,6 +413,7 @@ impl VerificationService {
                             );
                             f(&transaction_id, &from_device, &device_label);
                         }
+                        Self::spawn_incoming_request_watcher(request, request_closed_callback);
                     }
 
                     let cb = lock_verification_mutex(
@@ -421,12 +439,14 @@ impl VerificationService {
         let verification_ctx = self.ctx.clone();
         let verification_state_callback = self.state_callback.clone();
         let incoming_user_request_callback = self.incoming_user_request_callback.clone();
+        let request_closed_callback = self.request_closed_callback.clone();
         let client_for_verification = client.clone();
         verification_debug!("registering incoming user-verification request handler");
         client.add_event_handler(move |ev: OriginalSyncRoomMessageEvent, room: Room| {
             let verification_ctx = verification_ctx.clone();
             let verification_state_callback = verification_state_callback.clone();
             let incoming_user_request_callback = incoming_user_request_callback.clone();
+            let request_closed_callback = request_closed_callback.clone();
             let client = client_for_verification.clone();
             async move {
                 let Some(own_user_id) = client.user_id() else {
@@ -444,14 +464,6 @@ impl VerificationService {
                 if content.to != own_user_id {
                     return;
                 }
-                if !content
-                    .methods
-                    .iter()
-                    .any(|method| method == &VerificationMethod::SasV1)
-                {
-                    return;
-                }
-
                 let flow_id = ev.event_id.to_string();
                 let sender = ev.sender.clone();
                 verification_debug!(
@@ -505,7 +517,7 @@ impl VerificationService {
                         })
                         .unwrap_or(true);
                     if replace {
-                        ctx.request = Some(request);
+                        ctx.request = Some(request.clone());
                         ctx.sas = None;
                         stored = true;
                     }
@@ -519,6 +531,7 @@ impl VerificationService {
                     if let Some(ref f) = *cb {
                         f(&flow_id, sender.as_str(), &display_name);
                     }
+                    Self::spawn_incoming_request_watcher(request, request_closed_callback);
                 }
 
                 let cb = lock_verification_mutex(
@@ -1565,6 +1578,62 @@ impl VerificationService {
         ]
     }
 
+    /// Whether a request in this state can still be accepted or declined. Only
+    /// a request still awaiting an answer can; everything else means it was
+    /// taken, withdrawn, or completed. Mirrors Element's
+    /// `canAcceptVerificationRequest`.
+    fn request_state_is_answerable(state: &VerificationRequestState) -> bool {
+        matches!(
+            state,
+            VerificationRequestState::Created { .. } | VerificationRequestState::Requested { .. }
+        )
+    }
+
+    fn emit_request_closed(
+        closed_callback: &Arc<Mutex<Option<VerificationRequestClosedCallback>>>,
+        flow_id: &str,
+    ) {
+        let cb = lock_verification_mutex(closed_callback, "verification_request_closed_callback");
+        if let Some(ref f) = *cb {
+            f(flow_id);
+        }
+    }
+
+    /// Watch an incoming request we surfaced to the UI and report when it stops
+    /// being answerable. Self-verification requests go to every one of our
+    /// sessions, so accepting on one makes the requester cancel the rest with
+    /// `m.accepted`; without this the banner on those sessions never goes away.
+    fn spawn_incoming_request_watcher(
+        request: VerificationRequest,
+        closed_callback: Arc<Mutex<Option<VerificationRequestClosedCallback>>>,
+    ) {
+        let flow_id = request.flow_id().to_string();
+        tokio::spawn(async move {
+            let mut changes = request.changes();
+            // `changes()` does not replay the current state, so a request that was
+            // already answered before we subscribed would never wake this task.
+            let mut next_state = Some(request.state());
+            loop {
+                let state = match next_state.take() {
+                    Some(state) => state,
+                    None => match changes.next().await {
+                        Some(state) => state,
+                        // Stream gone: the request is unreachable either way, so
+                        // take the banner down rather than strand it.
+                        None => break,
+                    },
+                };
+                // Ready lands here when WE accepted; the banner is already down
+                // by then and a second dismissal is a no-op.
+                if !Self::request_state_is_answerable(&state) {
+                    break;
+                }
+            }
+            verification_debug!("incoming request no longer answerable flow_id={}", flow_id);
+            Self::emit_request_closed(&closed_callback, &flow_id);
+        });
+    }
+
     fn verification_request_state_name(state: &VerificationRequestState) -> &'static str {
         match state {
             VerificationRequestState::Created { .. } => "Created",
@@ -1911,6 +1980,57 @@ mod tests {
             assert!(methods.contains(&VerificationMethod::QrCodeShowV1));
             assert!(methods.contains(&VerificationMethod::ReciprocateV1));
         }
+    }
+
+    // A request that has left `Requested` can no longer be accepted or declined,
+    // so the banner offering it must come down. `Done` is the reachable terminal
+    // state here; the same predicate covers Ready/Transitioned/Cancelled, which
+    // is what a request accepted on another session becomes.
+    #[test]
+    fn answered_requests_are_not_answerable() {
+        assert!(VerificationService::request_state_is_answerable(
+            &VerificationRequestState::Created {
+                our_methods: VerificationService::outgoing_verification_methods(),
+            }
+        ));
+        assert!(!VerificationService::request_state_is_answerable(
+            &VerificationRequestState::Done
+        ));
+    }
+
+    // The closed callback must reach the UI with the flow id it belongs to (the
+    // banner only dismisses on a match), and must not survive `clear_callbacks`
+    // — a logout leaves the C++ guard object behind.
+    #[test]
+    fn request_closed_callback_is_flow_tagged_and_clearable() {
+        let service = VerificationService::new(Arc::new(AtomicU32::new(0)));
+        let captured = Arc::new(StdMutex::new(Vec::<String>::new()));
+        let sink = captured.clone();
+        service.on_request_closed(Box::new(move |flow_id| {
+            sink.lock()
+                .expect("sink not poisoned")
+                .push(flow_id.to_string());
+        }));
+
+        VerificationService::emit_request_closed(
+            &service.request_closed_callback,
+            "$flow:example.org",
+        );
+        assert_eq!(
+            captured.lock().expect("captured not poisoned").clone(),
+            vec!["$flow:example.org".to_string()]
+        );
+
+        service.clear_callbacks();
+        VerificationService::emit_request_closed(
+            &service.request_closed_callback,
+            "$after-logout:example.org",
+        );
+        assert_eq!(
+            captured.lock().expect("captured not poisoned").len(),
+            1,
+            "a cleared callback must not fire"
+        );
     }
 
     // Regression: skipping verification must emit a state the UI cannot mistake
