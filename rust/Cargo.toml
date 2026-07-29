@@ -57,7 +57,12 @@ argon2 = "0.5"
 # libswscale). Dropping default features avoids linking libavfilter/libavdevice/
 # libswresample (and libavdevice's device-capture framework chain) — leaner link
 # + bundle; only libav{codec,format,util,swscale} need linking/shipping.
-ffmpeg-next = { version = "8.1.0", default-features = false, features = ["codec", "format", "software-scaling"] }
+#
+# The major tracks FFmpeg's own: 7.x means FFmpeg 7. Pinned there because macOS
+# links the universal FFmpeg 7.1 that Qt ships rather than a system one — see
+# third_party/ffmpeg-7.1/README.md. Bumping this without re-vendoring those
+# headers (and vice versa) is an ABI mismatch, which CMake asserts against.
+ffmpeg-next = { version = "7.1.0", default-features = false, features = ["codec", "format", "software-scaling"] }
 # AES-256-CTR seekable range decryption for encrypted media streaming (Task 1).
 # All three crates are already transitive via matrix-sdk-crypto; pinning to the
 # same versions avoids a second copy in the artifact.
@@ -111,6 +116,13 @@ zbus = "5"
 # mock homeserver. Dev-dependencies only affect `cargo test`; the staticlib CMake
 # builds via `cargo build`/`--release` never enables `testing`, so the shipped
 # binary is byte-for-byte unaffected. Features mirror the runtime dep + `testing`.
+
+# build.rs needs the same libav probe ffmpeg-sys-next runs, to learn where Qt's
+# dylibs are and emit an rpath for cargo-linked test binaries. Already in the
+# dependency graph via ffmpeg-sys-next; this just makes it a direct build dep.
+[build-dependencies]
+pkg-config = "0.3"
+
 [dev-dependencies]
 matrix-sdk = { version = "0.18", default-features = false, features = ["e2e-encryption", "automatic-room-key-forwarding", "bundled-sqlite", "qrcode", "testing"] }
 # Already in the tree via matrix-sdk's `testing`; direct dep so the MSC2965

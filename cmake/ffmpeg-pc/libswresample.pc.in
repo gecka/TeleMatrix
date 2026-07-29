@@ -1,0 +1,11 @@
+# See libavutil.pc.in for what these templates are and how they are generated.
+libdir=@TM_QT_LIB_DIR@
+includedir=@TM_FFMPEG_INCLUDE_DIR@
+
+Name: libswresample
+Description: FFmpeg audio resampling library
+Version: 5.3.100
+Requires: libavutil >= 59.39.100
+Conflicts:
+Libs: -L${libdir} -lswresample
+Cflags: -I${includedir}

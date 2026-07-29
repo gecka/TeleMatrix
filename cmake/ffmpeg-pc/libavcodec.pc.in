@@ -1,0 +1,11 @@
+# See libavutil.pc.in for what these templates are and how they are generated.
+libdir=@TM_QT_LIB_DIR@
+includedir=@TM_FFMPEG_INCLUDE_DIR@
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 61.19.101
+Requires: libswresample >= 5.3.100, libavutil >= 59.39.100
+Conflicts:
+Libs: -L${libdir} -lavcodec
+Cflags: -I${includedir}

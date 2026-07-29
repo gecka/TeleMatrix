@@ -51,6 +51,55 @@ if (APPLE)
     endif()
 endif()
 
+# On macOS libav comes from Qt, not Homebrew. Official Qt ships universal
+# (arm64+x86_64) FFmpeg 7.1 dylibs alongside the multimedia backend checked
+# above, and the .app carries them either way — the playback plugin needs them.
+# Homebrew's libav was arm64-only (which is what blocked universal builds), a
+# SECOND FFmpeg in the bundle (~37 MB once its transitive deps are counted), and
+# GPL where Qt's build is LGPL.
+#
+# Qt ships the dylibs but no headers and no .pc files. The headers are vendored
+# (third_party/ffmpeg-7.1, see its README); the .pc files are generated here into
+# the build tree so no absolute path is ever committed. Both consumers — the C++
+# link below and ffmpeg-sys-next's build script — read them via PKG_CONFIG_PATH.
+if (APPLE)
+    set(TM_QT_LIB_DIR "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_LIBS}")
+    set(TM_FFMPEG_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/ffmpeg-7.1/include")
+    set(TM_FFMPEG_PKGCONFIG_DIR "${CMAKE_BINARY_DIR}/ffmpeg-pkgconfig")
+
+    # The vendored headers, the ffmpeg-next pin in rust/Cargo.toml and these
+    # sonames are one unit: ffmpeg-next's major tracks FFmpeg's, and FFmpeg's
+    # major is what names the dylibs. A Qt upgrade that moves to FFmpeg 8 renames
+    # all five at once. Catch that here — the alternative is an opaque linker
+    # error, or worse, 7.1 headers silently describing an 8.x ABI.
+    #
+    # swresample is not linked (nothing calls it directly) but must be present:
+    # it is a runtime dependency of avcodec and the app will not launch without it.
+    set(TM_QT_FFMPEG_LINK_SONAMES libavcodec.61 libavformat.61 libavutil.59 libswscale.8)
+    set(TM_QT_FFMPEG_SONAMES ${TM_QT_FFMPEG_LINK_SONAMES} libswresample.5)
+    foreach (_tm_soname IN LISTS TM_QT_FFMPEG_SONAMES)
+        if (NOT EXISTS "${TM_QT_LIB_DIR}/${_tm_soname}.dylib")
+            message(FATAL_ERROR
+                "Qt at ${QT6_INSTALL_PREFIX} does not ship the FFmpeg libraries this build expects.\n"
+                "  expected: ${TM_QT_LIB_DIR}/${_tm_soname}.dylib\n"
+                "Qt's bundled FFmpeg has most likely changed major version. Re-pin all three "
+                "together (see third_party/ffmpeg-7.1/README.md):\n"
+                "  1. re-vendor third_party/ffmpeg-<ver>/include at Qt's FFmpeg version\n"
+                "  2. bump ffmpeg-next in rust/Cargo.toml to the matching major\n"
+                "  3. update these sonames and the versions in cmake/ffmpeg-pc/*.pc.in")
+        endif()
+    endforeach()
+
+    # @ONLY: the templates use pkg-config's own ${libdir}/${includedir} syntax,
+    # which CMake would otherwise try to expand.
+    foreach (_tm_pc libavutil libswresample libswscale libavcodec libavformat)
+        configure_file(
+            "${CMAKE_SOURCE_DIR}/cmake/ffmpeg-pc/${_tm_pc}.pc.in"
+            "${TM_FFMPEG_PKGCONFIG_DIR}/${_tm_pc}.pc"
+            @ONLY)
+    endforeach()
+endif()
+
 # Same idea, every platform: the emoji sprite atlases (resources/emoji/*.webp) are WebP,
 # and WebP is not in qtbase — it comes from the qtimageformats add-on. Without the plugin
 # QImage(path, "WEBP") returns null and every emoji renders blank, which is precisely the
@@ -108,6 +157,7 @@ file(GLOB_RECURSE TELEMATRIX_RUST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/rust/src/*.rs"
     "${CMAKE_SOURCE_DIR}/rust/Cargo.toml"
     "${CMAKE_SOURCE_DIR}/rust/Cargo.lock"
+    "${CMAKE_SOURCE_DIR}/rust/build.rs"
     "${CMAKE_SOURCE_DIR}/rust/cbindgen.toml"
     "${CMAKE_SOURCE_DIR}/rust/cbindgen_runner/src/*.rs"
     "${CMAKE_SOURCE_DIR}/rust/cbindgen_runner/Cargo.toml"
@@ -117,6 +167,10 @@ file(GLOB_RECURSE TELEMATRIX_RUST_SOURCES CONFIGURE_DEPENDS
 set(CARGO_BUILD_ENV "TELEMATRIX_BINDINGS_DIR=${PROTOCOL_BINDINGS_DIR}")
 if (APPLE)
     list(APPEND CARGO_BUILD_ENV "MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    # ffmpeg-sys-next resolves libav through pkg-config in its build script, so it
+    # needs the same Qt-backed .pc files the C++ link uses. Without this it finds
+    # (or fails to find) a system FFmpeg of some unrelated version.
+    list(APPEND CARGO_BUILD_ENV "PKG_CONFIG_PATH=${TM_FFMPEG_PKGCONFIG_DIR}")
 endif()
 
 # Assemble the Rust build step(s). When the C++ build targets multiple macOS
@@ -125,6 +179,13 @@ endif()
 # into the universal RUST_LIB_PATH. Single-arch / non-mac builds are unchanged.
 list(LENGTH CMAKE_OSX_ARCHITECTURES _tm_narch)
 if (APPLE AND _tm_narch GREATER 1)
+    # The universal archive does NOT go to rust/target/${CARGO_TARGET_SUBDIR}/:
+    # that is exactly where a plain host `cargo build` writes its own thin
+    # staticlib, so the two would silently overwrite each other and CMake's
+    # staleness check — keyed on the path, not its contents — would never notice.
+    # The per-target cargo dirs still live under rust/target/, so wiping build/
+    # costs a re-lipo (seconds), not a Rust rebuild.
+    set(RUST_LIB_PATH "${CMAKE_BINARY_DIR}/rust-universal/libtelematrix_protocol.a")
     set(_tm_rust_steps "")
     set(_tm_lipo_inputs "")
     foreach (_arch IN LISTS CMAKE_OSX_ARCHITECTURES)
@@ -135,12 +196,22 @@ if (APPLE AND _tm_narch GREATER 1)
         else()
             message(FATAL_ERROR "Unsupported CMAKE_OSX_ARCHITECTURES value for the Rust staticlib: ${_arch}")
         endif()
+        # Per-slice, so they cannot go in the shared CARGO_BUILD_ENV:
+        #   PKG_CONFIG_ALLOW_CROSS - pkg-config-rs refuses to run for any target
+        #     that isn't the host, and every non-host slice is a cross build. The
+        #     .pc files point at universal dylibs, so one set serves both.
+        #   BINDGEN_EXTRA_CLANG_ARGS - ffmpeg-sys-next runs bindgen, which would
+        #     otherwise parse the headers as the host arch.
         list(APPEND _tm_rust_steps
-            COMMAND ${CMAKE_COMMAND} -E env ${CARGO_BUILD_ENV} ${CARGO_BUILD_COMMAND} --target ${_triple})
+            COMMAND ${CMAKE_COMMAND} -E env ${CARGO_BUILD_ENV}
+                "PKG_CONFIG_ALLOW_CROSS=1"
+                "BINDGEN_EXTRA_CLANG_ARGS=--target=${_triple}"
+                ${CARGO_BUILD_COMMAND} --target ${_triple})
         list(APPEND _tm_lipo_inputs
             "${CMAKE_SOURCE_DIR}/rust/target/${_triple}/${CARGO_TARGET_SUBDIR}/libtelematrix_protocol.a")
     endforeach()
     list(APPEND _tm_rust_steps
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/rust-universal"
         COMMAND lipo -create ${_tm_lipo_inputs} -output "${RUST_LIB_PATH}")
 else()
     set(_tm_rust_steps
@@ -149,7 +220,9 @@ endif()
 
 # Rust staticlib. RUST_LIB_PATH lives in cargo's own target dir, OUTSIDE the
 # CMake build tree, so blowing away `build/` costs a C++ recompile rather than a
-# full (slow, disk-hungry) Rust rebuild.
+# full (slow, disk-hungry) Rust rebuild. (The universal build is the exception —
+# see above — but only the lipo output is in the build tree, not cargo's own
+# per-target dirs, so the same property holds.)
 add_custom_command(
     OUTPUT "${RUST_LIB_PATH}"
     ${_tm_rust_steps}
@@ -707,12 +780,30 @@ target_link_libraries(TeleMatrix PRIVATE
 # (video-thumbnail extraction, rust/src/video_thumbnail_service.rs). A Rust staticlib
 # does NOT propagate these to the final C++ link, so link them explicitly. FFmpeg
 # ships pkg-config .pc files on every platform — ensure ffmpeg is visible to
-# pkg-config (macOS: `brew install ffmpeg`; Linux: libav*-dev; Windows: vcpkg/MSYS2
-# + PKG_CONFIG_PATH). CI must likewise expose ffmpeg's pkgconfig dir to the cargo
-# build (the cargo step inherits the environment).
+# pkg-config (Linux: libav*-dev; Windows: vcpkg/MSYS2 + PKG_CONFIG_PATH). CI must
+# likewise expose ffmpeg's pkgconfig dir to the cargo build (the cargo step
+# inherits the environment).
+#
+# macOS needs no system FFmpeg at all, and deliberately does NOT go through
+# pkg_check_modules: that caches each resolved library as an absolute FILEPATH
+# (pkgcfg_lib_FFMPEG_*), and find_library never re-searches a cache entry once
+# set. An existing build tree configured against a system FFmpeg would therefore
+# keep linking it forever after this switch — silently, since the two majors
+# agree on most symbols and differ only on a few (`avcodec_close` is gone in 8).
+# The dylibs are asserted to exist near the top of this file; link those paths.
+# The generated .pc files are still needed, but only by ffmpeg-sys-next.
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil libswscale)
-target_link_libraries(TeleMatrix PRIVATE PkgConfig::FFMPEG)
+if (APPLE)
+    add_library(tm_ffmpeg INTERFACE)
+    target_include_directories(tm_ffmpeg INTERFACE "${TM_FFMPEG_INCLUDE_DIR}")
+    foreach (_tm_soname IN LISTS TM_QT_FFMPEG_LINK_SONAMES)
+        target_link_libraries(tm_ffmpeg INTERFACE "${TM_QT_LIB_DIR}/${_tm_soname}.dylib")
+    endforeach()
+    target_link_libraries(TeleMatrix PRIVATE tm_ffmpeg)
+else()
+    pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil libswscale)
+    target_link_libraries(TeleMatrix PRIVATE PkgConfig::FFMPEG)
+endif()
 
 if (APPLE)
     target_link_libraries(TeleMatrix PRIVATE
@@ -869,10 +960,16 @@ if (APPLE)
         # passed through the environment.
         # Versioned like every other platform's package (deb/rpm/AppImage/NSIS all
         # embed the version), so release assets from different tags don't collide.
-        # Arch suffix follows the actual slices built ("arm64", or "arm64-x86_64"
-        # for a universal build), falling back to the host arch when unset.
+        # Arch suffix follows the actual slices built, falling back to the host
+        # arch when unset. Both slices together is spelled "universal" rather than
+        # "arm64-x86_64" — it is what users expect to see on a macOS download, and
+        # what the release page and updater manifest advertise.
         if (CMAKE_OSX_ARCHITECTURES)
-            string(REPLACE ";" "-" TELEMATRIX_DMG_ARCH "${CMAKE_OSX_ARCHITECTURES}")
+            if ("arm64" IN_LIST CMAKE_OSX_ARCHITECTURES AND "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
+                set(TELEMATRIX_DMG_ARCH "universal")
+            else()
+                string(REPLACE ";" "-" TELEMATRIX_DMG_ARCH "${CMAKE_OSX_ARCHITECTURES}")
+            endif()
         else()
             set(TELEMATRIX_DMG_ARCH "${CMAKE_HOST_SYSTEM_PROCESSOR}")
         endif()

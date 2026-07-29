@@ -212,9 +212,12 @@ UpdateService::~UpdateService() {
 
 QString UpdateService::platformKey() {
 #if defined(Q_OS_MACOS)
-    // arm64-only today; an x86_64/universal build would add a key, not change
-    // the schema.
-    return QStringLiteral("macos-aarch64");
+    // The macOS build is universal (arm64 + x86_64). Releases publish that one
+    // asset under BOTH this key and "macos-aarch64", because clients built
+    // before the universal switch ask for the latter and would otherwise stop
+    // finding an update — silently, degrading to notify-only. See the manifest
+    // generator in .github/workflows/release.yml.
+    return QStringLiteral("macos-universal");
 #elif defined(Q_OS_WIN)
     return QStringLiteral("windows-x86_64");
 #elif defined(Q_OS_LINUX)

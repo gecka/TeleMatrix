@@ -28,8 +28,9 @@ Toolchain versions are pinned and must match across local dev and CI: **Qt 6.10.
 
 Prerequisites:
 ```sh
-brew install cmake create-dmg ffmpeg pkg-config
+brew install cmake create-dmg pkg-config
 # Rust toolchain (https://rustup.rs)
+# For a universal build also: rustup target add x86_64-apple-darwin
 # Qt 6.10.1 — the official build, NOT `brew install qt@6` (see the note below):
 #   the online installer (https://www.qt.io/download-qt-installer), or
 pip install aqtinstall && aqt install-qt mac desktop 6.10.1 clang_64 -m qtmultimedia qtimageformats -O ~/Qt
@@ -45,11 +46,25 @@ cmake --build build --target package_dmg      # -> build/TeleMatrix-<version>-<a
 
 Notes:
 - The deployment target is macOS 15.0 (`CMAKE_OSX_DEPLOYMENT_TARGET`).
-- The default build follows the host architecture (arm64 on Apple Silicon). To produce a
-  **universal** binary, pass `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"` — you must then
-  provide an x86_64 libav for the x86_64 `ffmpeg-next` slice (e.g. an x86_64 Homebrew
-  prefix); an arm64-only `brew install` does not cover it. Each requested arch is built as
-  a separate Rust slice and `lipo`'d into a universal staticlib.
+- The default build follows the host architecture (arm64 on Apple Silicon). Pass
+  `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"` for a **universal** binary — which is what
+  releases ship, as `TeleMatrix-<version>-universal.dmg`. Each arch is built as a separate
+  Rust slice and `lipo`'d into a universal staticlib.
+- **No `brew install ffmpeg`.** libav comes from the universal FFmpeg 7.1 that official Qt
+  ships for its multimedia backend; headers are vendored in `third_party/ffmpeg-7.1` and
+  CMake generates the matching `.pc` files into the build tree. Homebrew's libav was
+  arm64-only (which is what used to block universal builds), a second copy of FFmpeg in
+  the `.app`, and GPL where Qt's build is LGPL. Configure asserts Qt's FFmpeg sonames, so
+  a Qt upgrade that moves to FFmpeg 8 fails immediately with instructions rather than as a
+  linker error — see `third_party/ffmpeg-7.1/README.md`.
+- **Bare `cargo` commands on macOS need `PKG_CONFIG_PATH`**, because that is how the build
+  is told where Qt's libav lives. CMake sets it for its own cargo invocations; for a
+  direct `cargo test`/`cargo check`, configure once and then:
+  ```sh
+  export PKG_CONFIG_PATH="$PWD/build/ffmpeg-pkgconfig"
+  ```
+  Without it, `ffmpeg-sys-next` resolves whatever FFmpeg is on the default pkg-config path
+  (typically Homebrew's 8.x) against the pinned 7.1 crate.
 - **Homebrew's Qt will not work.** Video streaming needs Qt's FFmpeg multimedia backend
   (`libffmpegmediaplugin.dylib`): the AVFoundation-only `darwin` backend cannot play the
   loopback HTTP stream the app serves, so video silently falls back to downloading the

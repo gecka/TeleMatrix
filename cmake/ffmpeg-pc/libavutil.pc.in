@@ -1,0 +1,14 @@
+# Generated into the build tree by CMakeLists.txt. Points pkg-config at the
+# universal FFmpeg dylibs shipped by official Qt, with the headers vendored in
+# third_party/ffmpeg-7.1. Version and Requires are copied verbatim from the
+# .pc FFmpeg 7.1.2 generates for itself — keep them in step with the headers.
+libdir=@TM_QT_LIB_DIR@
+includedir=@TM_FFMPEG_INCLUDE_DIR@
+
+Name: libavutil
+Description: FFmpeg utility library
+Version: 59.39.100
+Requires:
+Conflicts:
+Libs: -L${libdir} -lavutil
+Cflags: -I${includedir}

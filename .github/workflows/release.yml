@@ -249,8 +249,16 @@ jobs:
 
           version, base = sys.argv[1], sys.argv[2]
           # Filename glob -> manifest platform key. Arch-qualified so adding e.g.
-          # an x86_64 macOS build is a new key, not a schema change.
+          # a thin x86_64 macOS build is a new key, not a schema change.
+          #
+          # The two macOS keys deliberately match the SAME asset: the build is
+          # universal, and both entries get identical url/size/sha256/minisig.
+          # "macos-aarch64" is what clients released before the universal switch
+          # ask for. DO NOT REMOVE IT until that install base has rolled over —
+          # dropping it strands those users on notify-only forever, with no error
+          # anywhere to notice.
           patterns = [
+              ("macos-universal",       lambda n: n.endswith("-app.tar.gz") and "macos" in n),
               ("macos-aarch64",         lambda n: n.endswith("-app.tar.gz") and "macos" in n),
               ("windows-x86_64",        lambda n: n.endswith(".exe")),
               ("linux-appimage-x86_64", lambda n: n.endswith(".AppImage")),

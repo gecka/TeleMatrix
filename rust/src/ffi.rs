@@ -8699,7 +8699,7 @@ pub extern "C" fn tm_update_signing_configured() -> bool {
 }
 
 /// Check for a newer release. `platform_key` selects the manifest entry (e.g.
-/// `macos-aarch64`); Linux resolves it at runtime because deb/rpm/AppImage are
+/// `macos-universal`); Linux resolves it at runtime because deb/rpm/AppImage are
 /// the same binary. Transient failures (404 during the publish window) report
 /// "up to date" rather than an error.
 ///

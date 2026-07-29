@@ -43,7 +43,7 @@ public:
     explicit UpdateService(QObject *parent = nullptr);
     ~UpdateService() override;
 
-    /// Manifest key for this build (`macos-aarch64`, `windows-x86_64`,
+    /// Manifest key for this build (`macos-universal`, `windows-x86_64`,
     /// `linux-appimage-x86_64`, ...). Empty when the platform has no updater
     /// asset at all, which forces notify-only.
     [[nodiscard]] static QString platformKey();
