@@ -27,7 +27,6 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QKeyEvent>
-#include <QProcess>
 #include <QLocale>
 #include "history/history_popup_menu_style.h"
 #include <QMouseEvent>
@@ -55,6 +54,7 @@
 using namespace Qt::Literals::StringLiterals;
 
 #include "ui/painter.h"
+#include "ui/platform/reveal_in_folder.h"
 #include "ui/safe_url.h"
 #include "ui/style/icon_provider.h"
 #include "styles/style_chat.h"
@@ -5810,7 +5810,7 @@ void HistoryList::showMessageContextMenu(const QPoint &globalPos, const QPoint &
             }
             emit contextActionFeedback(tr("File saved."));
         });
-        // "Show in Finder" — only for file/audio that have been
+        // Reveal in the file manager — only for file/audio that have been
         // downloaded and copied to the Downloads folder.
         if ((isFileMessage(item) || isAudioMessage(item))
             && !localPath.isEmpty()) {
@@ -5822,11 +5822,14 @@ void HistoryList::showMessageContextMenu(const QPoint &globalPos, const QPoint &
             }
             const auto targetPath = downloadsDir + QStringLiteral("/") + targetName;
             if (QFileInfo::exists(targetPath)) {
-                addAction(tr("Show in Finder"),
+#ifdef Q_OS_MACOS
+                const auto revealLabel = tr("Show in Finder");
+#else // Q_OS_MACOS
+                const auto revealLabel = tr("Show in Folder");
+#endif // Q_OS_MACOS
+                addAction(revealLabel,
                     QStringLiteral("show_in_folder"), [targetPath] {
-                    QProcess::startDetached(
-                        QStringLiteral("/usr/bin/open"),
-                        {QStringLiteral("-R"), targetPath});
+                    Platform::RevealInFolder(targetPath);
                 });
             }
         }

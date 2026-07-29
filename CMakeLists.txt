@@ -602,6 +602,7 @@ add_executable(TeleMatrix
     src/ui/input_submit_settings.cpp
     src/ui/platform/ui_utility_mac.h
     src/ui/platform/confirm_quit_mac.h
+    src/ui/platform/reveal_in_folder.h
     src/theme/chat_background_style.h
     src/theme/theme_manager.h
     src/theme/theme_manager.cpp
@@ -632,6 +633,7 @@ if (APPLE)
         src/window/notification_platform_mac.mm
         src/ui/platform/ui_utility_mac.mm
         src/ui/platform/confirm_quit_mac.mm
+        src/ui/platform/reveal_in_folder_mac.mm
     )
 else()
     target_sources(TeleMatrix PRIVATE
@@ -649,6 +651,8 @@ if (WIN32)
         src/window/notifications_manager_win.cpp
         src/window/notification_platform_win.cpp
         src/app/platform/win/app_user_model_id.cpp
+        # "Show in Folder": SHOpenFolderAndSelectItems, explorer /select fallback.
+        src/ui/platform/reveal_in_folder_win.cpp
     )
     # GUI subsystem (no console window); EntryPointPrivate supplies WinMain.
     set_target_properties(TeleMatrix PROPERTIES WIN32_EXECUTABLE ON)
@@ -663,6 +667,8 @@ if (UNIX AND NOT APPLE)
     target_sources(TeleMatrix PRIVATE
         src/window/notifications_manager_linux.cpp
         src/window/notification_platform_linux.cpp
+        # "Show in Folder": org.freedesktop.FileManager1, portal fallback.
+        src/ui/platform/reveal_in_folder_linux.cpp
     )
     target_link_libraries(TeleMatrix PRIVATE Qt6::DBus)
 endif()

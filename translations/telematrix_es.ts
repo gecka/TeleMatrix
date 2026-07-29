@@ -3080,14 +3080,14 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     </message>
     <message>
         <location filename="../src/history/history_list.cpp" line="5630"/>
-        <location filename="../src/history/history_list.cpp" line="5916"/>
-        <location filename="../src/history/history_list.cpp" line="5951"/>
+        <location filename="../src/history/history_list.cpp" line="5919"/>
+        <location filename="../src/history/history_list.cpp" line="5954"/>
         <source>Delete</source>
         <translation>Eliminar</translation>
     </message>
     <message>
         <location filename="../src/history/history_list.cpp" line="5716"/>
-        <location filename="../src/history/history_list.cpp" line="5838"/>
+        <location filename="../src/history/history_list.cpp" line="5841"/>
         <source>Copy Link</source>
         <translation>Copiar enlace</translation>
     </message>
@@ -3150,7 +3150,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     </message>
     <message>
         <location filename="../src/history/history_list.cpp" line="5718"/>
-        <location filename="../src/history/history_list.cpp" line="5840"/>
+        <location filename="../src/history/history_list.cpp" line="5843"/>
         <source>Link copied to clipboard</source>
         <translation>Enlace copiado al portapapeles</translation>
     </message>
@@ -3180,22 +3180,27 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation>Archivo guardado.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5825"/>
+        <location filename="../src/history/history_list.cpp" line="5826"/>
         <source>Show in Finder</source>
         <translation>Mostrar en Finder</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5843"/>
+        <location filename="../src/history/history_list.cpp" line="5828"/>
+        <source>Show in Folder</source>
+        <translation>Mostrar en la carpeta</translation>
+    </message>
+    <message>
+        <location filename="../src/history/history_list.cpp" line="5846"/>
         <source>Copy Text</source>
         <translation>Copiar texto</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5845"/>
+        <location filename="../src/history/history_list.cpp" line="5848"/>
         <source>Text copied to clipboard</source>
         <translation>Texto copiado al portapapeles</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5857"/>
+        <location filename="../src/history/history_list.cpp" line="5860"/>
         <source>Message link copied</source>
         <translation>Enlace del mensaje copiado</translation>
     </message>
@@ -3204,7 +3209,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Texto copiado al portapapeles.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5855"/>
+        <location filename="../src/history/history_list.cpp" line="5858"/>
         <source>Copy Message Link</source>
         <translation>Copiar enlace del mensaje</translation>
     </message>
@@ -3213,32 +3218,32 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Enlace del mensaje copiado.</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5886"/>
-        <location filename="../src/history/history_list.cpp" line="5893"/>
-        <location filename="../src/history/history_list.cpp" line="5924"/>
-        <location filename="../src/history/history_list.cpp" line="5931"/>
+        <location filename="../src/history/history_list.cpp" line="5889"/>
+        <location filename="../src/history/history_list.cpp" line="5896"/>
+        <location filename="../src/history/history_list.cpp" line="5927"/>
+        <location filename="../src/history/history_list.cpp" line="5934"/>
         <source>Reply</source>
         <translation>Responder</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5902"/>
+        <location filename="../src/history/history_list.cpp" line="5905"/>
         <source>Edit</source>
         <translation>Editar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5869"/>
-        <location filename="../src/history/history_list.cpp" line="5875"/>
+        <location filename="../src/history/history_list.cpp" line="5872"/>
+        <location filename="../src/history/history_list.cpp" line="5878"/>
         <source>Unpin</source>
         <translation>Desfijar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5875"/>
+        <location filename="../src/history/history_list.cpp" line="5878"/>
         <source>Pin</source>
         <translation>Fijar</translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5910"/>
-        <location filename="../src/history/history_list.cpp" line="5942"/>
+        <location filename="../src/history/history_list.cpp" line="5913"/>
+        <location filename="../src/history/history_list.cpp" line="5945"/>
         <source>Forward</source>
         <translation>Reenviar</translation>
     </message>

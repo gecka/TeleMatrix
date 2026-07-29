@@ -2863,14 +2863,14 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
     </message>
     <message>
         <location filename="../src/history/history_list.cpp" line="5630"/>
-        <location filename="../src/history/history_list.cpp" line="5916"/>
-        <location filename="../src/history/history_list.cpp" line="5951"/>
+        <location filename="../src/history/history_list.cpp" line="5919"/>
+        <location filename="../src/history/history_list.cpp" line="5954"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/history/history_list.cpp" line="5716"/>
-        <location filename="../src/history/history_list.cpp" line="5838"/>
+        <location filename="../src/history/history_list.cpp" line="5841"/>
         <source>Copy Link</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2921,7 +2921,7 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
     </message>
     <message>
         <location filename="../src/history/history_list.cpp" line="5718"/>
-        <location filename="../src/history/history_list.cpp" line="5840"/>
+        <location filename="../src/history/history_list.cpp" line="5843"/>
         <source>Link copied to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2951,57 +2951,62 @@ Make sure your recovery key is backed up — you&apos;ll need it to restore your
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5825"/>
+        <location filename="../src/history/history_list.cpp" line="5826"/>
         <source>Show in Finder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5843"/>
+        <location filename="../src/history/history_list.cpp" line="5828"/>
+        <source>Show in Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/history/history_list.cpp" line="5846"/>
         <source>Copy Text</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5845"/>
+        <location filename="../src/history/history_list.cpp" line="5848"/>
         <source>Text copied to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5857"/>
+        <location filename="../src/history/history_list.cpp" line="5860"/>
         <source>Message link copied</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5855"/>
+        <location filename="../src/history/history_list.cpp" line="5858"/>
         <source>Copy Message Link</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5886"/>
-        <location filename="../src/history/history_list.cpp" line="5893"/>
-        <location filename="../src/history/history_list.cpp" line="5924"/>
-        <location filename="../src/history/history_list.cpp" line="5931"/>
+        <location filename="../src/history/history_list.cpp" line="5889"/>
+        <location filename="../src/history/history_list.cpp" line="5896"/>
+        <location filename="../src/history/history_list.cpp" line="5927"/>
+        <location filename="../src/history/history_list.cpp" line="5934"/>
         <source>Reply</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5902"/>
+        <location filename="../src/history/history_list.cpp" line="5905"/>
         <source>Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5869"/>
-        <location filename="../src/history/history_list.cpp" line="5875"/>
+        <location filename="../src/history/history_list.cpp" line="5872"/>
+        <location filename="../src/history/history_list.cpp" line="5878"/>
         <source>Unpin</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5875"/>
+        <location filename="../src/history/history_list.cpp" line="5878"/>
         <source>Pin</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/history/history_list.cpp" line="5910"/>
-        <location filename="../src/history/history_list.cpp" line="5942"/>
+        <location filename="../src/history/history_list.cpp" line="5913"/>
+        <location filename="../src/history/history_list.cpp" line="5945"/>
         <source>Forward</source>
         <translation type="unfinished"></translation>
     </message>
