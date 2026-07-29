@@ -52,17 +52,23 @@ not vendored — nothing here uses them.
 
 ## Keeping this in step with Qt
 
-Three things are pinned to one another and must move together:
+Four things are pinned to one another and must move together:
 
 1. these headers,
 2. `ffmpeg-next` / `ffmpeg-sys-next` in `rust/Cargo.toml` (major tracks FFmpeg's:
    `7.x` ⇒ FFmpeg 7),
 3. the sonames Qt actually ships (`libavcodec.61`, `libavformat.61`,
-   `libavutil.59`, `libswscale.8`, `libswresample.5`).
+   `libavutil.59`, `libswscale.8`, `libswresample.5`),
+4. the **vcpkg commit** the Windows CI job checks out
+   (`.github/workflows/_reusable-build.yml`). Windows takes its headers and import
+   libraries from vcpkg's ffmpeg port, whose version floats; the DLLs it ships are
+   Qt's, so the two must agree on the major. The pin is the last vcpkg commit on
+   ffmpeg 7.1.2. Bump the binary-cache key in that job whenever the pin moves.
 
 A Qt upgrade that moves FFmpeg to 8.x changes those sonames. `CMakeLists.txt`
-asserts them at configure time and fails with instructions, so the break is
-loud and immediate rather than a link error or — worse — a silent ABI mismatch.
+asserts them at configure time — Qt's dylibs on macOS, pkg-config's major against
+Qt's DLLs on Windows — and fails with instructions, so the break is loud and
+immediate rather than a link error or — worse — a silent ABI mismatch.
 
 To re-pin: read the version Qt ships (`strings <qt>/macos/lib/libavcodec.*.dylib
 | grep -m1 -- --prefix` reveals FFmpeg's own configure line, including its

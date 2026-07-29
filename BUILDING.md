@@ -99,8 +99,17 @@ Prerequisites:
 - Qt 6 for MSVC, **including `qtmultimedia` and `qtimageformats`** (set
   `CMAKE_PREFIX_PATH` / `Qt6_DIR` to the Qt install). `qtimageformats` decodes the
   emoji atlases; without it every emoji renders blank.
-- FFmpeg / libav with pkg-config `.pc` files (e.g. `vcpkg install ffmpeg:x64-windows` +
-  `pkgconfiglite`); point `PKG_CONFIG_PATH` at its `lib/pkgconfig`.
+- FFmpeg / libav **7.x** with pkg-config `.pc` files (e.g. `vcpkg install ffmpeg:x64-windows`
+  + `pkgconfiglite`); point `PKG_CONFIG_PATH` at its `lib/pkgconfig`. Not 8.x:
+  `ffmpeg-next` is pinned to 7.1 because macOS links the FFmpeg Qt ships, and
+  `ffmpeg-sys-next` 7.x needs `libavcodec/avfft.h`, which FFmpeg 8 removed. vcpkg's
+  ffmpeg port floats, so CI pins the vcpkg commit
+  (`5087d22fd76fe1844ca492866055dea3c34e7f52`, the last one on 7.1.2) — do the same
+  locally if `vcpkg install` gives you 8.x:
+  ```bat
+  git -C %VCPKG_ROOT% checkout --detach 5087d22fd76fe1844ca492866055dea3c34e7f52
+  %VCPKG_ROOT%\bootstrap-vcpkg.bat
+  ```
 - [NSIS](https://nsis.sourceforge.io/) on `PATH` (for the installer).
 - **NASM** (rustls' `aws-lc-rs`/`ring` asm and the vendored OpenSSL/SQLCipher build) and a
   Perl (Strawberry Perl for `openssl-src`).
@@ -118,6 +127,10 @@ Notes:
   also bundles the MSVC runtime, so the installed app runs on a clean machine without the
   VC++ redistributable. The staged `build\windeploy\TeleMatrix.exe` is runnable directly; the
   raw `build\<config>\TeleMatrix.exe` is **not** (no Qt DLLs beside it).
+- The **libav DLLs that ship are Qt's**, deployed by `windeployqt` for its multimedia
+  backend — vcpkg supplies only the headers and import libraries. Same reasoning as macOS:
+  one FFmpeg in the package rather than two. Configure asserts the two agree on the major,
+  so a vcpkg that drifts fails immediately with instructions.
 - A Rust `staticlib` linked into an MSVC exe does **not** auto-propagate the native system
   libs its dependencies need. `CMakeLists.txt` lists the expected set under `if (WIN32)`; if
   the link step reports unresolved externals, regenerate the authoritative list with:

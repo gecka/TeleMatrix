@@ -805,6 +805,31 @@ else()
     target_link_libraries(TeleMatrix PRIVATE PkgConfig::FFMPEG)
 endif()
 
+# Windows ships Qt's libav, not the one pkg-config found: vcpkg supplies the headers
+# and import libraries, windeployqt deploys the DLLs (cmake/packaging.cmake). That
+# only works while both are the same FFmpeg major — an import library records the
+# DLL name it needs (avcodec-61.dll), so a vcpkg that drifts to another major asks
+# the loader for a file Qt does not ship, or worse links against headers whose ABI
+# the shipped DLL does not implement. Assert it here: the alternative is a build
+# that fails deep inside bindgen, or an installer that dies at startup.
+if (WIN32)
+    set(_tm_qt_bin_dir "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}")
+    foreach (_tm_lib IN ITEMS avcodec avformat avutil swscale)
+        string(REGEX MATCH "^[0-9]+" _tm_major "${FFMPEG_lib${_tm_lib}_VERSION}")
+        if (NOT EXISTS "${_tm_qt_bin_dir}/${_tm_lib}-${_tm_major}.dll")
+            message(FATAL_ERROR
+                "The FFmpeg pkg-config found (lib${_tm_lib} ${FFMPEG_lib${_tm_lib}_VERSION}) is not "
+                "the one Qt ships, so the app would link an import library for a DLL that is "
+                "never installed beside it.\n"
+                "  expected: ${_tm_qt_bin_dir}/${_tm_lib}-${_tm_major}.dll\n"
+                "PKG_CONFIG_PATH most likely points at a vcpkg whose ffmpeg port has moved to a "
+                "new major. Re-pin it together with the ffmpeg-next version in rust/Cargo.toml "
+                "and the vendored headers (see third_party/ffmpeg-7.1/README.md); CI pins the "
+                "vcpkg commit in .github/workflows/_reusable-build.yml.")
+        endif()
+    endforeach()
+endif()
+
 if (APPLE)
     target_link_libraries(TeleMatrix PRIVATE
         "-framework Security"

@@ -423,12 +423,33 @@ jobs:
         shell: pwsh
         run: New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
 
+      - name: Pin vcpkg to FFmpeg 7.1.x
+        shell: pwsh
+        run: |
+          # ffmpeg-next (rust/Cargo.toml) is pinned to 7.1 because macOS links the
+          # FFmpeg 7.1 that Qt ships. ffmpeg-sys-next 7.x includes
+          # libavcodec/avfft.h, which FFmpeg 8 removed, so the day vcpkg's floating
+          # ffmpeg port moved to 8 the Rust build died mid-bindgen ("'/usr/include/
+          # libavcodec/avfft.h' file not found"). The runner's vcpkg is a git
+          # checkout, so pin it: this commit is the last one whose ffmpeg port is
+          # 7.1.2 (port-version 5) — the same major.minor Qt ships, so the DLL
+          # sonames match Qt's too (avcodec-61 and friends).
+          #
+          # Re-pin this together with the ffmpeg-next version and the vendored
+          # headers — see third_party/ffmpeg-7.1/README.md.
+          git -C $env:VCPKG_INSTALLATION_ROOT fetch --depth 1 origin 5087d22fd76fe1844ca492866055dea3c34e7f52
+          git -C $env:VCPKG_INSTALLATION_ROOT checkout --force --detach FETCH_HEAD
+          & "$env:VCPKG_INSTALLATION_ROOT\bootstrap-vcpkg.bat"
+
       - name: Cache vcpkg binary packages
         uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}\vcpkg-cache
           # Bump the -vN suffix to force a rebuild of the cached FFmpeg packages.
-          key: vcpkg-ffmpeg-x64-windows-v1
+          # MUST be bumped whenever the pin above moves: a fixed key that HITS is
+          # never re-saved, so the old cache would restore, miss on the new package
+          # ABI hash, and FFmpeg would be rebuilt from source on every single run.
+          key: vcpkg-ffmpeg-x64-windows-v2
 
       - name: Install FFmpeg (libav) via vcpkg
         shell: pwsh
@@ -502,11 +523,13 @@ jobs:
             if (!(Test-Path "install_check/$f")) { throw "missing in install tree: $f" }
           }
 
-          # Every non-system DLL the app imports must ship beside it. windeployqt
-          # bundles Qt and the MSVC runtime ONLY, so FFmpeg (linked dynamically via
-          # vcpkg) silently went missing and the installed app died at startup on
-          # "avcodec-62.dll not found" — with nothing red in CI. Walk the FFmpeg
-          # DLLs too: their own deps (zlib1 and friends) fail the same way.
+          # Every non-system DLL the app imports must ship beside it — libav is
+          # linked dynamically, so a missing avcodec-61.dll kills the installed app
+          # at startup with nothing red in CI. Those DLLs come from windeployqt (Qt
+          # ships FFmpeg for its multimedia backend; vcpkg supplies only headers and
+          # import libraries), which is precisely why this gate matters: nothing in
+          # our own CMake copies them. Walk the FFmpeg DLLs too — their own deps
+          # (zlib1 and friends) fail the same way.
           $targets = @('install_check\TeleMatrix.exe') +
                      (Get-ChildItem 'install_check' -Filter 'av*.dll'|% FullName) +
                      (Get-ChildItem 'install_check' -Filter 'sw*.dll'|% FullName)
