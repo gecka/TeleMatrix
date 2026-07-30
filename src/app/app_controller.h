@@ -260,6 +260,9 @@ private:
     // Feed an account's unread store from its own bridge so its unread reaches the
     // aggregate badge even while it is a background account. See MA-4.
     void wireUnreadBadgeFeed(Account *account);
+    /// Seed the bridge's Saved Messages id from this account's settings and keep
+    /// the two in sync, so the first paint already has the name and userpic.
+    void wireSavedMessagesCache(Account *account);
     /// Drop an account that was only ever a half-finished "add account" (no
     /// session), so nothing nameless is left in the list or on disk.
     void discardAccount(int index);

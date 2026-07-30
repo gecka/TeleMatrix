@@ -162,6 +162,7 @@ void AccountSettings::clear() {
     // device. Device-level preferences (theme, notifications, window, language)
     // live in Settings, and other accounts keep their own copies of all this.
     _pinnedRoomIds.clear();
+    _savedMessagesRoomId.clear();
     _customFolders.clear();
     _roomFolderAssignments.clear();
     _folderOrder.clear();
@@ -256,6 +257,7 @@ QJsonObject AccountSettings::toJson() const {
         pinned.append(id);
     }
     object[QStringLiteral("pinnedRoomIds")] = pinned;
+    object[QStringLiteral("savedMessagesRoomId")] = _savedMessagesRoomId;
 
     QJsonArray folders;
     for (const auto &folder : _customFolders) {
@@ -321,6 +323,9 @@ bool AccountSettings::addFromJson(const QJsonObject &object) {
             }
         }
     }
+
+    _savedMessagesRoomId = object.value(
+        QStringLiteral("savedMessagesRoomId")).toString(_savedMessagesRoomId);
 
     if (object.contains(QStringLiteral("customFolders"))) {
         _customFolders.clear();

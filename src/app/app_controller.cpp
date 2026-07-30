@@ -401,6 +401,7 @@ AppController::AppController(QObject *parent)
 	_domain.active()->setUnreadStateStore(std::make_unique<UnreadStateStore>(this));
 	_domain.active()->setBridge(std::make_unique<ProtocolBridge>(dataDir));
 	wireUnreadBadgeFeed(_domain.active());
+	wireSavedMessagesCache(_domain.active());
 
     _translator = new QTranslator(this);
     applyLanguageAndLocale(_settings.languageId());
@@ -650,6 +651,29 @@ void AppController::wireUnreadBadgeFeed(Account *account) {
         store->applyRoomListSnapshot(bridge->cachedRooms());
     });
     store->applyRoomListSnapshot(bridge->cachedRooms());
+}
+
+void AppController::wireSavedMessagesCache(Account *account) {
+    if (!account || !account->bridge()) {
+        return;
+    }
+    auto *bridge = account->bridge();
+    // Seed BEFORE anything reads the room list: the marker lives in account data
+    // and only lands after a round-trip, but getRoomsBlockingForStartupOnly()
+    // paints the cached rooms long before that. Without this the saved room shows
+    // its raw server name and avatar for the first second of every launch.
+    bridge->seedSavedMessagesRoomId(account->settings().savedMessagesRoomId());
+    // Per-account, not accountSettings(): a background account's bridge can
+    // resolve its marker while another account is active, and the id must land in
+    // its own settings.
+    connect(bridge, &ProtocolBridge::savedMessagesRoomChanged, this,
+        [this, account](const QString &roomId) {
+            if (account->settings().savedMessagesRoomId() == roomId) {
+                return;
+            }
+            account->settings().setSavedMessagesRoomId(roomId);
+            saveSettingsDelayed();
+        });
 }
 
 void AppController::setE2eeSearchEnabledAllAccounts(bool enabled) {
@@ -1275,6 +1299,7 @@ void AppController::startAccountSession(int index) {
     account->setUnreadStateStore(std::make_unique<UnreadStateStore>(this));
     account->setBridge(std::make_unique<ProtocolBridge>(dataDir));
     wireUnreadBadgeFeed(account);
+    wireSavedMessagesCache(account);
     account->setState(Account::State::Restoring);
 
     // No interactive retry here, unlike the active account's path: a background
@@ -1556,6 +1581,7 @@ void AppController::showAddAccountIntro() {
     pending->setUnreadStateStore(std::make_unique<UnreadStateStore>(this));
     pending->setBridge(std::make_unique<ProtocolBridge>(dataDir));
     wireUnreadBadgeFeed(pending.get());
+    wireSavedMessagesCache(pending.get());
 
     // Added to the domain so the sign-in machinery has an Account to fill in, but
     // deliberately NOT activated and NOT saved: until it has a session it is only
@@ -2158,6 +2184,7 @@ void AppController::handleLogout() {
             if (account) {
                 account->setBridge(std::make_unique<ProtocolBridge>(dataDir));
                 wireUnreadBadgeFeed(account);
+                wireSavedMessagesCache(account);
             }
             connect(bridge(), &ProtocolBridge::loginResult,
                     this, [this](bool success, const QString &userId, const QString &displayName, const QString &avatarUrl) {

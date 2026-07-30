@@ -131,6 +131,13 @@ public:
     /// created, or permanently deleted).
     [[nodiscard]] QString savedMessagesRoomId() const { return _savedMessagesRoomId; }
 
+    /// Prime the cached id from persisted settings before any room list is read.
+    /// The account-data marker stays authoritative and corrects a stale value
+    /// once ensureSavedMessagesRoom() completes.
+    void seedSavedMessagesRoomId(const QString &roomId) {
+        adoptSavedMessagesRoomId(roomId);
+    }
+
     /// Async. `create` (an explicit open / forward) creates + mutes the room on
     /// first use; without it (a passive session start) this only adopts an
     /// existing room and never creates. Result via savedMessagesRoomReady (an

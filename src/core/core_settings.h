@@ -97,6 +97,12 @@ public:
     [[nodiscard]] const QVector<QString> &pinnedRoomIds() const { return _pinnedRoomIds; }
     void setPinnedRoomIds(const QVector<QString> &ids) { _pinnedRoomIds = ids; }
 
+    // Last known Saved Messages room. Cached only so the very first paint can
+    // already show the localized name and bookmark userpic — the account-data
+    // marker remains the source of truth and corrects this on every session.
+    [[nodiscard]] const QString &savedMessagesRoomId() const { return _savedMessagesRoomId; }
+    void setSavedMessagesRoomId(const QString &id) { _savedMessagesRoomId = id; }
+
     // Custom chat folders.
     [[nodiscard]] const QVector<CustomFolder> &customFolders() const { return _customFolders; }
     void setCustomFolders(const QVector<CustomFolder> &folders) { _customFolders = folders; }
@@ -142,6 +148,7 @@ private:
     QString _sessionSecretBackend;
     bool _legacySessionAccessTokenPresent = false;
     QVector<QString> _pinnedRoomIds;
+    QString _savedMessagesRoomId;
     QVector<CustomFolder> _customFolders;
     QMap<QString, QVector<int>> _roomFolderAssignments;
     QVector<int> _folderOrder;
