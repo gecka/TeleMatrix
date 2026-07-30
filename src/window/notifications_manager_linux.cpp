@@ -156,6 +156,9 @@ void LinuxManager::showNotification(
         _portal->asyncCall(QStringLiteral("AddNotification"), id, notification);
         _portalRoomIds[roomId].append(id);
         _portalIdRoom.insert(id, roomId);
+        if (!eventId.isEmpty()) {
+            _portalIdEvent.insert(id, eventId);
+        }
         return;
     }
 
@@ -208,12 +211,13 @@ void LinuxManager::showNotification(
 
     auto *watcher = new QDBusPendingCallWatcher(pending, this);
     const QString room = roomId;
+    const QString event = eventId;
     QObject::connect(
         watcher, &QDBusPendingCallWatcher::finished, this,
-        [this, room](QDBusPendingCallWatcher *call) {
+        [this, room, event](QDBusPendingCallWatcher *call) {
             const QDBusPendingReply<uint> reply = *call;
             if (!reply.isError()) {
-                _registry.add(room, reply.value());
+                _registry.add(room, event, reply.value());
             }
             call->deleteLater();
         });
@@ -224,6 +228,7 @@ void LinuxManager::clearFromRoom(const QString &roomId) {
         const QStringList ids = _portalRoomIds.take(roomId);
         for (const QString &id : ids) {
             _portalIdRoom.remove(id);
+            _portalIdEvent.remove(id);
             if (_portal) {
                 _portal->asyncCall(QStringLiteral("RemoveNotification"), id);
             }
@@ -240,6 +245,7 @@ void LinuxManager::clearAll() {
     if (_usePortal) {
         const QList<QString> ids = _portalIdRoom.keys();
         _portalIdRoom.clear();
+        _portalIdEvent.clear();
         _portalRoomIds.clear();
         for (const QString &id : ids) {
             if (_portal) {
@@ -280,7 +286,7 @@ void LinuxManager::handleActionInvoked(uint id, const QString &actionKey) {
         return;
     }
     if (actionKey == QStringLiteral("default")) {
-        emit notificationActivated(room);
+        emit notificationActivated(room, _registry.eventForId(id));
     } else if (actionKey == QStringLiteral("mark-read")) {
         emit notificationMarkRead(room);
     }
@@ -309,7 +315,7 @@ void LinuxManager::handlePortalActionInvoked(
     }
     const QString room = _portalIdRoom.value(id);
     if (!room.isEmpty()) {
-        emit notificationActivated(room);
+        emit notificationActivated(room, _portalIdEvent.value(id));
     }
 }
 

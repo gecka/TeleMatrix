@@ -50,6 +50,9 @@ public:
 
     /// Load and display a room in the history panel.
     void showRoom(const QString &roomId);
+    /// Open `roomId` scrolled to `eventId` and highlight it — the same funnel a
+    /// search result uses. Falls back to showRoom() when the id is empty.
+    void showRoomAtEvent(const QString &roomId, const QString &eventId);
 
     /// Show a room we are not a member of: its name and description over an empty timeline, with a
     /// Join bar where the composer would be. Matrix serves no history to a non-member, so there is

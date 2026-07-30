@@ -216,6 +216,10 @@ void WinManager::showNotification(
 
         QString xml = QStringLiteral("<toast launch=\"room=");
         xml += xmlEscape(roomId);
+        if (!eventId.isEmpty()) {
+            xml += QStringLiteral("&amp;event=");
+            xml += xmlEscape(eventId);
+        }
         xml += QStringLiteral("\" scenario=\"");
         xml += scenario;
         xml += QStringLiteral("\"><visual><binding template=\"ToastGeneric\">");
@@ -288,6 +292,7 @@ void WinManager::showNotification(
                 QString::fromWCharArray(raw.c_str(), int(raw.size()));
             QString action;
             QString room;
+            QString event;
             for (const QString &pair :
                  argString.split(QLatin1Char('&'), Qt::SkipEmptyParts)) {
                 const int eq = pair.indexOf(QLatin1Char('='));
@@ -300,6 +305,8 @@ void WinManager::showNotification(
                     action = value;
                 } else if (key == QLatin1String("room")) {
                     room = value;
+                } else if (key == QLatin1String("event")) {
+                    event = value;
                 }
             }
             if (room.isEmpty()) {
@@ -331,7 +338,9 @@ void WinManager::showNotification(
             } else {
                 QMetaObject::invokeMethod(
                     self,
-                    [self, room]() { emit self->notificationActivated(room); },
+                    [self, room, event]() {
+                        emit self->notificationActivated(room, event);
+                    },
                     Qt::QueuedConnection);
             }
         });

@@ -68,7 +68,10 @@ public:
 
 Q_SIGNALS:
     /// Emitted when the user clicks a notification.
-    void notificationActivated(const QString &roomId);
+    /// `eventId` is the message the toast was raised for, so the click can jump
+    /// to it instead of opening the room at its default position (which lands on
+    /// the unread delimiter). Empty for grouped or event-less toasts.
+    void notificationActivated(const QString &roomId, const QString &eventId);
     /// Emitted when the user submits an inline reply from the toast.
     void notificationReplied(const QString &roomId, const QString &text);
     /// Emitted when the user triggers the "Mark as read" toast action.
@@ -116,7 +119,10 @@ Q_SIGNALS:
     /// Forwarded from Manager: user clicked a notification. `accountDirName` is
     /// the account the notification came from — it may not be the one on screen,
     /// so the handler has to switch to it before opening the room.
-    void activateRoom(const QString &accountDirName, const QString &roomId);
+    void activateRoom(
+        const QString &accountDirName,
+        const QString &roomId,
+        const QString &eventId);
     /// Forwarded from Manager: user submitted an inline reply. `accountDirName` is
     /// the account the toast came from — the reply must act on THAT account, which
     /// may not be the one on screen.

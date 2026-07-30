@@ -8,7 +8,8 @@
 
 namespace TeleMatrix::Notifications {
 
-void LinuxNotificationRegistry::add(const QString &roomId, uint notificationId) {
+void LinuxNotificationRegistry::add(
+        const QString &roomId, const QString &eventId, uint notificationId) {
     if (roomId.isEmpty() || notificationId == 0) {
         return;
     }
@@ -16,10 +17,17 @@ void LinuxNotificationRegistry::add(const QString &roomId, uint notificationId) 
     forget(notificationId);
     _byRoom[roomId].append(notificationId);
     _roomById.insert(notificationId, roomId);
+    if (!eventId.isEmpty()) {
+        _eventById.insert(notificationId, eventId);
+    }
 }
 
 QString LinuxNotificationRegistry::roomForId(uint notificationId) const {
     return _roomById.value(notificationId);
+}
+
+QString LinuxNotificationRegistry::eventForId(uint notificationId) const {
+    return _eventById.value(notificationId);
 }
 
 void LinuxNotificationRegistry::forget(uint notificationId) {
@@ -29,6 +37,7 @@ void LinuxNotificationRegistry::forget(uint notificationId) {
     }
     const QString room = it.value();
     _roomById.erase(it);
+    _eventById.remove(notificationId);
 
     const auto roomIt = _byRoom.find(room);
     if (roomIt != _byRoom.end()) {
@@ -43,6 +52,7 @@ QList<uint> LinuxNotificationRegistry::takeRoom(const QString &roomId) {
     const QList<uint> ids = _byRoom.take(roomId);
     for (const uint id : ids) {
         _roomById.remove(id);
+        _eventById.remove(id);
     }
     return ids;
 }
@@ -54,6 +64,7 @@ QList<uint> LinuxNotificationRegistry::takeAll() {
         ids.append(it.key());
     }
     _roomById.clear();
+    _eventById.clear();
     _byRoom.clear();
     return ids;
 }

@@ -1956,7 +1956,10 @@ void AppController::showMain(bool restoreWindowGeometry) {
 
     // Click on notification -> navigate to that room.
     connect(_notifications.get(), &Notifications::System::activateRoom,
-            this, [this](const QString &accountDirName, const QString &roomId) {
+            this, [this](
+                const QString &accountDirName,
+                const QString &roomId,
+                const QString &eventId) {
         if (_window) {
             _window->raise();
             _window->activateWindow();
@@ -1982,7 +1985,9 @@ void AppController::showMain(bool restoreWindowGeometry) {
             // Roomless security alerts (a new login) carry an empty id: just
             // focus the app, where the banner offers the actions.
             if (_mainWidget && !roomId.isEmpty()) {
-                _mainWidget->showRoom(roomId);
+                // Jump to the message the toast was about; showRoomAtEvent falls
+                // back to a plain open when the toast carried no event.
+                _mainWidget->showRoomAtEvent(roomId, eventId);
             }
         });
     });

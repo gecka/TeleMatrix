@@ -68,11 +68,11 @@ void System::setManager(std::unique_ptr<Manager> manager) {
     _manager = std::move(manager);
     if (_manager) {
         QObject::connect(_manager.get(), &Manager::notificationActivated,
-                         this, [this](const QString &roomId) {
+                         this, [this](const QString &roomId, const QString &eventId) {
             // The toast may belong to an account that isn't on screen; say which,
             // so the click can switch to it instead of opening a room the visible
             // account doesn't have.
-            emit activateRoom(_notificationAccount.value(roomId), roomId);
+            emit activateRoom(_notificationAccount.value(roomId), roomId, eventId);
         });
         QObject::connect(_manager.get(), &Manager::notificationReplied,
                          this, [this](const QString &roomId, const QString &text) {

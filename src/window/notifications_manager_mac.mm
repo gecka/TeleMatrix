@@ -34,9 +34,11 @@
     Q_UNUSED(center);
     NSDictionary *info = response.notification.request.content.userInfo;
     NSString *roomId = info[@"roomId"];
+    NSString *eventId = info[@"eventId"];
     TeleMatrix::Notifications::MacManager *manager = self.manager;
     if (roomId && manager) {
         const QString room = QString::fromNSString(roomId);
+        const QString event = eventId ? QString::fromNSString(eventId) : QString();
         NSString *actionId = response.actionIdentifier;
         // UN delegate callbacks arrive off the main thread; emit on the main
         // queue so the Qt signals reach the main-thread System object safely.
@@ -54,7 +56,7 @@
             });
         } else if ([actionId isEqualToString:UNNotificationDefaultActionIdentifier]) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                emit manager->notificationActivated(room);
+                emit manager->notificationActivated(room, event);
             });
         }
     }

@@ -21,11 +21,16 @@ class LinuxNotificationRegistry {
 public:
     /// Remember that `notificationId` (from the Notify reply) belongs to `roomId`.
     /// No-op for an empty room or a 0 id. If the id was already tracked under a
-    /// different room, it is moved.
-    void add(const QString &roomId, uint notificationId);
+    /// different room, it is moved. `eventId` may be empty (a grouped or
+    /// event-less toast); clicking such a toast just opens the room.
+    void add(const QString &roomId, const QString &eventId, uint notificationId);
 
     /// Room a notification belongs to, or empty if untracked.
     [[nodiscard]] QString roomForId(uint notificationId) const;
+
+    /// Message the notification was raised for, so a click can jump to it rather
+    /// than opening the room at its default position. Empty when unknown.
+    [[nodiscard]] QString eventForId(uint notificationId) const;
 
     /// Drop a single id (e.g. on a NotificationClosed signal).
     void forget(uint notificationId);
@@ -39,6 +44,7 @@ public:
 private:
     QHash<QString, QList<uint>> _byRoom;
     QHash<uint, QString> _roomById;
+    QHash<uint, QString> _eventById;
 };
 
 } // namespace TeleMatrix::Notifications

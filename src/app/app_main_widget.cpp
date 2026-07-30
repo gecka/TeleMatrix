@@ -1010,6 +1010,24 @@ void AppMainWidget::handleApplicationStateChanged(Qt::ApplicationState state) {
     }
 }
 
+void AppMainWidget::showRoomAtEvent(const QString &roomId, const QString &eventId) {
+    if (eventId.isEmpty() || !_history) {
+        showRoom(roomId);
+        return;
+    }
+    // showMessage is the same jump funnel a search result hit uses: it opens the
+    // room positioned on the event and highlights it, instead of landing on the
+    // unread delimiter the way a plain open does.
+    _history->showMessage(roomId, eventId);
+    if (_activeRoomId != roomId) {
+        _activeRoomId = roomId;
+        if (_unreadStateStore) {
+            _unreadStateStore->setActiveRoomId(roomId);
+        }
+        emit activeRoomChanged(roomId);
+    }
+}
+
 void AppMainWidget::showRoom(const QString &roomId) {
     if (_history) {
         if (_activeRoomId == roomId) {

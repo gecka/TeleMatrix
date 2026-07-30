@@ -73,6 +73,7 @@ private:
     LinuxNotificationRegistry _registry; // direct: uint ids
     QHash<QString, QStringList> _portalRoomIds; // portal: room -> string ids
     QHash<QString, QString> _portalIdRoom;       // portal: string id -> room
+    QHash<QString, QString> _portalIdEvent;      // portal: string id -> event
 
     // Server capabilities from GetCapabilities (e.g. "actions", "inline-reply",
     // "body-markup"); empty until the async query returns.
