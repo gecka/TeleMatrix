@@ -50,13 +50,21 @@
 namespace TeleMatrix {
 
 namespace {
-constexpr int kSidebarDefaultWidth = 300;
+// Pane width, so it carries the folders rail too: 300 of room list + 72 of rail.
+// Left at 300 it would fall below the pane minimum and get clamped, making the
+// default and the minimum the same width.
+#define kSidebarDefaultWidth (300 + st::sideBarWidth)
 constexpr int kContentMinWidth = 300;
 constexpr int kUnreadRefreshDelay = 150;
 constexpr int kUnreadActivationRefreshDelay = 750;
 // Runtime-scaled via st::initPxValues().
-#define kSidebarMinWidth st::columnMinimalWidthLeft
-#define kSidebarMaxWidth st::columnMaximalWidthLeft
+//
+// The folders rail lives INSIDE DialogsWidget, so its 72px comes out of whatever
+// width the pane gets. columnMinimalWidthLeft is tdesktop's minimum for the room
+// list itself, which there is a column of its own — so the pane minimum has to be
+// the sum, or the list is squeezed to 188 while the pane still measures 260.
+#define kSidebarMinWidth (st::columnMinimalWidthLeft + st::sideBarWidth)
+#define kSidebarMaxWidth (st::columnMaximalWidthLeft + st::sideBarWidth)
 
 QString serverNameFromSession(const ProtocolBridge::SessionInfo &session) {
     const auto userId = session.userId.trimmed();
@@ -183,6 +191,10 @@ void AppMainWidget::setupLayout() {
 
     _splitter = new ThemedSplitter(Qt::Horizontal, this);
     _splitter->setHandleWidth(1);
+    // Without this a drag past the minimum collapses the pane to zero width,
+    // which bypasses setMinimumWidth() and hides the rooms list outright. Off, the
+    // drag stops at kSidebarMinWidth instead.
+    _splitter->setChildrenCollapsible(false);
 
     // Left panel: chat list.
     _dialogs = new DialogsWidget(_splitter, _controller, _bridge);

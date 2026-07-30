@@ -346,7 +346,12 @@ inline QColor menuIconColor        = windowBoldFg;         // #222222
 // ─────────────────────────────────────────────
 // Window layout (from window.style)
 // ─────────────────────────────────────────────
-inline int windowMinWidth          = 380;
+// 633 = folders rail (sideBarWidth 72) + rooms list (columnMinimalWidthLeft 260)
+// + splitter handle (1) + history (kContentMinWidth 300). Deliberately above
+// tdesktop's 380: upstream can go that narrow because it drops to a one-column
+// layout, which we do not implement, so anything less makes Qt shrink the panes
+// past their own minimums to fit.
+inline int windowMinWidth          = 633;
 inline int windowMinHeight         = 480;
 inline int windowDefaultWidth      = 800;
 inline int windowDefaultHeight     = 600;
@@ -1651,7 +1656,7 @@ inline void initPxValues() {
     // fsize and boxFontSize remain at their base values.
 
     // Window layout.
-    windowMinWidth = ConvertScale(380);
+    windowMinWidth = ConvertScale(633);
     windowMinHeight = ConvertScale(480);
     windowDefaultWidth = ConvertScale(800);
     windowDefaultHeight = ConvertScale(600);
