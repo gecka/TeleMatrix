@@ -37,7 +37,8 @@ SessionRow::SessionRow(
     renameStyle.radius = 4;
     _renameButton = new ::Ui::TextButton(tr("Rename"), renameStyle, this);
     _renameButton->setFont(buttonFont);
-    _renameButton->setFixedSize(60, 26);
+    // See CurrentSessionCard: literal widths clipped translated labels.
+    _renameButton->setFixedSize(_renameButton->sizeHint().width(), 26);
     connect(_renameButton, &QAbstractButton::clicked, this, [this] {
         Q_EMIT renameRequested(_deviceId, _deviceName);
     });
@@ -48,7 +49,7 @@ SessionRow::SessionRow(
     signOutStyle.radius = 4;
     _signOutButton = new ::Ui::TextButton(tr("Sign out"), signOutStyle, this);
     _signOutButton->setFont(buttonFont);
-    _signOutButton->setFixedSize(72, 26);
+    _signOutButton->setFixedSize(_signOutButton->sizeHint().width(), 26);
     connect(_signOutButton, &QAbstractButton::clicked, this, [this] {
         Q_EMIT signOutRequested(_deviceId);
     });
@@ -97,7 +98,13 @@ void SessionRow::paintEvent(QPaintEvent *) {
     p.setFont(metaFont);
     p.setPen(st::windowSubTextFg);
     const int metaY = nameY + 5 + QFontMetrics(metaFont).ascent();
-    const int availW = width() - textLeft - right - 148;
+    // Reserve what the buttons actually occupy, not a literal: they used to be a
+    // fixed 60 + 72 + 2, and the 148 baked in here went stale the moment their
+    // width started following the (translated) label.
+    const int buttonsW = (_renameButton && _signOutButton)
+        ? (_renameButton->width() + 2 + _signOutButton->width() + 4)
+        : 0;
+    const int availW = width() - textLeft - right - buttonsW;
     const QString elidedSubtitle = QFontMetrics(metaFont).elidedText(
         _subtitle,
         Qt::ElideRight,

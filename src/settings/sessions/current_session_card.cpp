@@ -34,7 +34,10 @@ CurrentSessionCard::CurrentSessionCard(
     renameStyle.radius = 4;
     _renameButton = new ::Ui::TextButton(tr("Rename"), renameStyle, this);
     _renameButton->setFont(buttonFont);
-    _renameButton->setFixedSize(72, 28);
+    // Width from the text, not a literal: the 72/80 these used to be were sized
+    // for "Rename"/"Sign out" and clipped every longer translation ("Renombrar",
+    // "Cerrar sesión"). sizeHint() is textWidth + 2 * paddingH.
+    _renameButton->setFixedSize(_renameButton->sizeHint().width(), 28);
     connect(_renameButton, &QAbstractButton::clicked, this, [this] {
         Q_EMIT renameRequested(_deviceId, _deviceName);
     });
@@ -45,7 +48,7 @@ CurrentSessionCard::CurrentSessionCard(
     signOutStyle.radius = 4;
     _signOutButton = new ::Ui::TextButton(tr("Sign out"), signOutStyle, this);
     _signOutButton->setFont(buttonFont);
-    _signOutButton->setFixedSize(80, 28);
+    _signOutButton->setFixedSize(_signOutButton->sizeHint().width(), 28);
     connect(_signOutButton, &QAbstractButton::clicked, this, [this] {
         Q_EMIT signOutRequested(_deviceId);
     });
