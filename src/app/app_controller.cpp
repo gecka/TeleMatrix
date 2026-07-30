@@ -494,6 +494,17 @@ AppController::AppController(QObject *parent)
             _updateService->download();
         }
     });
+    // Staging is done and a helper is already waiting on this PID, so go down
+    // now. Hiding the window first matters: quitting still blocks the main
+    // thread while up to six Rust runtimes drain, and a visible window frozen
+    // for that beat reads as a hang rather than as the app closing.
+    connect(_updateService.get(), &Core::UpdateService::applyReady,
+            this, [this](const QString &relaunchPath) {
+        if (_window) {
+            _window->hide();
+        }
+        restartIntoPath(relaunchPath);
+    });
     _updateCheckTimer.setInterval(kUpdateCheckInterval);
     connect(&_updateCheckTimer, &QTimer::timeout, this, [this] {
         _updateService->check(false);
@@ -1855,6 +1866,12 @@ void AppController::restartIntoPath(const QString &path) {
     QApplication::quit();
 }
 
+void AppController::setConnectingBottomSkip(int skip) {
+    if (_mainWidget) {
+        _mainWidget->setConnectingBottomSkip(skip);
+    }
+}
+
 void AppController::notifyUpdatePolicyChanged() {
     if (!_updateService) {
         return;
@@ -1967,7 +1984,7 @@ void AppController::showMain(bool restoreWindowGeometry) {
         // Deferred out of the signal emission: switching accounts destroys the
         // Notifications::System that is emitting this very signal (and the main
         // widget the room would open in), so both have to outlive the emit.
-        QTimer::singleShot(0, this, [this, accountDirName, roomId] {
+        QTimer::singleShot(0, this, [this, accountDirName, roomId, eventId] {
             // The toast may belong to an account that isn't showing. Switch to it
             // FIRST and only then navigate — the room lives in that account's
             // list, so opening it before the switch would look in the wrong one.

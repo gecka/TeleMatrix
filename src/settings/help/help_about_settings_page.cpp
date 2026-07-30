@@ -107,7 +107,11 @@ void HelpAboutSettingsPage::setupUpdateSection(QWidget *content, QVBoxLayout *la
     addSettingsSectionTitle(content, layout, tr("Updates"));
 
     const auto notifyOnly = (service->applyMode() != ApplyMode::OneClick);
-    const auto current = std::clamp(_settings ? _settings->updatePolicy() : 1, 0, 2);
+    // Fallback matches Settings::_updatePolicy's default (auto-download).
+    const auto current = std::clamp(
+        _settings ? _settings->updatePolicy() : static_cast<int>(Policy::AutoDownload),
+        0,
+        2);
 
     struct Entry {
         Policy policy;
@@ -227,6 +231,10 @@ void HelpAboutSettingsPage::setupUpdateSection(QWidget *content, QVBoxLayout *la
     connect(service, &Core::UpdateService::updateReady, this, [this](const QString &) {
         refreshUpdateRow();
     });
+    connect(service, &Core::UpdateService::applyStarted, this, [this] {
+        _lastError.clear();
+        refreshUpdateRow();
+    });
     connect(service, &Core::UpdateService::updateError, this, [this](const QString &message) {
         _lastError = message;
         refreshUpdateRow();
@@ -241,6 +249,13 @@ void HelpAboutSettingsPage::refreshUpdateRow() {
         return;
     }
 
+    if (service->applying()) {
+        // First, and with no action: the verify + swap runs on a worker for a
+        // few seconds, and a second click must not start another.
+        _updateRow->setText(tr("Updating…"));
+        _updateRow->setValue(QString());
+        return;
+    }
     if (service->checking()) {
         _updateRow->setText(tr("Checking for updates…"));
         _updateRow->setValue(QString());
@@ -312,7 +327,7 @@ void HelpAboutSettingsPage::setInstallBetaVersions(bool beta) {
 
 void HelpAboutSettingsPage::onUpdateRowClicked() {
     auto *service = _controller ? _controller->updateService() : nullptr;
-    if (!service || service->checking()) {
+    if (!service || service->checking() || service->applying()) {
         return;
     }
     if (service->downloading()) {
@@ -329,15 +344,9 @@ void HelpAboutSettingsPage::onUpdateRowClicked() {
         if (dialog.exec() != HistoryConfirmDialog::Accepted) {
             return;
         }
-        // applyAndRestart() re-verifies the payload, stages the swap and, on
-        // macOS and Windows, leaves a helper already waiting on this PID — so
-        // the app has to go down promptly afterwards. An empty relaunch path
-        // means that helper owns the relaunch, and restartIntoPath then quits
-        // WITHOUT spawning anything: re-launching the current binary would race
-        // the helper with the version being replaced, and win.
-        if (service->applyAndRestart()) {
-            _controller->restartIntoPath(service->pendingRelaunchPath());
-        }
+        // Kicks off staging on a worker and returns; AppController quits on
+        // applyReady, since the helper it leaves behind is waiting on this PID.
+        service->applyAndRestart();
         return;
     }
     if (!service->availableVersion().isEmpty()) {

@@ -446,6 +446,7 @@ QJsonObject Settings::toJson() const {
     object[QStringLiteral("updates")] = QJsonObject{
         { QStringLiteral("policy"), std::clamp(_updatePolicy, 0, 2) },
         { QStringLiteral("beta"), _installBetaVersions },
+        { QStringLiteral("skipped"), _skippedUpdateVersion },
     };
 
     return object;
@@ -548,6 +549,8 @@ bool Settings::addFromJson(const QJsonObject &object) {
             2);
         _installBetaVersions = updates.value(
             QStringLiteral("beta")).toBool(_installBetaVersions);
+        _skippedUpdateVersion = updates.value(
+            QStringLiteral("skipped")).toString(_skippedUpdateVersion);
     }
 
     return true;

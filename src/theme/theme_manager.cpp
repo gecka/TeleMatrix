@@ -399,6 +399,8 @@ void applyAllTokens(const QHash<QString, QColor> &palette) {
 	APPLY_TOKEN(activeButtonFg);
 	APPLY_TOKEN(activeButtonFgOver);
 	APPLY_TOKEN(activeButtonSecondaryFg);
+	APPLY_TOKEN(groupCallLive1);
+	APPLY_TOKEN(groupCallLive2);
 	APPLY_TOKEN(lightButtonBg);
 	APPLY_TOKEN(lightButtonBgOver);
 	APPLY_TOKEN(lightButtonBgRipple);

@@ -144,6 +144,26 @@ public:
         setAttribute(Qt::WA_OpaquePaintEvent, true);
     }
 
+    /// Paint `color` instead of the seam for the bottom `height` pixels.
+    ///
+    /// The rooms list's bottom bar (the update button) is a child of the dialogs
+    /// widget, so it is clipped to it and cannot cover this handle — a sibling
+    /// one pixel to its right. The seam therefore drew a light line down the edge
+    /// of an otherwise full-bleed bar. Continuing the bar's own colour across the
+    /// handle closes it. The handle keeps its full height, so dragging still
+    /// works over the bar.
+    ///
+    /// A colour rather than a skip because WA_OpaquePaintEvent means every pixel
+    /// must be painted every frame; leaving a gap would show stale content.
+    void setBottomCover(int height, QColor color) {
+        if (_coverHeight == height && _coverColor == color) {
+            return;
+        }
+        _coverHeight = height;
+        _coverColor = color;
+        update();
+    }
+
 protected:
     void paintEvent(QPaintEvent *) override {
         QPainter p(this);
@@ -154,15 +174,41 @@ protected:
         // a restart "fixed" it by resetting the backing store). Compositing it
         // over windowBg exactly once also matches what the contrast floors in
         // tools/theme/colorize.py and tst_theme_registry measure.
-        p.fillRect(rect(), st::windowBg);
-        p.fillRect(rect(), st::splitterHandleBg);
+        const auto seam = (_coverHeight > 0)
+            ? rect().adjusted(0, 0, 0, -_coverHeight)
+            : rect();
+        if (!seam.isEmpty()) {
+            p.fillRect(seam, st::windowBg);
+            p.fillRect(seam, st::splitterHandleBg);
+        }
+        if (_coverHeight > 0) {
+            p.fillRect(
+                QRect(0, height() - _coverHeight, width(), _coverHeight),
+                _coverColor);
+        }
     }
+
+private:
+    int _coverHeight = 0;
+    QColor _coverColor;
 };
 
 class ThemedSplitter : public QSplitter {
 public:
     ThemedSplitter(Qt::Orientation orientation, QWidget *parent)
         : QSplitter(orientation, parent) {}
+
+    /// Forwarded to every handle. handle(0) is the hidden zero-width one Qt keeps
+    /// before the first pane; covering it too is harmless. Uses the protected
+    /// handle() rather than findChildren, which would need a Q_OBJECT this
+    /// anonymous-namespace class cannot carry, and always returns live pointers.
+    void setHandleBottomCover(int height, QColor color) {
+        for (auto i = 0; i != count(); ++i) {
+            if (auto *h = static_cast<ThemedSplitterHandle *>(handle(i))) {
+                h->setBottomCover(height, color);
+            }
+        }
+    }
 
 protected:
     QSplitterHandle *createHandle() override {
@@ -1488,6 +1534,19 @@ void AppMainWidget::resizeEvent(QResizeEvent *e) {
         _connecting->reposition();
     }
     positionUserProfileOverlay();
+}
+
+void AppMainWidget::setConnectingBottomSkip(int skip) {
+    if (_connecting) {
+        _connecting->setBottomSkip(skip);
+    }
+    // The bar is full-bleed, so the pane seam must not cross it. groupCallLive2
+    // is the gradient's right-hand stop, i.e. exactly the colour the bar ends on
+    // one pixel to the handle's left — so the two read as one surface.
+    if (_splitter) {
+        static_cast<ThemedSplitter *>(_splitter)->setHandleBottomCover(
+            skip, skip > 0 ? st::groupCallLive2 : QColor());
+    }
 }
 
 void AppMainWidget::restoreDialogsWidth() {

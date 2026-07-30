@@ -30,6 +30,7 @@ class DialogsInner;
 class MemberPickerBox;
 class DialogsFilterSidebar;
 class DialogsFoldersBox;
+class DialogsUpdateBar;
 struct FolderManagerEntry;
 struct RoomPickEntry;
 class UnreadStateStore;
@@ -129,6 +130,11 @@ private:
     void hideVerificationBanner();
     void cancelPendingBannerRequest(const QString &replacingId);
     void setupNewLoginBanner();
+    /// Create, retarget or destroy the bottom update bar to match the
+    /// updater's state and the update policy.
+    void checkUpdateStatus();
+    [[nodiscard]] DialogsUpdateBar *ensureUpdateBar();
+    void destroyUpdateBar();
     void showNextNewLoginBanner();
     void dismissNewLoginBanner();
     void deferNewLoginBanner();
@@ -209,6 +215,10 @@ private:
     Ui::InputField *_search = nullptr;  // Search/filter bar
     QWidget *_verificationBanner = nullptr;
     QWidget *_newLoginBanner = nullptr;
+    // Exists only while a verified update is downloaded and waiting to apply.
+    DialogsUpdateBar *_updateTelegram = nullptr;
+    // Latest download percentage, -1 while no total is known.
+    int _downloadPercent = -1;
     DialogsFilterSidebar *_filterSidebar = nullptr; // Left filters sidebar
     DialogsFoldersBox *_openFoldersBox = nullptr;   // Folders manager popup while open
     Ui::ScrollArea *_scroll = nullptr;  // Scroll area containing the inner widget

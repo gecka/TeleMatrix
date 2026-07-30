@@ -11,7 +11,11 @@
 #include "dialogs_edit_folder_box.h"
 #include "dialogs_leave_space_box.h"
 #include "dialogs_inner.h"
+#include "dialogs_update_bar.h"
 #include "../app/app_controller.h"
+#include "../core/update_service.h"
+#include "../core/core_settings.h"
+#include "ui/safe_url.h"
 #include "../app/unread_state_store.h"
 #include "../history/history_confirm_dialog.h"
 
@@ -1250,6 +1254,7 @@ DialogsWidget::DialogsWidget(
     setupVerificationBanner();
     setupNewLoginBanner();
 
+
     // Refresh colors when theme changes (day/night toggle).
     if (auto *tm = _controller->themeManager()) {
         QObject::connect(tm, &Theme::ThemeManager::themeChanged,
@@ -1279,6 +1284,53 @@ DialogsWidget::DialogsWidget(
     setupFilterButtons();
     setupFilterSidebar();
     setupScrollArea();
+
+    // After setupScrollArea(): checkUpdateStatus() lays the controls out, and a
+    // payload downloaded before this rooms list existed (a re-login under
+    // auto-download) makes it build the bar right here.
+    if (auto *update = _controller ? _controller->updateService() : nullptr) {
+        // updateReady is the only signal that can raise the bar; the others can
+        // only take it away — a newer version clears the stale ready path, and
+        // a failed apply drops it.
+        connect(update, &Core::UpdateService::updateReady,
+                this, [this](const QString &) { checkUpdateStatus(); });
+        connect(update, &Core::UpdateService::updateAvailable,
+                this, [this](const QString &) { checkUpdateStatus(); });
+        connect(update, &Core::UpdateService::updateUpToDate,
+                this, [this] { checkUpdateStatus(); });
+        connect(update, &Core::UpdateService::updateError,
+                this, [this](const QString &) { checkUpdateStatus(); });
+        connect(update, &Core::UpdateService::applyStarted,
+                this, [this] { checkUpdateStatus(); });
+        connect(update, &Core::UpdateService::downloadStarted, this, [this] {
+            _downloadPercent = -1;
+            checkUpdateStatus();
+        });
+        connect(update, &Core::UpdateService::downloadCancelled,
+                this, [this] { checkUpdateStatus(); });
+        connect(update, &Core::UpdateService::updateProgress, this,
+                [this](quint64 received, quint64 total) {
+            const auto percent = (total > 0)
+                ? int((received * 100) / total)
+                : -1;
+            if (percent == _downloadPercent) {
+                return;
+            }
+            _downloadPercent = percent;
+            // Straight to the bar, not through checkUpdateStatus(): progress
+            // fires per chunk and re-deriving the whole state that often is waste.
+            auto *service = _controller->updateService();
+            if (service
+                && _updateTelegram
+                && _updateTelegram->mode() == DialogsUpdateBar::Mode::Downloading) {
+                _updateTelegram->setDownloadingMode(
+                    tr("Downloading %1…").arg(service->availableVersion()),
+                    _downloadPercent);
+            }
+        });
+        checkUpdateStatus();
+    }
+
     if (_unreadStateStore) {
         QObject::connect(
             _unreadStateStore,
@@ -1879,6 +1931,102 @@ void DialogsWidget::hideNewLoginBanner() {
         return;
     }
     _newLoginBanner->hide();
+    updateControlsGeometry();
+}
+
+DialogsUpdateBar *DialogsWidget::ensureUpdateBar() {
+    if (_updateTelegram) {
+        return _updateTelegram;
+    }
+    _updateTelegram = new DialogsUpdateBar(this);
+    _updateTelegram->show();
+
+    connect(_updateTelegram, &DialogsUpdateBar::applyRequested, this, [this] {
+        // Staging runs on a worker, so this only kicks it off; the quit is
+        // AppController's, on applyReady.
+        if (auto *update = _controller->updateService()) {
+            update->applyAndRestart();
+        }
+    });
+    connect(_updateTelegram, &DialogsUpdateBar::updateRequested, this, [this] {
+        auto *update = _controller->updateService();
+        if (!update) {
+            return;
+        }
+        if (update->applyMode() == Core::UpdateService::ApplyMode::OneClick) {
+            // downloadAndApply, not download: this bar's contract is one click
+            // for the whole thing, and the flag is what keeps an auto-download
+            // from inheriting that behaviour.
+            update->downloadAndApply();
+        } else if (!update->releasePage().isEmpty()) {
+            // deb/rpm and friends: a package manager owns those files, and the
+            // manifest carries no asset for them, so the page is the only route.
+            OpenSafeExternalUrl(update->releasePage());
+        }
+    });
+    connect(_updateTelegram, &DialogsUpdateBar::skipRequested, this, [this] {
+        auto *update = _controller->updateService();
+        if (!update || update->availableVersion().isEmpty()) {
+            return;
+        }
+        _controller->settings().setSkippedUpdateVersion(update->availableVersion());
+        _controller->saveSettingsDelayed();
+        checkUpdateStatus();
+    });
+    connect(_updateTelegram, &DialogsUpdateBar::cancelRequested, this, [this] {
+        if (auto *update = _controller->updateService()) {
+            update->cancelDownload();
+        }
+    });
+    return _updateTelegram;
+}
+
+void DialogsWidget::destroyUpdateBar() {
+    if (!_updateTelegram) {
+        return;
+    }
+    // deleteLater, not delete: a failed applyAndRestart() clears the ready path
+    // and emits updateError, which lands here while we are still inside the
+    // bar's own mouse-release handler. Destroying it now would return into a
+    // freed widget.
+    _updateTelegram->hide();
+    _updateTelegram->deleteLater();
+    _updateTelegram = nullptr;
+}
+
+void DialogsWidget::checkUpdateStatus() {
+    auto *service = _controller ? _controller->updateService() : nullptr;
+    if (!service) {
+        destroyUpdateBar();
+        return;
+    }
+    // The same condition AppController uses to auto-download. When it holds the
+    // user has already opted in, so there is nothing to prompt about and the
+    // download stays silent until it is ready — today's behaviour.
+    const auto autoDownloading =
+        (_controller->settings().updatePolicy()
+            == static_cast<int>(Core::UpdateService::Policy::AutoDownload))
+        && (service->applyMode() == Core::UpdateService::ApplyMode::OneClick);
+    const auto version = service->availableVersion();
+
+    if (!service->readyPath().isEmpty()) {
+        // Staging keeps the ready path set, so the bar stays put and reports that
+        // it is working instead of silently doing nothing for ~3s.
+        const auto applying = service->applying();
+        ensureUpdateBar()->setReadyMode(
+            applying ? tr("Updating…") : tr("Update TeleMatrix"),
+            !applying);
+    } else if (service->downloading() && !autoDownloading) {
+        ensureUpdateBar()->setDownloadingMode(
+            tr("Downloading %1…").arg(version), _downloadPercent);
+    } else if (!version.isEmpty()
+               && !autoDownloading
+               && version != _controller->settings().skippedUpdateVersion()) {
+        ensureUpdateBar()->setPromptMode(
+            tr("New version available (%1)").arg(version));
+    } else {
+        destroyUpdateBar();
+    }
     updateControlsGeometry();
 }
 
@@ -3699,8 +3847,30 @@ void DialogsWidget::updateControlsGeometry() {
     const auto scrollTop =
         st::topBarHeight + verificationBannerHeight + newLoginBannerHeight;
 
+    // Bottom-pinned bars, stacked upwards from the bottom edge like tdesktop's
+    // putBottomButton(). The room list gives up the height rather than being
+    // overlapped, so the last row stays reachable.
+    auto bottomSkip = 0;
+    if (_updateTelegram && !_updateTelegram->isHidden()) {
+        const auto buttonHeight = _updateTelegram->barHeight();
+        bottomSkip += buttonHeight;
+        _updateTelegram->setGeometry(
+            contentLeft,
+            height() - bottomSkip,
+            contentWidth,
+            buttonHeight);
+        _updateTelegram->raise();
+    }
+    if (_controller) {
+        _controller->setConnectingBottomSkip(bottomSkip);
+    }
+
     // Scroll area fills the rest.
-    _scroll->setGeometry(contentLeft, scrollTop, contentWidth, qMax(0, height() - scrollTop));
+    _scroll->setGeometry(
+        contentLeft,
+        scrollTop,
+        contentWidth,
+        qMax(0, height() - scrollTop - bottomSkip));
     if (_initialLoadingOverlay) {
         // Cover only the room-list area (right of the rail, below the search
         // bar) and show the centred "Loading…". The dark rail keeps its

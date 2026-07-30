@@ -482,6 +482,8 @@ add_executable(TeleMatrix
     src/dialogs/dialogs_inner.cpp
     src/dialogs/dialogs_widget.h
     src/dialogs/dialogs_widget.cpp
+    src/dialogs/dialogs_update_bar.h
+    src/dialogs/dialogs_update_bar.cpp
     src/dialogs/dialogs_icons.qrc
     src/intro/intro_step.h
     src/intro/intro_step.cpp

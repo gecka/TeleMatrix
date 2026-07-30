@@ -188,6 +188,14 @@ void ConnectingWidget::reposition() {
     applyGeometry();
 }
 
+void ConnectingWidget::setBottomSkip(int skip) {
+    if (_bottomSkip == skip) {
+        return;
+    }
+    _bottomSkip = skip;
+    applyGeometry();
+}
+
 void ConnectingWidget::applyGeometry() {
     if (!parentWidget()) {
         return;
@@ -197,7 +205,7 @@ void ConnectingWidget::applyGeometry() {
     const auto totalH = scale(kPillH) + 2 * m;
     const auto totalW = 2 * m + 2 * cap + int(std::lround(_contentWidth));
     const auto ph = parentWidget()->height();
-    const auto yShown = ph - totalH - scale(kBottomSkip);
+    const auto yShown = ph - totalH - scale(kBottomSkip) - _bottomSkip;
     const auto yHidden = ph - m; // slid down: only the top margin peeks
     const auto y = int(std::lround(yHidden + (yShown - yHidden) * _visibility));
     setGeometry(_leftOffset, y, totalW, totalH);

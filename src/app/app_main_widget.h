@@ -89,6 +89,10 @@ public:
     /// Ctrl+F: search in the open room, or the chat list when none is open.
     void focusSearch();
 
+    /// Lift the floating connection pill above whatever the rooms list has
+    /// pinned to its bottom edge (currently only the update bar).
+    void setConnectingBottomSkip(int skip);
+
 Q_SIGNALS:
     void activeRoomChanged(const QString &roomId);
     void logoutRequested();

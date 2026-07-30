@@ -21,6 +21,7 @@ extern "C" {
 #include <QSysInfo>
 
 #include <mutex>
+#include <thread>
 
 namespace TeleMatrix {
 namespace Core {
@@ -375,6 +376,16 @@ void UpdateService::download() {
         static_cast<void *>(data));
 }
 
+void UpdateService::downloadAndApply() {
+    // Arm first, then download() — but only keep it armed if download() actually
+    // started, or a later auto-download would inherit the flag and self-apply.
+    _applyWhenReady = true;
+    download();
+    if (!_downloading) {
+        _applyWhenReady = false;
+    }
+}
+
 void UpdateService::cancelDownload() {
     if (_downloading) {
         _cancelRequested = true;
@@ -387,10 +398,18 @@ void UpdateService::onDownloadResult(
         const QString &localPath,
         const QString &error) {
     _downloading = false;
+    const auto applyNow = _applyWhenReady;
+    _applyWhenReady = false;
     if (success) {
         _cancelRequested = false;
         _readyPath = localPath;
         Q_EMIT updateReady(localPath);
+        if (applyNow) {
+            // Same event-loop turn as updateReady, so the ready bar never gets a
+            // frame of its own — the UI goes straight from progress to
+            // "Updating…".
+            applyAndRestart();
+        }
         return;
     }
     _readyPath.clear();
@@ -405,56 +424,88 @@ void UpdateService::onDownloadResult(
     Q_EMIT updateError(error.isEmpty() ? tr("The update could not be downloaded.") : error);
 }
 
-bool UpdateService::applyAndRestart() {
-    if (_readyPath.isEmpty()) {
-        return false;
+void UpdateService::applyAndRestart() {
+    if (_readyPath.isEmpty() || _applying) {
+        return;
     }
+    _applying = true;
+    Q_EMIT applyStarted();
 
-    // Re-verify before handing the file to the platform. It has been sitting at
-    // a predictable path since the download — hours, under auto-download — and
-    // on Windows what runs next is an installer launched through a UAC prompt.
+    // Everything the worker touches is copied by value: it must not read a
+    // member while the main thread is still free to run.
+    const auto readyPath = _readyPath;
     const auto path = _readyPath.toUtf8();
     const auto sha = _assetSha256.toUtf8();
     const auto sig = _assetMinisig.toUtf8();
     const auto expected = _availableVersion.toUtf8();
     const auto current = QStringLiteral(TELEMATRIX_VERSION_STR).toUtf8();
-    char *verifyError = nullptr;
-    const auto verified = tm_update_verify_file(
-        path.constData(),
-        sha.constData(),
-        sig.constData(),
-        expected.constData(),
-        current.constData(),
-        &verifyError);
-    if (!verified) {
-        const auto message = verifyError
-            ? QString::fromUtf8(verifyError)
-            : tr("The downloaded update failed its final check.");
-        if (verifyError) {
-            tm_free_string(verifyError);
-        }
-        // Drop it: a payload that no longer verifies must never be retried, and
-        // the user has to be able to start a clean download.
-        _readyPath.clear();
-        Q_EMIT updateError(message);
-        return false;
-    }
+    // Same guard the FFI trampolines use: a shared_ptr copy keeps it alive past
+    // this service, so a worker that outlives us (Cmd+Q mid-apply) finds a live
+    // mutex and a null service instead of a dangling pointer.
+    auto guard = _guard;
 
-    const auto result = Updater::Apply(_readyPath);
-    if (!result.ok) {
-        // Clear the ready state so the UI shows the failure instead of falling
-        // back to "ready to install" and looking like nothing happened.
-        _readyPath.clear();
-        Q_EMIT updateError(result.error.isEmpty()
-            ? tr("The update could not be installed.")
-            : result.error);
-        return false;
-    }
-    // The caller (AppController) owns the quit/relaunch — it has to save
-    // settings and drain accounts first.
+    std::thread([guard, readyPath, path, sha, sig, expected, current] {
+        // Re-verify before handing the file to the platform. It has been sitting
+        // at a predictable path since the download — hours, under auto-download
+        // — and on Windows what runs next is an installer launched through a UAC
+        // prompt. One streaming pass over a few hundred MB, which is most of why
+        // this is off the main thread at all.
+        auto ok = false;
+        QString relaunchPath;
+        QString error;
+        char *verifyError = nullptr;
+        const auto verified = tm_update_verify_file(
+            path.constData(),
+            sha.constData(),
+            sig.constData(),
+            expected.constData(),
+            current.constData(),
+            &verifyError);
+        if (!verified) {
+            error = verifyError
+                ? QString::fromUtf8(verifyError)
+                : tr("The downloaded update failed its final check.");
+            if (verifyError) {
+                tm_free_string(verifyError);
+            }
+        } else {
+            // Safe off the main thread: Apply only touches QDir/QFileInfo and a
+            // QProcess it creates and finishes here.
+            const auto result = Updater::Apply(readyPath);
+            ok = result.ok;
+            relaunchPath = result.relaunchPath;
+            if (!ok) {
+                error = result.error.isEmpty()
+                    ? tr("The update could not be installed.")
+                    : result.error;
+            }
+        }
+
+        withGuardedService(guard, [ok, relaunchPath, error](UpdateService *service) {
+            QMetaObject::invokeMethod(service, [service, ok, relaunchPath, error] {
+                service->onApplyResult(ok, relaunchPath, error);
+            }, Qt::QueuedConnection);
+        });
+    }).detach();
+}
+
+void UpdateService::onApplyResult(
+        bool success,
+        const QString &relaunchPath,
+        const QString &error) {
+    _applying = false;
+    // Either way the payload is spent: a verified one has been moved into place,
+    // and one that failed must never be retried — the user has to be able to
+    // start a clean download.
     _readyPath.clear();
-    _pendingRelaunchPath = result.relaunchPath;
-    return true;
+    if (!success) {
+        Q_EMIT updateError(error.isEmpty()
+            ? tr("The update could not be installed.")
+            : error);
+        return;
+    }
+    _pendingRelaunchPath = relaunchPath;
+    Q_EMIT applyReady(relaunchPath);
 }
 
 } // namespace Core

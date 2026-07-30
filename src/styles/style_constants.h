@@ -447,6 +447,27 @@ inline int dialogsVerificationBannerButtonsSkip = 12;
 inline int dialogsVerificationBannerSeparator = 1;
 inline int dialogsVerificationBannerButtonTextPadding = 30;
 inline int dialogsVerificationBannerButtonGap = 8;
+
+// Chat-list update button (tdesktop dialogsUpdateButton / dialogsInstallUpdate*).
+inline int dialogsUpdateButtonHeight = 46;
+inline int dialogsUpdateButtonTextTop = 14;
+inline int dialogsInstallUpdateIconSkip = 7;
+inline int dialogsInstallUpdateIconSize = 20;
+inline int dialogsInstallUpdateIconInnerMargin = 5;
+inline int dialogsInstallUpdateIconSide1 = 5;
+inline int dialogsInstallUpdateIconSide2 = 3;
+// Two-line variant (available-version prompt / download progress). Its two rows
+// are laid out as halves of this, not as two one-line bars, so it is free to be
+// tighter than 2x.
+inline int dialogsUpdateBarTwoLineHeight = 82;
+inline int dialogsUpdateBarPaddingX = 14;
+// Hairline above the action row, and between its two halves.
+inline int dialogsUpdateBarSeparator = 1;
+// Action row height. 46 is the compose area's own height (history_input.cpp:
+// kFieldHeightMin 28 + 2 * kSendPadding 9) and the height HistoryWidget gives the
+// invitation DECLINE/ACCEPT bar, so all three line up.
+inline int dialogsUpdateActionRowHeight = 46;
+
 inline int topBarHeight         = 54;
 
 // Search debounce (ms). 900ms suits server round-trips;
@@ -1093,6 +1114,13 @@ inline QColor activeButtonFg           = windowFgActive;        // #ffffff
 inline QColor activeButtonFgOver       = windowFgActive;        // #ffffff
 inline QColor activeButtonSecondaryFg  = QColor(0xCC, 0xEE, 0xFF); // #cceeff
 
+// Endpoints of the green→teal gradient tdesktop paints behind the chat-list
+// update button (lib_ui colors.palette, where they name the group-call "live"
+// button). Kept as fixed brand colors: no theme file defines them, so
+// APPLY_TOKEN leaves these defaults in place on every theme.
+inline QColor groupCallLive1           = QColor(0x0D, 0xCC, 0x39); // #0dcc39
+inline QColor groupCallLive2           = QColor(0x0B, 0xB6, 0xBD); // #0bb6bd
+
 // ─────────────────────────────────────────────
 // Light button colors (from colors.palette)
 // ─────────────────────────────────────────────
@@ -1703,6 +1731,19 @@ inline void initPxValues() {
     dialogsVerificationBannerSeparator = ConvertScale(1);
     dialogsVerificationBannerButtonTextPadding = ConvertScale(30);
     dialogsVerificationBannerButtonGap = ConvertScale(8);
+
+    dialogsUpdateButtonHeight = ConvertScale(46);
+    dialogsUpdateButtonTextTop = ConvertScale(14);
+    dialogsInstallUpdateIconSkip = ConvertScale(7);
+    dialogsInstallUpdateIconSize = ConvertScale(20);
+    dialogsInstallUpdateIconInnerMargin = ConvertScale(5);
+    dialogsInstallUpdateIconSide1 = ConvertScale(5);
+    dialogsInstallUpdateIconSide2 = ConvertScale(3);
+    dialogsUpdateBarTwoLineHeight = ConvertScale(82);
+    dialogsUpdateBarPaddingX = ConvertScale(14);
+    dialogsUpdateBarSeparator = ConvertScale(1);
+    dialogsUpdateActionRowHeight = ConvertScale(46);
+
     topBarHeight = ConvertScale(54);
 
     dialogsFilter.heightMin = dialogsFilterHeight;

@@ -226,6 +226,11 @@ public:
     [[nodiscard]] int updatePolicy() const { return _updatePolicy; }
     void setUpdatePolicy(int policy) { _updatePolicy = policy; }
 
+    /// Version the user dismissed from the rooms-list prompt. Per-version, so a
+    /// later release notifies again. Empty = nothing skipped.
+    [[nodiscard]] QString skippedUpdateVersion() const { return _skippedUpdateVersion; }
+    void setSkippedUpdateVersion(const QString &v) { _skippedUpdateVersion = v; }
+
     // Opt in to pre-release builds. Off follows the stable channel only; on also
     // offers betas. Turning it back off never downgrades — a beta simply stops
     // being superseded until the matching final ships.
@@ -311,7 +316,8 @@ private:
     QString _themeId = QStringLiteral("dubai");
     int _themeMode = 0;               // 0=Day, 1=Night, 2=System
     bool _systemDarkModeEnabled = true;
-    int _updatePolicy = 1;            // 0=Off, 1=Check & notify, 2=Auto-download
+    int _updatePolicy = 2;            // 0=Off, 1=Check & notify, 2=Auto-download
+    QString _skippedUpdateVersion;    // dismissed from the rooms-list prompt
     bool _installBetaVersions = false; // opt-in: also offer pre-release builds
     int _configScale = 0;              // 0=auto, else percent (50-300)
     QString _customFontFamily;         // empty=default, "system"=system font

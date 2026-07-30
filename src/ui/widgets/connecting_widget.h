@@ -35,6 +35,10 @@ public:
     /// the pill sits at the chat list's left edge rather than the window's.
     void setLeftOffset(int x) { _leftOffset = x; }
 
+    /// Extra gap above the parent's bottom edge, so the pill clears anything
+    /// pinned there (the chat-list update bar).
+    void setBottomSkip(int skip);
+
     /// Recompute geometry against the parent's bottom-left. Call from the
     /// parent's resizeEvent so it tracks window resizes.
     void reposition();
@@ -67,6 +71,7 @@ private:
     int _retrySeconds = 0;
     int _backoffSeconds = 5;     // grows per failed cycle, reset on connect
     int _leftOffset = 0;         // chat list's x within the parent (past sidebar)
+    int _bottomSkip = 0;         // height of whatever sits at the parent's bottom
     qreal _visibility = 0.0;     // 0 = slid below the bottom edge, 1 = resting
     qreal _contentWidth = 0.0;   // animated body width
     QRect _linkRect;             // "Try now" hit rect (widget coords), set in paint

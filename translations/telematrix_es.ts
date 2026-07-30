@@ -432,19 +432,19 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
 <context>
     <name>DialogsNewLoginBanner</name>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="472"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="476"/>
         <source>New login. Was this you?</source>
         <translation>Nuevo inicio de sesión. ¿Fuiste tú?</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="550"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="651"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="554"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="655"/>
         <source>Yes, it was me</source>
         <translation>Sí, fui yo</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="556"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="658"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="560"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="662"/>
         <source>No, sign out</source>
         <translation>No, cerrar sesión</translation>
     </message>
@@ -673,7 +673,7 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
 <context>
     <name>DialogsVerificationBanner</name>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="201"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="205"/>
         <source>Verify a new device</source>
         <translation>Verificar un dispositivo nuevo</translation>
     </message>
@@ -682,12 +682,12 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
         <translation type="vanished">Se recibió una solicitud de verificación de %1. Compara los emojis para confirmar que esta sesión es tuya.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="210"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="214"/>
         <source>another session</source>
         <translation>otra sesión</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="227"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="231"/>
         <source>Verify user</source>
         <translation>Verificar usuario</translation>
     </message>
@@ -696,29 +696,29 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
         <translation type="vanished">%1 quiere verificarte. Compara los emojis para confirmar su identidad.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="205"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="209"/>
         <source>A verification request was received from %1. Accept it to confirm this session is yours.</source>
         <translation>Se recibió una solicitud de verificación de %1. Acéptala para confirmar que esta sesión es tuya.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="228"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="232"/>
         <source>%1 wants to verify with you. Accept it to confirm their identity.</source>
         <translation>%1 quiere verificarse contigo. Acepta para confirmar su identidad.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="233"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="237"/>
         <source>Someone</source>
         <translation>Alguien</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="298"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="389"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="302"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="393"/>
         <source>Accept</source>
         <translation>Aceptar</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="304"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="397"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="308"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="401"/>
         <source>Decline</source>
         <translation>Rechazar</translation>
     </message>
@@ -726,37 +726,37 @@ Seguirás en sus salas, salvo en las que marques para salir también.</translati
 <context>
     <name>DialogsWidget</name>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="93"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="97"/>
         <source>This Chat</source>
         <translation>Este chat</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="94"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="98"/>
         <source>This Room</source>
         <translation>Esta sala</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="180"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="184"/>
         <source>Loading...</source>
         <translation>Cargando...</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1209"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1213"/>
         <source>All</source>
         <translation>Todos</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1211"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1215"/>
         <source>Personal</source>
         <translation>Personal</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1213"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1217"/>
         <source>Unread</source>
         <translation>No leídos</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1215"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1219"/>
         <source>Folder %1</source>
         <translation>Carpeta %1</translation>
     </message>
@@ -1793,54 +1793,54 @@ Esta acción es permanente y no se puede deshacer. Todos tus datos se perderán.
 <context>
     <name>TeleMatrix::AppController</name>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="939"/>
-        <location filename="../src/app/app_controller.cpp" line="1540"/>
+        <location filename="../src/app/app_controller.cpp" line="950"/>
+        <location filename="../src/app/app_controller.cpp" line="1551"/>
         <source>Secure storage unavailable</source>
         <translation>Almacenamiento seguro no disponible</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="940"/>
+        <location filename="../src/app/app_controller.cpp" line="951"/>
         <source>TeleMatrix can&apos;t reach your system keyring, so it can&apos;t open your saved session. Your data is safe — make sure your keyring and D-Bus are running, then reopen TeleMatrix.</source>
         <translation>TeleMatrix no puede acceder al llavero del sistema, por lo que no puede abrir tu sesión guardada. Tus datos están seguros: asegúrate de que el llavero y D-Bus estén en ejecución y vuelve a abrir TeleMatrix.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="943"/>
+        <location filename="../src/app/app_controller.cpp" line="954"/>
         <source>Quit</source>
         <translation>Salir</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1002"/>
+        <location filename="../src/app/app_controller.cpp" line="1013"/>
         <source>Can&apos;t read your saved sign-in</source>
         <translation>No se puede leer tu sesión guardada</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1003"/>
+        <location filename="../src/app/app_controller.cpp" line="1014"/>
         <source>TeleMatrix couldn&apos;t read your saved sign-in from the system keychain, so it can&apos;t open your session. Nothing has been deleted — your data is safe. Allow TeleMatrix to access the keychain, then try again.</source>
         <translation>TeleMatrix no ha podido leer tu sesión guardada en el llavero del sistema, así que no puede abrirla. No se ha borrado nada: tus datos están a salvo. Permite que TeleMatrix acceda al llavero y vuelve a intentarlo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1007"/>
-        <location filename="../src/app/app_controller.cpp" line="1109"/>
+        <location filename="../src/app/app_controller.cpp" line="1018"/>
+        <location filename="../src/app/app_controller.cpp" line="1120"/>
         <source>Try again</source>
         <translation>Reintentar</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1023"/>
+        <location filename="../src/app/app_controller.cpp" line="1034"/>
         <source>Sign out and erase local data?</source>
         <translation>¿Cerrar sesión y borrar los datos locales?</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1024"/>
+        <location filename="../src/app/app_controller.cpp" line="1035"/>
         <source>This deletes the keys that decrypt the copy of your messages stored on this device. They cannot be recovered, and everything will be downloaded again after you sign in.</source>
         <translation>Esto elimina las claves que descifran la copia de tus mensajes guardada en este dispositivo. No se pueden recuperar, y todo se descargará de nuevo cuando inicies sesión.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1105"/>
+        <location filename="../src/app/app_controller.cpp" line="1116"/>
         <source>Couldn&apos;t open your session</source>
         <translation>No se pudo abrir tu sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1106"/>
+        <location filename="../src/app/app_controller.cpp" line="1117"/>
         <source>TeleMatrix couldn&apos;t restore your session. The homeserver may be unreachable, or startup may have taken too long. Nothing has been deleted — your data is safe.
 
 %1</source>
@@ -1849,51 +1849,51 @@ Esta acción es permanente y no se puede deshacer. Todos tus datos se perderán.
 %1</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1393"/>
+        <location filename="../src/app/app_controller.cpp" line="1404"/>
         <source>Couldn&apos;t open this account</source>
         <translation>No se pudo abrir esta cuenta</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1394"/>
+        <location filename="../src/app/app_controller.cpp" line="1405"/>
         <source>Its saved sign-in can&apos;t be read right now. Nothing has been deleted — you can try again later, or sign this account out of this device.</source>
         <translation>Su sesión guardada no se puede leer ahora mismo. No se ha borrado nada: puedes reintentarlo más tarde o cerrar la sesión de esta cuenta en este dispositivo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1397"/>
+        <location filename="../src/app/app_controller.cpp" line="1408"/>
         <source>Sign out account</source>
         <translation>Cerrar sesión de la cuenta</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1398"/>
+        <location filename="../src/app/app_controller.cpp" line="1409"/>
         <source>Not now</source>
         <translation>Ahora no</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1541"/>
+        <location filename="../src/app/app_controller.cpp" line="1552"/>
         <source>TeleMatrix can&apos;t reach secure storage, so it can&apos;t save a new account&apos;s sign-in. Unlock your keyring and try again.</source>
         <translation>TeleMatrix no puede acceder al almacenamiento seguro, así que no puede guardar el inicio de sesión de una cuenta nueva. Desbloquea tu llavero e inténtalo de nuevo.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2052"/>
+        <location filename="../src/app/app_controller.cpp" line="2069"/>
         <source>Are you sure you want to sign out?</source>
         <translation>¿Seguro que quieres cerrar sesión?</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1008"/>
-        <location filename="../src/app/app_controller.cpp" line="1027"/>
-        <location filename="../src/app/app_controller.cpp" line="1110"/>
-        <location filename="../src/app/app_controller.cpp" line="2053"/>
-        <location filename="../src/app/app_controller.cpp" line="2319"/>
+        <location filename="../src/app/app_controller.cpp" line="1019"/>
+        <location filename="../src/app/app_controller.cpp" line="1038"/>
+        <location filename="../src/app/app_controller.cpp" line="1121"/>
+        <location filename="../src/app/app_controller.cpp" line="2070"/>
+        <location filename="../src/app/app_controller.cpp" line="2336"/>
         <source>Sign out</source>
         <translation>Cerrar sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2314"/>
+        <location filename="../src/app/app_controller.cpp" line="2331"/>
         <source>Data is corrupted. Forcing logout</source>
         <translation>Los datos están dañados. Forzando el cierre de sesión</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2315"/>
+        <location filename="../src/app/app_controller.cpp" line="2332"/>
         <source>TeleMatrix&apos;s local data is corrupted and can&apos;t be repaired, so you will be signed out and the local data cleared.
 
 Make sure your recovery key is backed up — you&apos;ll need it to restore your encrypted message history after signing back in.</source>
@@ -1914,7 +1914,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="obsolete">Activar</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1543"/>
+        <location filename="../src/app/app_controller.cpp" line="1554"/>
         <source>OK</source>
         <translation>Aceptar</translation>
     </message>
@@ -1931,33 +1931,33 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Introduce tu contraseña maestra para desbloquear tus datos locales.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2378"/>
+        <location filename="../src/app/app_controller.cpp" line="2395"/>
         <source>Reset local data?</source>
         <translation>¿Restablecer los datos locales?</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2379"/>
+        <location filename="../src/app/app_controller.cpp" line="2396"/>
         <source>Without your master password, TeleMatrix can&apos;t open your local data. Reset and sign in again? Your messages stay on the server and re-download after you sign in.</source>
         <translation>Sin tu contraseña maestra, TeleMatrix no puede abrir tus datos locales. ¿Restablecer e iniciar sesión de nuevo? Tus mensajes permanecen en el servidor y se vuelven a descargar tras iniciar sesión.</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2382"/>
+        <location filename="../src/app/app_controller.cpp" line="2399"/>
         <source>Reset</source>
         <translation>Restablecer</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="1028"/>
-        <location filename="../src/app/app_controller.cpp" line="2383"/>
+        <location filename="../src/app/app_controller.cpp" line="1039"/>
+        <location filename="../src/app/app_controller.cpp" line="2400"/>
         <source>Back</source>
         <translation>Atrás</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2432"/>
+        <location filename="../src/app/app_controller.cpp" line="2449"/>
         <source>Preparing</source>
         <translation>Preparando</translation>
     </message>
     <message>
-        <location filename="../src/app/app_controller.cpp" line="2433"/>
+        <location filename="../src/app/app_controller.cpp" line="2450"/>
         <source>Clearing leftover data…</source>
         <translation>Borrando datos sobrantes…</translation>
     </message>
@@ -1969,7 +1969,7 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
 <context>
     <name>TeleMatrix::AppMainWidget</name>
     <message>
-        <location filename="../src/app/app_main_widget.cpp" line="720"/>
+        <location filename="../src/app/app_main_widget.cpp" line="770"/>
         <source>Failed to create room. Check the room settings and try again.</source>
         <translation>No se pudo crear la sala. Comprueba los ajustes de la sala e inténtalo de nuevo.</translation>
     </message>
@@ -2193,32 +2193,33 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
 <context>
     <name>TeleMatrix::Core::UpdateService</name>
     <message>
-        <location filename="../src/core/update_service.cpp" line="248"/>
+        <location filename="../src/core/update_service.cpp" line="252"/>
         <source>This installation has no automatic update packages.</source>
         <translation>Esta instalación no dispone de paquetes de actualización automática.</translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="251"/>
+        <location filename="../src/core/update_service.cpp" line="255"/>
         <source>This build has no update signing key, so updates have to be installed manually.</source>
         <translation>Esta versión no tiene clave de firma de actualizaciones, así que hay que instalarlas manualmente.</translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="330"/>
+        <location filename="../src/core/update_service.cpp" line="334"/>
         <source>Could not check for updates.</source>
         <translation>No se pudo comprobar si hay actualizaciones.</translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="402"/>
+        <location filename="../src/core/update_service.cpp" line="424"/>
         <source>The update could not be downloaded.</source>
         <translation>No se pudo descargar la actualización.</translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="429"/>
+        <location filename="../src/core/update_service.cpp" line="467"/>
         <source>The downloaded update failed its final check.</source>
         <translation>La actualización descargada no superó la comprobación final.</translation>
     </message>
     <message>
-        <location filename="../src/core/update_service.cpp" line="446"/>
+        <location filename="../src/core/update_service.cpp" line="479"/>
+        <location filename="../src/core/update_service.cpp" line="503"/>
         <source>The update could not be installed.</source>
         <translation>No se pudo instalar la actualización.</translation>
     </message>
@@ -2429,66 +2430,117 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
     </message>
 </context>
 <context>
+    <name>TeleMatrix::DialogsUpdateBar</name>
+    <message>
+        <source>Cancel</source>
+        <translation type="vanished">Cancelar</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation type="vanished">Actualizar</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation type="vanished">Omitir</translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/dialogs_update_bar.cpp" line="163"/>
+        <source>CANCEL</source>
+        <translation>CANCELAR</translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/dialogs_update_bar.cpp" line="163"/>
+        <source>UPDATE</source>
+        <translation>ACTUALIZAR</translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/dialogs_update_bar.cpp" line="167"/>
+        <source>SKIP</source>
+        <translation>OMITIR</translation>
+    </message>
+</context>
+<context>
     <name>TeleMatrix::DialogsWidget</name>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1587"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1327"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2021"/>
+        <source>Downloading %1…</source>
+        <translation>Descargando %1…</translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="1639"/>
         <source>Search</source>
         <translation>Buscar</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1947"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1950"/>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2035"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2017"/>
+        <source>Updating…</source>
+        <translation>Actualizando…</translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2017"/>
+        <source>Update TeleMatrix</source>
+        <translation>Actualizar TeleMatrix</translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2026"/>
+        <source>New version available (%1)</source>
+        <translation>Nueva versión disponible (%1)</translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2095"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2098"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2183"/>
         <source>My Messages</source>
         <translation>Mis mensajes</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1962"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2110"/>
         <source>Search messages in</source>
         <translation>Buscar mensajes en</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="1963"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2111"/>
         <source>Search messages in %1</source>
         <translation>Buscar mensajes en %1</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2182"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2330"/>
         <source>Couldn&apos;t update folder</source>
         <translation>No se pudo actualizar la carpeta</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2183"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2331"/>
         <source>The change was rejected by the server.</source>
         <translation>El servidor rechazó el cambio.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2184"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2332"/>
         <source>OK</source>
         <translation>Aceptar</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2540"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2688"/>
         <source>Leave Room</source>
         <translation>Abandonar sala</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2541"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2689"/>
         <source>Are you sure you want to leave &quot;%1&quot;?</source>
         <translation>¿Seguro que quieres abandonar &quot;%1&quot;?</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2543"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2691"/>
         <source>Leave</source>
         <translation>Abandonar</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2555"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2703"/>
         <source>Delete Saved Messages</source>
         <translation>Eliminar mensajes guardados</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2556"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2704"/>
         <source>This permanently deletes Saved Messages and everything in it. This can&apos;t be undone.</source>
         <translation>Esto elimina permanentemente Mensajes guardados y todo su contenido. No se puede deshacer.</translation>
     </message>
@@ -2497,17 +2549,17 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation type="vanished">Esto elimina todos los mensajes guardados y quita Mensajes guardados de tu lista de chats. Al abrirlo de nuevo, vuelve a aparecer, vacío.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="2558"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="2706"/>
         <source>Delete</source>
         <translation>Eliminar</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="3268"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="3416"/>
         <source>Couldn&apos;t save the new order.</source>
         <translation>No se pudo guardar el nuevo orden.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/dialogs_widget.cpp" line="3390"/>
+        <location filename="../src/dialogs/dialogs_widget.cpp" line="3538"/>
         <source>Me</source>
         <translation>Yo</translation>
     </message>
@@ -2739,114 +2791,119 @@ Asegúrate de tener una copia de tu clave de recuperación: la necesitarás para
         <translation>Actualizaciones</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="120"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="124"/>
         <source>Never check for updates</source>
         <translation>No buscar actualizaciones nunca</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="124"/>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="275"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="128"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="290"/>
         <source>Check for updates</source>
         <translation>Buscar actualizaciones</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="125"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="129"/>
         <source>Tell me when a new version is available</source>
         <translation>Avisarme cuando haya una nueva versión</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="128"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="132"/>
         <source>Download updates automatically</source>
         <translation>Descargar las actualizaciones automáticamente</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="132"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="136"/>
         <source>Not available for this installation</source>
         <translation>No disponible para esta instalación</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="133"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="137"/>
         <source>Install them whenever you&apos;re ready</source>
         <translation>Instalarlas cuando quieras</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="169"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="173"/>
         <source>Install beta versions</source>
         <translation>Instalar versiones beta</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="245"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="255"/>
+        <source>Updating…</source>
+        <translation>Actualizando…</translation>
+    </message>
+    <message>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="260"/>
         <source>Checking for updates…</source>
         <translation>Buscando actualizaciones…</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="251"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="266"/>
         <source>Downloading… %1%</source>
         <translation>Descargando… %1 %</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="252"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="267"/>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="257"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="272"/>
         <source>Version %1 is ready to install</source>
         <translation>La versión %1 está lista para instalarse</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="258"/>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="327"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="273"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="342"/>
         <source>Update &amp; Restart</source>
         <translation>Actualizar y reiniciar</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="263"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="278"/>
         <source>Try again</source>
         <translation>Reintentar</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="269"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="284"/>
         <source>Version %1 is available</source>
         <translation>La versión %1 está disponible</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="270"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="285"/>
         <source>Download</source>
         <translation>Descargar</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="270"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="285"/>
         <source>Open release page</source>
         <translation>Abrir la página de la versión</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="274"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="289"/>
         <source>TeleMatrix is up to date</source>
         <translation>TeleMatrix está actualizado</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="276"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="291"/>
         <source>Check again</source>
         <translation>Buscar de nuevo</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="276"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="291"/>
         <source>Check</source>
         <translation>Buscar</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="325"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="340"/>
         <source>Update TeleMatrix</source>
         <translation>Actualizar TeleMatrix</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="326"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="341"/>
         <source>TeleMatrix will restart to finish updating.</source>
         <translation>TeleMatrix se reiniciará para terminar de actualizarse.</translation>
     </message>
     <message>
-        <location filename="../src/settings/help/help_about_settings_page.cpp" line="328"/>
+        <location filename="../src/settings/help/help_about_settings_page.cpp" line="343"/>
         <source>Later</source>
         <translation>Más tarde</translation>
     </message>
@@ -7043,7 +7100,7 @@ Are you sure you want to enable encryption for this room?</source>
     </message>
     <message>
         <location filename="../src/ui/widgets/connecting_widget.cpp" line="164"/>
-        <location filename="../src/ui/widgets/connecting_widget.cpp" line="297"/>
+        <location filename="../src/ui/widgets/connecting_widget.cpp" line="305"/>
         <source>Try now</source>
         <translation>Intentar ahora</translation>
     </message>

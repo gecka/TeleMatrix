@@ -74,12 +74,24 @@ public:
     void check(bool userInitiated);
     /// Download the asset the last check found. No-op unless one is available.
     void download();
+    /// download(), but apply and restart the moment it lands, with no second
+    /// click. Only the rooms-list prompt uses this: a download the auto-download
+    /// policy started must still wait for the user, so "finished" alone can never
+    /// be the trigger.
+    void downloadAndApply();
     void cancelDownload();
 
-    /// Stage the downloaded update. On success the caller must quit promptly —
-    /// on macOS/Windows a helper is already waiting on this PID. Returns false
-    /// if nothing is ready or the platform step failed.
-    bool applyAndRestart();
+    /// Begin staging the downloaded update. Returns immediately: the re-verify
+    /// (a full pass over a few hundred MB) and the platform step (on macOS a
+    /// `tar` of the same) run on a worker, because together they froze the main
+    /// thread long enough to beachball. Watch applyReady / updateError.
+    ///
+    /// No-op unless something is ready and no apply is already running. The
+    /// quit/relaunch is NOT done here — AppController owns it, on applyReady.
+    void applyAndRestart();
+
+    /// True between applyAndRestart() and its terminal signal.
+    [[nodiscard]] bool applying() const { return _applying; }
 
     /// After a successful applyAndRestart(): the binary the caller should
     /// relaunch itself (AppImage). Empty means a helper owns the relaunch and
@@ -98,6 +110,7 @@ public:
         const QString &minisig,
         const QString &error);
     void onDownloadResult(bool success, const QString &localPath, const QString &error);
+    void onApplyResult(bool success, const QString &relaunchPath, const QString &error);
 
 Q_SIGNALS:
     void checkStarted();
@@ -114,6 +127,11 @@ Q_SIGNALS:
     /// The user cancelled — distinct from updateError so a deliberate action is
     /// never presented as a failure.
     void downloadCancelled();
+    /// Staging began; the UI should show it is working and stop offering apply.
+    void applyStarted();
+    /// Staged successfully. On macOS/Windows a helper is now waiting on this
+    /// PID, so the app has to go down promptly — AppController does that.
+    void applyReady(const QString &relaunchPath);
     /// Only emitted for user-initiated checks and for download failures — an
     /// automatic check that fails stays silent.
     void updateError(const QString &message);
@@ -127,6 +145,9 @@ private:
 
     bool _checking = false;
     bool _downloading = false;
+    bool _applying = false;
+    // Set only by downloadAndApply(); cleared on every terminal download result.
+    bool _applyWhenReady = false;
     bool _userInitiatedCheck = false;
     bool _betaChannel = false;
     // Set by cancelDownload() so the terminal failure that follows is reported

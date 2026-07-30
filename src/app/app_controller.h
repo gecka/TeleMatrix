@@ -163,6 +163,9 @@ public:
     /// version that was just replaced.
     void restartIntoPath(const QString &path);
 
+    /// Forwarded to the main widget, which owns the connection pill.
+    void setConnectingBottomSkip(int skip);
+
     /// App-global auto-updater. Owned here rather than per-account: it has to
     /// work before login and outlives account switches.
     [[nodiscard]] Core::UpdateService *updateService() const { return _updateService.get(); }
