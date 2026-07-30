@@ -78,6 +78,30 @@ inline void ensureFontsLoaded() {
 
         const auto openSans = QStringLiteral("Open Sans");
         QFont::insertSubstitution(openSans, QStringLiteral("Vazirmatn UI NL"));
+
+#if defined(Q_OS_LINUX) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+        // Name the emoji font explicitly (Qt 6.9+ API). Qt only auto-discovers
+        // one on platforms with a known system emoji family; on Linux the text
+        // above is Open Sans, an *application* font that fontconfig does not know,
+        // so emoji segments found no colour font and the composer rendered them
+        // blank. Everything else already draws emoji from the sprite atlases —
+        // QTextEdit is the one surface that goes through the font engine.
+        //
+        // The format is not the issue: Qt 6.9+ handles COLRv1 on FreeType, which
+        // is what Fedora's Noto-COLRv1.ttf ships. Only the fallback chain was.
+        for (const auto &candidate : {
+                "Noto Color Emoji",
+                "Noto Emoji",
+                "Twemoji",
+                "JoyPixels",
+                "EmojiOne Color" }) {
+            const auto name = QString::fromLatin1(candidate);
+            if (QFontDatabase::hasFamily(name)) {
+                QFontDatabase::setApplicationEmojiFontFamilies({ name });
+                break;
+            }
+        }
+#endif // Q_OS_LINUX
 #ifdef Q_OS_MAC
         const auto macUiText = pickMacUiTextFamily();
         QFont::insertSubstitution(QStringLiteral("Stixgeneral"), macUiText);
