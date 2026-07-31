@@ -19,6 +19,7 @@ class QKeyEvent;
 class QLabel;
 
 namespace Ui {
+class EmojiInputField;
 class TextButton;
 } // namespace Ui
 
@@ -73,8 +74,8 @@ private:
     void updateOptionRows();
 
     QWidget *_panel = nullptr;
-    QLineEdit *_nameField = nullptr;
-    QLineEdit *_topicField = nullptr;
+    Ui::EmojiInputField *_nameField = nullptr;
+    Ui::EmojiInputField *_topicField = nullptr;
     QLineEdit *_aliasField = nullptr;
     QWidget *_aliasSlot = nullptr;
     QWidget *_aliasContainer = nullptr;

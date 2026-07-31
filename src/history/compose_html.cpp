@@ -6,6 +6,8 @@
 
 #include "history/compose_html.h"
 
+#include "ui/text/emoji_text.h"
+
 #include <QTextBlock>
 #include <QTextDocument>
 
@@ -82,10 +84,27 @@ QString buildCleanHtml(const QTextDocument *doc) {
             if (!frag.isValid()) continue;
 
             const auto fmt = frag.charFormat();
+            // Emoji live in the document as object-replacement characters carrying an
+            // image format; the wire format needs the characters back. Adjacent
+            // identical emoji merge into one fragment, so this expands per character.
+            auto source = frag.text();
+            if (fmt.isImageFormat()) {
+                const auto emoji = TeleMatrix::EmojiText::EmojiFromUrl(
+                    fmt.toImageFormat().name());
+                if (emoji) {
+                    auto expanded = QString();
+                    for (const auto ch : std::as_const(source)) {
+                        expanded += (ch == QChar::ObjectReplacementCharacter)
+                            ? emoji->text()
+                            : QString(ch);
+                    }
+                    source = expanded;
+                }
+            }
             // Qt stores soft line breaks as U+2028; convert them so newlines
             // survive a serialize -> setHtml -> serialize round-trip (e.g. message
             // edit). Inside a code block they become literal '\n', elsewhere <br>.
-            auto text = frag.text().toHtmlEscaped();
+            auto text = source.toHtmlEscaped();
             text.replace(QChar::LineSeparator,
                 isPre ? QStringLiteral("\n") : QStringLiteral("<br>"));
 

@@ -17,6 +17,7 @@ class QMouseEvent;
 class QKeyEvent;
 
 namespace Ui {
+class EmojiInputField;
 class TextButton;
 } // namespace Ui
 
@@ -52,7 +53,7 @@ private:
     void updateSaveButton();
 
     QWidget *_panel = nullptr;
-    QLineEdit *_nameField = nullptr;
+    Ui::EmojiInputField *_nameField = nullptr;
     QPlainTextEdit *_multilineField = nullptr;
     ::Ui::TextButton *_cancel = nullptr;
     ::Ui::TextButton *_save = nullptr;

@@ -17,6 +17,9 @@
 #include <QString>
 #include <QPoint>
 
+#include "styles/style_constants.h"
+#include "ui/text/emoji_text.h"
+
 namespace Ui {
 namespace Text {
 
@@ -41,21 +44,24 @@ public:
         , _metrics(font)
     {}
 
-    // Draw the text. Supports single-line elision.
+    // Draw the text. Supports single-line elision. Emoji come from the sprite atlas
+    // rather than the host font, so a room name or a message preview shows the same
+    // artwork as the picker — and shows anything at all on a Linux box with no colour
+    // emoji font. Falls through to plain drawText when there is no emoji.
     void draw(QPainter &p, const DrawRequest &req) const {
         p.setFont(_font);
-        const auto elidedText = _metrics.elidedText(
+        TeleMatrix::EmojiText::DrawElided(
+            p,
+            req.position.x(),
+            req.position.y() + _metrics.ascent(),
+            req.availableWidth,
             _text,
-            Qt::ElideRight,
-            req.availableWidth);
-        p.drawText(req.position.x(),
-                   req.position.y() + _metrics.ascent(),
-                   elidedText);
+            emojiMetrics());
     }
 
     // Width of the full (non-elided) text.
     [[nodiscard]] int maxWidth() const {
-        return _metrics.horizontalAdvance(_text);
+        return TeleMatrix::EmojiText::Width(_text, _font, emojiMetrics());
     }
 
     // Height of one line.
@@ -68,6 +74,13 @@ public:
     }
 
 private:
+    [[nodiscard]] const TeleMatrix::EmojiText::Metrics &emojiMetrics() const {
+        return TeleMatrix::EmojiText::CachedMetricsFor(
+            _font,
+            st::emojiInlineSlot,
+            st::emojiInlineGlyph);
+    }
+
     QFont _font;
     QString _text;
     QFontMetrics _metrics = QFontMetrics(QFont());

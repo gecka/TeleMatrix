@@ -11,6 +11,8 @@
 #include <QTextDocument>
 
 #include "history/compose_html.h"
+#include "ui/text/emoji_text.h"
+#include "ui/emoji_config.h"
 
 using namespace TeleMatrix;
 
@@ -39,6 +41,10 @@ void preEveryBlock(QTextDocument &doc) {
 class TestComposeHtml : public QObject {
     Q_OBJECT
 private slots:
+    void initTestCase() {
+        Ui::Emoji::Init();
+    }
+
     void plainParagraphsJoinWithBr() {
         QTextDocument doc;
         doc.setPlainText(QStringLiteral("hello\nworld"));
@@ -90,6 +96,32 @@ private slots:
         bold.setFontWeight(QFont::Bold);
         c.insertText(QStringLiteral("hi"), bold);
         QCOMPARE(buildCleanHtml(&doc), QStringLiteral("<b>hi</b>"));
+    }
+
+    // Emoji live in the composer document as object-replacement characters carrying an
+    // image format. buildCleanHtml has to write the emoji back out, and has to keep the
+    // text that follows one — a stale ImageName on ordinary text used to swallow it.
+    void emojiObjectsSerializeBackToCharacters() {
+        const auto emoji = Ui::Emoji::Find(QStringLiteral("\U0001F44D"));
+        QVERIFY(emoji);
+        auto format = QTextImageFormat();
+        format.setName(TeleMatrix::EmojiText::EmojiUrl(emoji, 20, 18));
+
+        auto doc = QTextDocument();
+        auto cursor = QTextCursor(&doc);
+        auto bold = QTextCharFormat();
+        bold.setFontWeight(QFont::Bold);
+        cursor.insertText(QStringLiteral("hi"), bold);
+        cursor.insertText(QString(QChar::ObjectReplacementCharacter), format);
+        cursor.insertText(QString(QChar::ObjectReplacementCharacter), format);
+        cursor.insertText(QStringLiteral("there"));
+
+        const auto html = TeleMatrix::buildCleanHtml(&doc);
+        QVERIFY2(
+            html.contains(emoji->text() + emoji->text()),
+            qPrintable(html));
+        QVERIFY2(html.contains(QStringLiteral("there")), qPrintable(html));
+        QVERIFY2(!html.contains(QChar::ObjectReplacementCharacter), qPrintable(html));
     }
 };
 

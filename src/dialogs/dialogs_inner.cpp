@@ -5,6 +5,8 @@
 // files in the project root for full terms.
 
 #include "dialogs_inner.h"
+
+#include "ui/text/emoji_text.h"
 #include "dialogs_layout.h"
 #include "../history/history_popup_menu_style.h"
 
@@ -182,8 +184,10 @@ void drawHighlightedSnippet(
     const QColor &highlightColor)
 {
     const auto font = static_cast<const QFont &>(st::normalFont);
-    const auto metrics = QFontMetrics(font);
-    const auto elided = metrics.elidedText(text, Qt::ElideRight, availableWidth);
+    const auto &emojiMetrics = TeleMatrix::EmojiText::CachedMetricsFor(
+        font, st::emojiInlineSlot, st::emojiInlineGlyph);
+    const auto elided = TeleMatrix::EmojiText::Elide(
+        text, font, emojiMetrics, availableWidth);
     if (elided.isEmpty()) {
         return;
     }
@@ -191,7 +195,7 @@ void drawHighlightedSnippet(
     p.setFont(font);
     if (query.isEmpty()) {
         p.setPen(baseColor);
-        p.drawText(x, baseline, elided);
+        TeleMatrix::EmojiText::DrawLine(p, x, baseline, elided, emojiMetrics);
         return;
     }
 
@@ -201,18 +205,16 @@ void drawHighlightedSnippet(
         const auto match = elided.indexOf(query, from, Qt::CaseInsensitive);
         const auto till = (match < 0) ? elided.size() : match;
         if (till > from) {
-            const auto part = elided.mid(from, till - from);
             p.setPen(baseColor);
-            p.drawText(left, baseline, part);
-            left += metrics.horizontalAdvance(part);
+            left += TeleMatrix::EmojiText::DrawLine(
+                p, left, baseline, elided.mid(from, till - from), emojiMetrics);
         }
         if (match < 0) {
             break;
         }
-        const auto part = elided.mid(match, query.size());
         p.setPen(highlightColor);
-        p.drawText(left, baseline, part);
-        left += metrics.horizontalAdvance(part);
+        left += TeleMatrix::EmojiText::DrawLine(
+            p, left, baseline, elided.mid(match, query.size()), emojiMetrics);
         from = match + query.size();
     }
 }
@@ -1931,10 +1933,16 @@ void DialogsInner::paintSearchSection(
             }
         }
         p.setPen(nameColor);
-        p.drawText(
+        TeleMatrix::EmojiText::DrawElided(
+            p,
             rectForName.left(),
             nameTop + metrics.ascent(),
-            metrics.elidedText(roomName, Qt::ElideRight, rectForName.width()));
+            rectForName.width(),
+            roomName,
+            TeleMatrix::EmojiText::CachedMetricsFor(
+                st::semiboldFont,
+                st::emojiInlineSlot,
+                st::emojiInlineGlyph));
 
         const auto textTop = rowY + st::dialogsTextTop;
         const auto snippetMetrics = QFontMetrics(st::normalFont);

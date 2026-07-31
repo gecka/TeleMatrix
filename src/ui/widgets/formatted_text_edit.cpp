@@ -17,12 +17,46 @@
 
 #include "styles/style_constants.h"
 #include "ui/text/quote_paint.h"
+#include "ui/text/emoji_text.h"
+#include "ui/widgets/emoji_objects.h"
+
+#include <QInputMethodEvent>
+#include <QTextCursor>
+#include <QTextDocumentFragment>
+#include <QTextDocument>
 
 namespace Ui {
 
 FormattedTextEdit::FormattedTextEdit(QWidget *parent)
     : QTextEdit(parent)
 {
+    _emoji = EmojiObjects::Install(this);
+}
+
+QVariant FormattedTextEdit::loadResource(int type, const QUrl &name) {
+    if (type == QTextDocument::ImageResource) {
+        const auto url = name.toString();
+        if (EmojiObjects::IsEmojiUrl(url)) {
+            return EmojiObjects::Resource(url);
+        }
+    }
+    return QTextEdit::loadResource(type, name);
+}
+
+QMimeData *FormattedTextEdit::createMimeDataFromSelection() const {
+    auto result = QTextEdit::createMimeDataFromSelection();
+    if (!result) {
+        return result;
+    }
+    // The document holds object-replacement characters where the emoji are; the
+    // clipboard has to carry the emoji themselves.
+    auto cursor = textCursor();
+    if (cursor.hasSelection()) {
+        auto fragment = QTextDocument();
+        fragment.setHtml(cursor.selection().toHtml());
+        result->setText(TeleMatrix::EmojiText::DocumentText(&fragment));
+    }
+    return result;
 }
 
 void FormattedTextEdit::paintEvent(QPaintEvent *e) {

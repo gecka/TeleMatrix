@@ -47,6 +47,31 @@ private:
 
 namespace Ui {
 
+// The themed chrome — flat background + bottom border, and the placeholder in either its
+// "inside" or floating-caption pose. Free functions rather than InputField methods because
+// EmojiInputField below is a QTextEdit and cannot inherit them, and two copies of this
+// would drift apart on the next theme change.
+namespace InputChrome {
+
+struct State {
+    const st::InputFieldStyle *style = nullptr;
+    QRect rect;
+    QMargins textMargins;
+    QFont font;
+    QString placeholder;
+    qreal focusedProgress = 0.;
+    qreal placeholderShownProgress = 0.;
+    bool placeholderAnimating = false;
+    bool focused = false;
+    bool empty = true;
+    bool floating = false;
+};
+
+void PaintFlatSurrounding(QPainter &p, const State &state);
+void PaintPlaceholder(QPainter &p, const State &state);
+
+} // namespace InputChrome
+
 // Themed single-line edit that custom-paints its own 1px rounded border with
 // live st:: colors (st::inputBorderFg normally, st::activeLineFg on focus) and
 // applies horizontal text margins, replacing the old per-dialog QSS
@@ -118,6 +143,7 @@ protected:
 private:
     void init(const st::InputFieldStyle &style, const QString &placeholder);
     void startFocusAnimation(bool focused);
+    [[nodiscard]] InputChrome::State chromeState() const;
     void paintRoundSurrounding(QPainter &p) const;
     void paintFlatSurrounding(QPainter &p) const;
     void paintPlaceholder(QPainter &p) const;

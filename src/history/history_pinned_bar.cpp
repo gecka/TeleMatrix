@@ -6,6 +6,8 @@
 
 #include "history_pinned_bar.h"
 
+#include "ui/text/emoji_text.h"
+
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
@@ -136,27 +138,30 @@ void HistoryPinnedBar::paintEvent(QPaintEvent *) {
     const auto bodyWidth = qMax(0, bodyRight - bodyLeft);
     const auto title = _title.isEmpty() ? QStringLiteral("Pinned Message") : _title;
 
+    const auto emojiSizes = [](const QFont &font) {
+        return TeleMatrix::EmojiText::CachedMetricsFor(
+            font, st::emojiInlineSlot, st::emojiInlineGlyph);
+    };
+
     p.setPen(st::windowActiveTextFg);
     p.setFont(st::msgServiceNameFont);
-    const auto titleText = QFontMetrics(st::msgServiceNameFont).elidedText(
-        title,
-        Qt::ElideRight,
-        bodyWidth);
-    p.drawText(
+    TeleMatrix::EmojiText::DrawElided(
+        p,
         bodyLeft,
         st::msgReplyPadding.top() + st::msgServiceNameFont->ascent,
-        titleText);
+        bodyWidth,
+        title,
+        emojiSizes(st::msgServiceNameFont));
 
     p.setPen(st::historyTextInFg);
     p.setFont(st::msgFont);
-    const auto previewText = QFontMetrics(st::msgFont).elidedText(
-        _text,
-        Qt::ElideRight,
-        bodyWidth);
-    p.drawText(
+    TeleMatrix::EmojiText::DrawElided(
+        p,
         bodyLeft,
         st::msgReplyPadding.top() + st::msgServiceNameFont->height + st::msgFont->ascent,
-        previewText);
+        bodyWidth,
+        _text,
+        emojiSizes(st::msgFont));
 
     // Always draw show-all icon.
     // Icon position offset is (-1, -1) within the button.

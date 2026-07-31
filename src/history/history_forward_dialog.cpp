@@ -6,6 +6,8 @@
 
 #include "history_forward_dialog.h"
 
+#include "ui/text/emoji_text.h"
+
 #include <QEventLoop>
 #include <QFont>
 #include <QHBoxLayout>
@@ -251,8 +253,14 @@ void PeerListInner::paintRow(
     p.setFont(st::semiboldFont);
     p.setPen(st::windowFg); // contactsNameFg = boxTextFg = windowFg
     const QFontMetrics nameFm(st::semiboldFont);
-    const auto elidedName = nameFm.elidedText(name, Qt::ElideRight, namew);
-    p.drawText(kNameX, y + kNameY + nameFm.ascent(), elidedName);
+    TeleMatrix::EmojiText::DrawElided(
+        p,
+        kNameX,
+        y + kNameY + nameFm.ascent(),
+        namew,
+        name,
+        TeleMatrix::EmojiText::CachedMetricsFor(
+            p.font(), st::emojiInlineSlot, st::emojiInlineGlyph));
 
     // 4. Status text (contactsStatusFont, contactsStatusFg).
     const auto &statusFg = hovered

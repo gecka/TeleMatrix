@@ -31,6 +31,7 @@ set(TELEMATRIX_TEST_AREAS
     timeline_item_content
     emoji_data
     emoji_atlas
+    emoji_text
     emoji_picker_keys
     empty_userpic
     ffi_conversions

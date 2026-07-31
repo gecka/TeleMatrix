@@ -6,6 +6,8 @@
 
 #include "mention_autocomplete.h"
 
+#include "ui/text/emoji_text.h"
+
 #include <functional>
 
 #include <QMouseEvent>
@@ -288,8 +290,10 @@ void MentionAutocomplete::Inner::paintEvent(QPaintEvent *e) {
         p.setPen(isOver ? st::mentionNameFgOver : st::mentionNameFg);
 
         const auto nameMetrics = QFontMetrics(nameFont);
-        const int nameWidth = nameMetrics.horizontalAdvance(row.displayName);
-        p.drawText(nameX, textY + nameMetrics.ascent(), row.displayName);
+        const auto &nameEmoji = TeleMatrix::EmojiText::CachedMetricsFor(
+            nameFont, st::emojiInlineSlot, st::emojiInlineGlyph);
+        const int nameWidth = TeleMatrix::EmojiText::DrawLine(
+            p, nameX, textY + nameMetrics.ascent(), row.displayName, nameEmoji);
 
         // Username after name + gap.
         auto localPart = row.userId;

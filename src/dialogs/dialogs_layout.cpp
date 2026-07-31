@@ -5,6 +5,8 @@
 // files in the project root for full terms.
 
 #include "dialogs_layout.h"
+
+#include "ui/text/emoji_text.h"
 #include "dialogs_row.h"
 
 #include <QCoreApplication>
@@ -431,6 +433,12 @@ void paintRow(
         ? st::dialogsTextFgServiceOver
         : st::dialogsTextFgService;
     const auto baseline = kTextTop + st::dialogsTextFont->ascent;
+    // Previews carry whatever the sender typed, so they need atlas emoji like any
+    // other running text — otherwise they are blank on Linux and mismatched elsewhere.
+    const auto &emojiMetrics = TeleMatrix::EmojiText::CachedMetricsFor(
+        st::dialogsTextFont,
+        st::emojiInlineSlot,
+        st::emojiInlineGlyph);
     if (row.membership() == MembershipState::Invite) {
         // Invite preview: show "Invited by <name>" in accent blue.
         p.setFont(st::dialogsTextFont);
@@ -440,28 +448,23 @@ void paintRow(
         const auto inviteText = row.inviterDisplayName().isEmpty()
             ? QCoreApplication::translate("DialogsLayout", "New chat invitation")
             : QCoreApplication::translate("DialogsLayout", "Invited by %1").arg(row.inviterDisplayName());
-        const auto elidedInvite = QFontMetrics(st::dialogsTextFont)
-            .elidedText(inviteText, Qt::ElideRight, textWidth);
-        p.drawText(kTextLeft, baseline, elidedInvite);
+        TeleMatrix::EmojiText::DrawElided(
+            p, kTextLeft, baseline, textWidth, inviteText, emojiMetrics);
     } else if (row.hasDraft()) {
         const auto draftPrefix = QCoreApplication::translate("DialogsLayout", "Draft: ");
         p.setFont(st::dialogsTextFont);
         p.setPen(draftColor);
-        p.drawText(kTextLeft, baseline, draftPrefix);
-        const auto prefixWidth = QFontMetrics(st::dialogsTextFont)
-            .horizontalAdvance(draftPrefix);
+        const auto prefixWidth = TeleMatrix::EmojiText::DrawLine(
+            p, kTextLeft, baseline, draftPrefix, emojiMetrics);
 
-        p.setFont(st::dialogsTextFont);
         p.setPen(previewColor);
-        const auto draftBody = QFontMetrics(st::dialogsTextFont).elidedText(
-            row.draftText(),
-            Qt::ElideRight,
-            qMax(0, textWidth - prefixWidth));
-        p.setPen(previewColor);
-        p.drawText(
+        TeleMatrix::EmojiText::DrawElided(
+            p,
             kTextLeft + prefixWidth,
             baseline,
-            draftBody);
+            qMax(0, textWidth - prefixWidth),
+            row.draftText(),
+            emojiMetrics);
     } else {
         // Saved Messages is a self-chat: every message is outgoing, so a
         // "You:" prefix would sit on every preview forever — show bare text.
@@ -474,21 +477,26 @@ void paintRow(
             ? QString()
             : (senderLabel + QStringLiteral(": "));
         const auto fullPreview = prefix + row.lastMessage();
-        const auto elidedPreview = QFontMetrics(st::dialogsTextFont).elidedText(
+        const auto elidedPreview = TeleMatrix::EmojiText::Elide(
             fullPreview,
-            Qt::ElideRight,
+            st::dialogsTextFont,
+            emojiMetrics,
             textWidth);
         if (!prefix.isEmpty() && elidedPreview.startsWith(prefix)) {
             p.setPen(senderColor);
-            p.drawText(kTextLeft, baseline, prefix);
+            const auto prefixWidth = TeleMatrix::EmojiText::DrawLine(
+                p, kTextLeft, baseline, prefix, emojiMetrics);
             p.setPen(previewColor);
-            p.drawText(
-                kTextLeft + QFontMetrics(st::dialogsTextFont).horizontalAdvance(prefix),
+            TeleMatrix::EmojiText::DrawLine(
+                p,
+                kTextLeft + prefixWidth,
                 baseline,
-                elidedPreview.mid(prefix.size()));
+                elidedPreview.mid(prefix.size()),
+                emojiMetrics);
         } else {
             p.setPen(previewColor);
-            p.drawText(kTextLeft, baseline, elidedPreview);
+            TeleMatrix::EmojiText::DrawLine(
+                p, kTextLeft, baseline, elidedPreview, emojiMetrics);
         }
     }
 }

@@ -5,6 +5,9 @@
 // files in the project root for full terms.
 
 #include "history_input.h"
+
+#include "ui/text/emoji_text.h"
+#include "ui/widgets/emoji_objects.h"
 #include "history_draft_state.h"
 #include "history_emoji_picker.h"
 #include "emoji_picker_keys.h"
@@ -460,13 +463,18 @@ HistoryInput::HistoryInput(
     // Toggle record ↔ send icon and auto-resize when text changes.
     QObject::connect(_field, &QTextEdit::textChanged,
         this, [this] {
+            // The emoji replacement pass edits the document from inside this signal;
+            // its nested edits must not re-run the per-keystroke work.
+            if (_field->correcting()) {
+                return;
+            }
             static const bool typeStats
                 = qEnvironmentVariableIsSet("TM_TYPE_STATS");
             QElapsedTimer timer;
             if (typeStats) {
                 timer.start();
             }
-            const auto text = _field->toPlainText();   // the ONE extraction
+            const auto text = fieldPlainText();   // the ONE extraction
             updateSendButton(text);
             checkContentHeight();
             checkMentionTrigger();
@@ -590,8 +598,16 @@ void HistoryInput::focusInput() {
     }
 }
 
+// The document holds an object-replacement character per emoji, not the emoji itself.
+// Every read of the composer goes through here so nothing can send a U+FFFC.
+QString HistoryInput::fieldPlainText() const {
+    return _field
+        ? TeleMatrix::EmojiText::DocumentText(_field->document())
+        : QString();
+}
+
 QString HistoryInput::fieldText() const {
-    return _field ? _field->toPlainText() : QString();
+    return _field ? fieldPlainText() : QString();
 }
 
 QString HistoryInput::fieldHtml() const {
@@ -603,6 +619,11 @@ void HistoryInput::setFieldText(const QString &text) {
         return;
     }
     _field->setPlainText(text);
+    // A draft restored from HTML carries the emoji `src` but not the sizing — Qt's
+    // writer never emits vertical alignment, and the width/height it does write are
+    // whatever the previous interface scale used.
+    Ui::EmojiObjects::RestampAll(_field->document());
+
     auto cursor = _field->textCursor();
     cursor.movePosition(QTextCursor::End);
     _field->setTextCursor(cursor);
@@ -696,7 +717,7 @@ void HistoryInput::enterEditMode(
         _field->setPlainText(body);
     }
     // Store original text for dirty check on cancel.
-    _editOriginalBody = _field->toPlainText();
+    _editOriginalBody = fieldPlainText();
     auto cursor = _field->textCursor();
     cursor.movePosition(QTextCursor::End);
     _field->setTextCursor(cursor);
@@ -948,7 +969,7 @@ bool HistoryInput::eventFilter(QObject *obj, QEvent *event) {
         if (key == Qt::Key_Escape && (_editMode || _replyMode)) {
             if (_editMode) {
                 // If text was modified, ask for confirmation first.
-                if (_field->toPlainText() != _editOriginalBody) {
+                if (fieldPlainText() != _editOriginalBody) {
                     emit editCancelConfirmRequested();
                 } else {
                     cancelEditMode();
@@ -965,7 +986,7 @@ bool HistoryInput::eventFilter(QObject *obj, QEvent *event) {
         }
 
         if (key == Qt::Key_Up
-            && _field->toPlainText().trimmed().isEmpty()
+            && fieldPlainText().trimmed().isEmpty()
             && !_editMode
             && !_replyMode
             && _field->textCursor().blockNumber() == 0
@@ -1308,7 +1329,7 @@ void HistoryInput::mousePressEvent(QMouseEvent *e) {
         && e->button() == Qt::LeftButton
         && _editCancelRect.contains(e->pos())) {
         if (_editMode) {
-            if (_field->toPlainText() != _editOriginalBody) {
+            if (fieldPlainText() != _editOriginalBody) {
                 emit editCancelConfirmRequested();
             } else {
                 cancelEditMode();
@@ -1449,7 +1470,7 @@ void HistoryInput::updateDocumentMargin() {
 }
 
 void HistoryInput::updateSendButton() {
-    updateSendButton(_field ? _field->toPlainText() : QString());
+    updateSendButton(_field ? fieldPlainText() : QString());
 }
 
 void HistoryInput::updateSendButton(const QString &text) {
@@ -1474,7 +1495,7 @@ bool HistoryInput::canStartVoiceRecording() const {
         && !_voiceRecording
         && !_editMode
         && !_replyMode
-        && _field->toPlainText().trimmed().isEmpty()
+        && fieldPlainText().trimmed().isEmpty()
         && _recordButton->icon() == ComposeIconButton::Record;
 }
 
@@ -1713,7 +1734,7 @@ static QString markdownToHtml(const QString &text) {
 
 void HistoryInput::send() {
     if (!_field) return;
-    auto text = _field->toPlainText().trimmed();
+    auto text = fieldPlainText().trimmed();
     if (text.isEmpty() && !_editMode) return;
     // 1. Try markdown conversion first (handles ```, >, **bold**, etc.).
     //    This is the primary path for user-typed messages.
@@ -1738,6 +1759,9 @@ void HistoryInput::send() {
                 const auto frag = it.fragment();
                 if (!frag.isValid()) continue;
                 const auto fmt = frag.charFormat();
+                if (fmt.isImageFormat()) {
+                    continue; // an emoji object, not rich formatting
+                }
                 // Only detect formatting that differs from the field default.
                 if (fmt.fontWeight() != defaultFmt.fontWeight()
                         && fmt.fontWeight() >= QFont::Bold
@@ -2124,7 +2148,7 @@ HistoryPopupMenuStyle::PopupMenu *HistoryInput::createFormattingSubmenu(
     sub->setTitle(tr("Formatting"));
 
     const bool hasSel = _field->textCursor().hasSelection();
-    const bool hasText = !_field->toPlainText().isEmpty();
+    const bool hasText = !fieldPlainText().isEmpty();
 
     auto *boldAct = addActionWithShortcut(sub,
         tr("Bold"),
@@ -2178,7 +2202,7 @@ void HistoryInput::showContextMenu(const QPoint &globalPos) {
     auto *menu = createStyledMenu(this);
 
     const bool hasSelection = _field->textCursor().hasSelection();
-    const bool hasText = !_field->toPlainText().isEmpty();
+    const bool hasText = !fieldPlainText().isEmpty();
     const bool canPaste = !QApplication::clipboard()->text().isEmpty();
 
     // Undo / Redo.

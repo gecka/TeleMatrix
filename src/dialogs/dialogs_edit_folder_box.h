@@ -19,6 +19,7 @@ class QScrollArea;
 class QVariantAnimation;
 
 namespace Ui {
+class EmojiInputField;
 class TextButton;
 } // namespace Ui
 
@@ -100,7 +101,7 @@ private:
     QSet<QString> _draft;
 
     QWidget *_panel = nullptr;
-    QLineEdit *_nameField = nullptr;
+    Ui::EmojiInputField *_nameField = nullptr;
     IncludedChatsInner *_preview = nullptr;
     QScrollArea *_scroll = nullptr;
     ::Ui::TextButton *_cancel = nullptr;

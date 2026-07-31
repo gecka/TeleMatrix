@@ -7,9 +7,11 @@
 #pragma once
 
 #include <QTextEdit>
+#include <QVariant>
 
 #include "ui/text/quote_paint.h"
 #include "ui/widgets/block_format_presence.h"
+#include "ui/widgets/emoji_objects.h"
 
 namespace Ui {
 
@@ -26,14 +28,23 @@ public:
         return _blockFormats.get(document());
     }
 
+    // True while the emoji pass is rewriting the document. Its nested edits re-emit
+    // textChanged, and the composer's per-keystroke hub must not run twice.
+    [[nodiscard]] bool correcting() const {
+        return _emoji && _emoji->correcting();
+    }
+
 protected:
     void paintEvent(QPaintEvent *e) override;
     void insertFromMimeData(const QMimeData *source) override;
+    [[nodiscard]] QVariant loadResource(int type, const QUrl &name) override;
+    [[nodiscard]] QMimeData *createMimeDataFromSelection() const override;
 
 private:
     Ui::Text::QuotePaintCache _blockquoteCache;
     Ui::Text::QuotePaintCache _preCache;
     BlockFormatsMemo _blockFormats;
+    EmojiObjects::Watcher *_emoji = nullptr;
 };
 
 } // namespace Ui

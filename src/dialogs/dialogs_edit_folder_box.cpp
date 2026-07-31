@@ -5,6 +5,7 @@
 // files in the project root for full terms.
 
 #include "dialogs_edit_folder_box.h"
+#include "ui/widgets/emoji_input_field.h"
 
 #include <functional>
 
@@ -405,11 +406,10 @@ DialogsEditFolderBox::DialogsEditFolderBox(
         st::boxPadding.right(),
         Style::ConvertScale(12));
     inputLayout->setSpacing(0);
-    auto *nameInput = new ::Ui::InputField(
+    auto *nameInput = new ::Ui::EmojiInputField(
         inputContainer,
         st::defaultInputField,
-        rpl::single<QString>(QCoreApplication::translate(
-            "DialogsEditFolderBox", "Folder name")));
+        QCoreApplication::translate("DialogsEditFolderBox", "Folder name"));
     _nameField = nameInput;
     _nameField->setMaxLength(kMaxFolderNameLength);
     _nameField->setText(initialName);
@@ -513,8 +513,8 @@ DialogsEditFolderBox::DialogsEditFolderBox(
     connect(_save, &QAbstractButton::clicked, this, [this] { accept(); });
     buttonsLayout->addWidget(_save);
 
-    connect(_nameField, &QLineEdit::textChanged, this, [this] { updateSaveButton(); });
-    connect(_nameField, &QLineEdit::returnPressed, this, [this] {
+    connect(_nameField, &QTextEdit::textChanged, this, [this] { updateSaveButton(); });
+    connect(_nameField, &::Ui::EmojiInputField::submitted, this, [this] {
         if (_save->isEnabled()) accept();
     });
     connect(_preview, &IncludedChatsInner::removeRequested, this,

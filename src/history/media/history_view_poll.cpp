@@ -6,6 +6,8 @@
 
 #include "history_view_poll.h"
 
+#include "ui/text/emoji_text.h"
+
 #include <algorithm>
 
 #include <QCoreApplication>
@@ -34,22 +36,25 @@ namespace {
 }
 
 [[nodiscard]] int questionHeight(const QString &question, int width) {
-    const QFontMetrics fm(static_cast<const QFont &>(st::semiboldFont));
-    return fm.boundingRect(
-        QRect(0, 0, width, 10000),
-        Qt::AlignLeft | Qt::TextWordWrap,
-        question).height();
+    const auto font = static_cast<const QFont &>(st::semiboldFont);
+    return TeleMatrix::EmojiText::WrappedHeight(
+        question,
+        font,
+        TeleMatrix::EmojiText::CachedMetricsFor(
+            font, st::emojiInlineSlot, st::emojiInlineGlyph),
+        width);
 }
 
 [[nodiscard]] int optionTextHeight(
     const QString &text,
     int width,
     const QFont &font) {
-    const QFontMetrics fm(font);
-    return fm.boundingRect(
-        QRect(0, 0, width, 10000),
-        Qt::AlignLeft | Qt::TextWordWrap,
-        text).height();
+    return TeleMatrix::EmojiText::WrappedHeight(
+        text,
+        font,
+        TeleMatrix::EmojiText::CachedMetricsFor(
+            font, st::emojiInlineSlot, st::emojiInlineGlyph),
+        width);
 }
 
 [[nodiscard]] int optionRowHeight(
@@ -245,12 +250,12 @@ void paintContent(
     p.setFont(questionFont);
     p.setPen(textColor);
     const QRect questionRect(x, top, width, 10000);
-    const auto questionBound = questionFm.boundingRect(
-        questionRect,
-        Qt::AlignLeft | Qt::TextWordWrap,
-        poll->question);
-    p.drawText(questionRect, Qt::AlignLeft | Qt::TextWordWrap, poll->question);
-    top += questionBound.height();
+    const auto &questionEmoji = TeleMatrix::EmojiText::CachedMetricsFor(
+        questionFont, st::emojiInlineSlot, st::emojiInlineGlyph);
+    TeleMatrix::EmojiText::DrawWrapped(
+        p, questionRect, Qt::AlignLeft, poll->question, questionEmoji);
+    top += TeleMatrix::EmojiText::WrappedHeight(
+        poll->question, questionFont, questionEmoji, questionRect.width());
 
     top += st::historyPollSubtitleSkip;
     p.setFont(infoFont);
@@ -265,10 +270,8 @@ void paintContent(
         const auto textTop = rowTop + st::historyPollAnswerPadding.top();
         const auto textLeft = x + layout.leftInset;
         const QRect textRect(textLeft, textTop, layout.textWidth, 10000);
-        const auto textBound = optionFm.boundingRect(
-            textRect,
-            Qt::AlignLeft | Qt::TextWordWrap,
-            option.text);
+        const auto textBoundHeight = optionTextHeight(
+            option.text, layout.textWidth, optionFont);
 
         if (resultsVisible) {
             p.setFont(percentFont);
@@ -287,10 +290,16 @@ void paintContent(
 
             p.setFont(optionFont);
             p.setPen(textColor);
-            p.drawText(textRect, Qt::AlignLeft | Qt::TextWordWrap, option.text);
+            TeleMatrix::EmojiText::DrawWrapped(
+                p,
+                textRect,
+                Qt::AlignLeft,
+                option.text,
+                TeleMatrix::EmojiText::CachedMetricsFor(
+                    optionFont, st::emojiInlineSlot, st::emojiInlineGlyph));
 
             const auto barLeft = textLeft;
-            const auto barTop = textTop + textBound.height() + st::historyPollFillingBottom;
+            const auto barTop = textTop + textBoundHeight + st::historyPollFillingBottom;
             const auto barWidthMax = qMax(
                 st::historyPollFillingMin,
                 width
@@ -354,7 +363,13 @@ void paintContent(
 
             p.setFont(optionFont);
             p.setPen(textColor);
-            p.drawText(textRect, Qt::AlignLeft | Qt::TextWordWrap, option.text);
+            TeleMatrix::EmojiText::DrawWrapped(
+                p,
+                textRect,
+                Qt::AlignLeft,
+                option.text,
+                TeleMatrix::EmojiText::CachedMetricsFor(
+                    optionFont, st::emojiInlineSlot, st::emojiInlineGlyph));
         }
 
         top = rowTop + optionRowHeight(option, layout.textWidth, resultsVisible);

@@ -5,6 +5,9 @@
 // files in the project root for full terms.
 
 #include "room_settings_widget.h"
+#include "ui/widgets/emoji_objects.h"
+#include "ui/text/emoji_text.h"
+#include "ui/widgets/emoji_input_field.h"
 #include "../dialogs/dialogs_invite_users_box.h"
 #include "app/app_controller.h"
 #include "history/history_confirm_dialog.h"
@@ -592,6 +595,7 @@ public:
         _edit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         _edit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         _edit->document()->setDocumentMargin(0);
+        ::Ui::EmojiObjects::Install(_edit);
         auto f = _edit->font();
         f.setPixelSize(14);
         _edit->setFont(f);
@@ -613,7 +617,8 @@ public:
 
     // Don't clobber what the user is currently typing.
     void setText(const QString &text) {
-        if (!_edit->hasFocus() && _edit->toPlainText() != text) {
+        if (!_edit->hasFocus()
+            && TeleMatrix::EmojiText::DocumentText(_edit->document()) != text) {
             _edit->setPlainText(text);
         }
     }
@@ -640,7 +645,8 @@ protected:
                 _focused = false;
                 update();
                 if (_editable && onCommit) {
-                    onCommit(_edit->toPlainText());
+                    onCommit(TeleMatrix::EmojiText::DocumentText(
+                        _edit->document()));
                 }
             }
         }
@@ -861,13 +867,15 @@ private:
 /// Room cover widget showing avatar, name, and member count.
 // Inline room-name field embedded in the cover: bold, transparent, frameless,
 // with an accent underline while it's being edited (editable + focused).
-class CoverNameField final : public QLineEdit {
+class CoverNameField final : public ::Ui::EmojiInputField {
 public:
-    explicit CoverNameField(QWidget *parent) : QLineEdit(parent) {
-        setFrame(false);
+    explicit CoverNameField(QWidget *parent)
+    : ::Ui::EmojiInputField(parent, st::defaultInputField, QString()) {
+        // Room names carry emoji constantly, and this field both displays and edits one.
+        // Chrome off: the cover owns the geometry and paints its own underline below.
+        setChromeVisible(false);
         setAttribute(Qt::WA_MacShowFocusRect, false);
         setFont(st::baseFont(16, true));
-        setTextMargins(0, 0, 0, 0);
         setReadOnly(true);
         QPalette pal = palette();
         pal.setColor(QPalette::Base, Qt::transparent);
@@ -878,7 +886,7 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *e) override {
-        QLineEdit::paintEvent(e);
+        ::Ui::EmojiInputField::paintEvent(e);
         if (!isReadOnly() && hasFocus()) {
             QPainter p(this);
             p.fillRect(0, height() - 2, width(), 2, st::activeLineFg);
@@ -902,7 +910,7 @@ public:
         _nameField = new CoverNameField(this);
         _nameField->setText(_summary.displayName);
         // Enter or focus-out commits the (changed) name inline.
-        connect(_nameField, &QLineEdit::editingFinished, this, [this] {
+        connect(_nameField, &::Ui::EmojiInputField::editingFinished, this, [this] {
             if (_canEditName && onNameCommit) {
                 onNameCommit(_nameField->text());
             }

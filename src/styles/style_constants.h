@@ -80,13 +80,15 @@ inline void ensureFontsLoaded() {
         QFont::insertSubstitution(openSans, QStringLiteral("Vazirmatn UI NL"));
 
 #if defined(Q_OS_LINUX) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-        // Name the emoji font explicitly (Qt 6.9+ API). Qt only auto-discovers
-        // one on platforms with a known system emoji family; on Linux the text
-        // above is Open Sans, an *application* font that fontconfig does not know,
-        // so emoji segments found no colour font and the composer rendered them
-        // blank. Everything else already draws emoji from the sprite atlases —
-        // QTextEdit is the one surface that goes through the font engine.
+        // A fallback, not the fix. Emoji are drawn from the sprite atlases now —
+        // message bodies and every other running-text surface through
+        // ui/text/emoji_text.h, the composer through ui/widgets/emoji_objects.h.
+        // What is left for the font engine is emoji newer than the vendored atlas
+        // and the QLineEdit-based fields, which cannot host inline images.
         //
+        // Qt only auto-discovers an emoji family on platforms with a known system
+        // one; on Linux the UI font is Open Sans, an *application* font fontconfig
+        // has never heard of, so those leftovers resolve to no colour font at all.
         // The format is not the issue: Qt 6.9+ handles COLRv1 on FreeType, which
         // is what Fedora's Noto-COLRv1.ttf ships. Only the fallback chain was.
         for (const auto &candidate : {
@@ -979,6 +981,13 @@ inline QColor mediaviewPlaybackProgressFg = QColor(0xFF, 0xFF, 0xFF, 0xC7); // #
 inline QColor mediaviewPlaybackIconFg = QColor(0xC7, 0xC7, 0xC7);      // #c7c7c7
 inline QColor mediaviewPlaybackIconFgOver = QColor(0xFF, 0xFF, 0xFF);  // #ffffff
 inline QColor mediaviewPlaybackBg = QColor(0x00, 0x00, 0x00, 0xB2);    // #000000b2
+
+// Emoji drawn inside running text (message bodies, rooms-list previews, the composer).
+// tdesktop's st::emojiSize + st::emojiPadding: an 18px sprite in a 20px slot, which is
+// deliberately taller than the 13px text around it — that is how emoji read next to prose.
+// The pair to re-tune by eye if inline emoji ever look wrong; nothing else depends on them.
+inline int emojiInlineGlyph = 18;
+inline int emojiInlineSlot = 20;
 
 // Reactions (chat.style + chat_helpers.style).
 inline QMargins reactionInlinePadding(5, 2, 7, 2);
@@ -2023,6 +2032,10 @@ inline void initPxValues() {
     mediaviewProgressSkip = ConvertScale(10);
     mediaviewSeekTrackHeight = ConvertScale(3);
     mediaviewSeekHandleSize = ConvertScale(12);
+
+    // Emoji in running text.
+    emojiInlineGlyph = ConvertScale(18);
+    emojiInlineSlot = ConvertScale(20);
 
     // Reactions.
     reactionInlinePadding = QMargins(

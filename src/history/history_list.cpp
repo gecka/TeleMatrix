@@ -5,6 +5,8 @@
 // files in the project root for full terms.
 
 #include "history_list.h"
+
+#include "ui/text/emoji_text.h"
 #include "history_message.h"
 #include "media/history_view_audio.h"
 #include "media/history_view_poll.h"
@@ -3719,13 +3721,18 @@ void HistoryList::paintEvent(QPaintEvent *e) {
         p.drawRoundedRect(namePillX, y, namePillW, namePillH, nameR, nameR);
         p.setFont(nameFont);
         p.setPen(st::msgServiceFg);
-        p.drawText(
+        TeleMatrix::EmojiText::DrawWrapped(
+            p,
             QRect(namePillX, y, namePillW, namePillH),
             Qt::AlignCenter,
-            nameFm.elidedText(
+            TeleMatrix::EmojiText::Elide(
                 _previewName,
-                Qt::ElideRight,
-                namePillW - st::msgPadding.left() - st::msgPadding.right()));
+                p.font(),
+                TeleMatrix::EmojiText::CachedMetricsFor(
+                    p.font(), st::emojiInlineSlot, st::emojiInlineGlyph),
+                namePillW - st::msgPadding.left() - st::msgPadding.right()),
+            TeleMatrix::EmojiText::CachedMetricsFor(
+                p.font(), st::emojiInlineSlot, st::emojiInlineGlyph));
 
         if (!topicRect.isNull()) {
             y += namePillH + gap;
@@ -3737,15 +3744,18 @@ void HistoryList::paintEvent(QPaintEvent *e) {
                 st::msgServicePadding.top() + 4, st::msgServicePadding.top() + 4);
             p.setFont(topicFont);
             p.setPen(st::msgServiceFg);
-            p.drawText(
+            TeleMatrix::EmojiText::DrawWrapped(
+                p,
                 QRect(
                     topicX + st::msgPadding.left(),
                     y + st::msgServicePadding.top(),
                     topicRect.width() - st::msgPadding.left() - st::msgPadding.right(),
                     topicRect.height() - st::msgServicePadding.top()
                         - st::msgServicePadding.bottom()),
-                int(Qt::AlignHCenter | Qt::TextWordWrap),
-                _previewTopic);
+                Qt::AlignHCenter,
+                _previewTopic,
+                TeleMatrix::EmojiText::CachedMetricsFor(
+                    topicFont, st::emojiInlineSlot, st::emojiInlineGlyph));
         }
     }
 

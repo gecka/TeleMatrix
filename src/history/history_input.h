@@ -101,6 +101,8 @@ public:
 
     void clearInput();
     void focusInput();
+    // Composer text with emoji objects expanded back to characters.
+    [[nodiscard]] QString fieldPlainText() const;
     QString fieldText() const;
     QString fieldHtml() const;
     void setFieldText(const QString &text);

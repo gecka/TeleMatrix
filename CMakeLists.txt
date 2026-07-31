@@ -359,6 +359,10 @@ add_library(telematrix_core OBJECT
     src/ui/emoji_config.cpp
     src/ui/emoji_sprites.h
     src/ui/emoji_sprites.cpp
+    # Emoji inside running text: placeholder substitution + a sprite pass over
+    # QTextLayout. Style-free (all sizes are parameters) so it stays testable.
+    src/ui/text/emoji_text.h
+    src/ui/text/emoji_text.cpp
     "${TM_EMOJI_GEN_DIR}/emoji.cpp"
     # emoji.cpp calls InitReplacements() from the generated suggestions table; the
     # hand-written half of that pair is upstream's, and is free of Qt and lib_base.
@@ -665,6 +669,10 @@ add_executable(TeleMatrix
     src/ui/widgets/close_button.cpp
     src/ui/widgets/formatted_text_edit.h
     src/ui/widgets/formatted_text_edit.cpp
+    src/ui/widgets/emoji_objects.h
+    src/ui/widgets/emoji_objects.cpp
+    src/ui/widgets/emoji_input_field.h
+    src/ui/widgets/emoji_input_field.cpp
     src/ui/widgets/connecting_widget.h
     src/ui/widgets/connecting_widget.cpp
     src/ui/text/quote_paint.h

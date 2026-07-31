@@ -5,6 +5,8 @@
 // files in the project root for full terms.
 
 #include "history_send_files_dialog.h"
+#include "ui/widgets/emoji_objects.h"
+#include "ui/text/emoji_text.h"
 
 #include <algorithm>
 #include <QEnterEvent>
@@ -57,6 +59,8 @@ public:
             setPalette(pal);
         }
         connect(this, &QTextEdit::textChanged, this, &CaptionField::adjustHeight);
+        // Captions are message content — they get the same sprite emoji the composer does.
+        Ui::EmojiObjects::Install(this);
     }
 
     void setSubmitSettings(InputSubmitSettings s) { _submitSettings = s; }
@@ -623,7 +627,9 @@ HistorySendFilesDialog::HistorySendFilesDialog(
 }
 
 QString HistorySendFilesDialog::caption() const {
-    return _captionField ? _captionField->toPlainText() : QString();
+    return _captionField
+        ? TeleMatrix::EmojiText::DocumentText(_captionField->document())
+        : QString();
 }
 
 const QVector<PreparedFile> &HistorySendFilesDialog::files() const {

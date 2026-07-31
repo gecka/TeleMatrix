@@ -206,25 +206,60 @@ void InputField::paintRoundSurrounding(QPainter &p) const {
         radius);
 }
 
-void InputField::paintFlatSurrounding(QPainter &p) const {
-    const auto focused = (_focusedProgress > 0.);
-    const auto bgColor = MixColors(_style.textBg, _style.textBgActive, _focusedProgress);
-    p.fillRect(rect(), bgColor);
+namespace InputChrome {
+
+void PaintFlatSurrounding(QPainter &p, const State &state) {
+    const auto &style = *state.style;
+    const auto focused = (state.focusedProgress > 0.);
+    p.fillRect(
+        state.rect,
+        MixColors(style.textBg, style.textBgActive, state.focusedProgress));
 
     const auto border = focused
-        ? qMax(1, _style.borderActive)
-        : qMax(0, _style.border);
+        ? qMax(1, style.borderActive)
+        : qMax(0, style.border);
     if (border > 0) {
         p.fillRect(
-            0,
-            height() - border,
-            width(),
+            state.rect.left(),
+            state.rect.bottom() + 1 - border,
+            state.rect.width(),
             border,
-            MixColors(_style.borderFg, _style.borderFgActive, _focusedProgress));
+            MixColors(style.borderFg, style.borderFgActive, state.focusedProgress));
     }
 }
 
-void InputField::paintPlaceholder(QPainter &p) const {
+} // namespace InputChrome
+
+InputChrome::State InputField::chromeState() const {
+    return {
+        .style = &_style,
+        .rect = rect(),
+        .textMargins = _textMargins,
+        .font = font(),
+        .placeholder = _placeholder,
+        .focusedProgress = _focusedProgress,
+        .placeholderShownProgress = _placeholderShownProgress,
+        .placeholderAnimating
+            = (_placeholderShownAnimation.state() == QAbstractAnimation::Running),
+        .focused = hasFocus(),
+        .empty = text().isEmpty(),
+        .floating = _floatingPlaceholder,
+    };
+}
+
+void InputField::paintFlatSurrounding(QPainter &p) const {
+    InputChrome::PaintFlatSurrounding(p, chromeState());
+}
+
+namespace InputChrome {
+
+void PaintPlaceholder(QPainter &p, const State &state) {
+    const auto &_style = *state.style;
+    const auto &_placeholder = state.placeholder;
+    const auto &_textMargins = state.textMargins;
+    const auto _floatingPlaceholder = state.floating;
+    const auto _focusedProgress = state.focusedProgress;
+    const auto _placeholderShownProgress = state.placeholderShownProgress;
     if (_placeholder.isEmpty()) {
         return;
     }
@@ -234,16 +269,16 @@ void InputField::paintPlaceholder(QPainter &p) const {
     if (!_floatingPlaceholder) {
         // No caption: the placeholder sits inside only while empty AND unfocused,
         // so it never sits under the caret of a focused field.
-        if (!text().isEmpty() || hasFocus()) {
+        if (!state.empty || state.focused) {
             return;
         }
-        const auto r = rect().marginsRemoved(_textMargins + _style.placeholderMargins);
+        const auto r = state.rect.marginsRemoved(_textMargins + _style.placeholderMargins);
         if (r.width() <= 0 || r.height() <= 0) {
             return;
         }
         p.setPen(colour);
-        p.setFont(font());
-        const auto metrics = QFontMetrics(font());
+        p.setFont(state.font);
+        const auto metrics = QFontMetrics(state.font);
         p.drawText(
             r,
             _style.placeholderAlign,
@@ -257,23 +292,23 @@ void InputField::paintPlaceholder(QPainter &p) const {
     // At rest (not animating) snap to the correct pose from focus + content, so a
     // focused field always shows the caption LIFTED — never over the cursor.
     auto t = qBound(0., _placeholderShownProgress, 1.);
-    if (_placeholderShownAnimation.state() != QAbstractAnimation::Running) {
-        t = (hasFocus() || !text().isEmpty()) ? 1. : 0.;
+    if (!state.placeholderAnimating) {
+        t = (state.focused || !state.empty) ? 1. : 0.;
     }
     const auto left = _textMargins.left() + _style.placeholderMargins.left();
-    const auto availWidth = qMax(0, width() - left - _textMargins.right());
+    const auto availWidth = qMax(0, state.rect.width() - left - _textMargins.right());
     if (availWidth <= 0) {
         return;
     }
 
     const auto insideTop = _textMargins.top() + _style.placeholderMargins.top();
-    const auto insideBottom = height() - _textMargins.bottom();
+    const auto insideBottom = state.rect.height() - _textMargins.bottom();
     const auto liftedTop = 2;
     const auto liftedHeight = qMax(0, _textMargins.top() - 4);
 
-    const auto bigPx = (font().pixelSize() > 0) ? font().pixelSize() : 14;
+    const auto bigPx = (state.font.pixelSize() > 0) ? state.font.pixelSize() : 14;
     const auto smallPx = 12;
-    auto capFont = font();
+    auto capFont = state.font;
     capFont.setPixelSize(qMax(1, qRound(bigPx + (smallPx - bigPx) * t)));
 
     const auto top = qRound(insideTop + (liftedTop - insideTop) * t);
@@ -287,6 +322,12 @@ void InputField::paintPlaceholder(QPainter &p) const {
         r,
         Qt::AlignLeft | Qt::AlignVCenter,
         metrics.elidedText(_placeholder, Qt::ElideRight, r.width()));
+}
+
+} // namespace InputChrome
+
+void InputField::paintPlaceholder(QPainter &p) const {
+    InputChrome::PaintPlaceholder(p, chromeState());
 }
 
 void InputField::setFloatingPlaceholder(bool enabled) {

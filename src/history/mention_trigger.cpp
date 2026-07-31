@@ -23,7 +23,9 @@ Result Scan(const QString &blockText, int posInBlock) {
             }
             break;
         }
-        if (ch.isSpace()) break;
+        // An emoji in the composer is an object-replacement character, not a space, so
+        // without this "@fo👍" would keep the popup open with U+FFFC in the query.
+        if (ch.isSpace() || ch == QChar::ObjectReplacementCharacter) break;
     }
     if (atPos < 0) {
         return {};

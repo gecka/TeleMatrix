@@ -5,6 +5,7 @@
 // files in the project root for full terms.
 
 #include "dialogs_room_create_dialog.h"
+#include "ui/widgets/emoji_input_field.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -475,22 +476,20 @@ void DialogsRoomCreateDialog::init() {
     inputLayout->setSpacing(12);
 
     // Room name input (floating-caption input field).
-    auto *nameInput = new ::Ui::InputField(
+    auto *nameInput = new ::Ui::EmojiInputField(
         inputContainer,
         st::defaultInputField,
-        rpl::single<QString>(QCoreApplication::translate(
-            "DialogsRoomCreateDialog", "Room name")));
+        QCoreApplication::translate("DialogsRoomCreateDialog", "Room name"));
     nameInput->setFloatingPlaceholder(true);
     _nameField = nameInput;
     _nameField->setMaxLength(kMaxRoomNameLength);
     inputLayout->addWidget(nameInput);
 
     // Topic input (optional; floating-caption input field).
-    auto *topicInput = new ::Ui::InputField(
+    auto *topicInput = new ::Ui::EmojiInputField(
         inputContainer,
         st::defaultInputField,
-        rpl::single<QString>(QCoreApplication::translate(
-            "DialogsRoomCreateDialog", "Topic (optional)")));
+        QCoreApplication::translate("DialogsRoomCreateDialog", "Topic (optional)"));
     topicInput->setFloatingPlaceholder(true);
     _topicField = topicInput;
     inputLayout->addWidget(topicInput);
@@ -672,16 +671,16 @@ void DialogsRoomCreateDialog::init() {
     buttonsLayout->addWidget(_create);
 
     // --- Connections ---
-    connect(_nameField, &QLineEdit::textChanged, this,
+    connect(_nameField, &QTextEdit::textChanged, this,
             [this] { updateCreateButton(); });
 
     // Enter key triggers Create.
-    connect(_nameField, &QLineEdit::returnPressed, this, [this] {
+    connect(_nameField, &::Ui::EmojiInputField::submitted, this, [this] {
         if (_create->isEnabled()) {
             emit createRequested();
         }
     });
-    connect(_topicField, &QLineEdit::returnPressed, this, [this] {
+    connect(_topicField, &::Ui::EmojiInputField::submitted, this, [this] {
         if (_create->isEnabled()) {
             emit createRequested();
         }

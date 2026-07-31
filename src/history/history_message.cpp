@@ -14,6 +14,7 @@
 #include "media/history_view_poll.h"
 #include "media/video_download_overlay_policy.h"
 #include "ui/format_bytes.h"
+#include "ui/text/emoji_text.h"
 
 #include "../protocol/media_cache.h"
 #include "ui/empty_userpic.h"
@@ -1030,16 +1031,22 @@ int senderRowRequiredWidth(const TimelineItem &item, bool reserveFastReply) {
     return width;
 }
 
+// Defined further down, next to the message-body caches.
+[[nodiscard]] const TeleMatrix::EmojiText::Metrics &emojiMetricsFor(const QFont &font);
+
 QString elidedSenderName(
         const TimelineItem &item,
         int bubbleWidth,
         bool reserveFastReply) {
-    const auto &nameFm = st::fontMetrics(st::msgNameFont);
     auto available = bubbleWidth - (2 * kBubblePaddingH);
     if (reserveFastReply) {
         available -= kBubblePaddingH + fastReplyTextWidth();
     }
-    return nameFm.elidedText(item.sender.name, Qt::ElideRight, qMax(1, available));
+    return TeleMatrix::EmojiText::Elide(
+        item.sender.name,
+        st::msgNameFont,
+        emojiMetricsFor(QFont(st::msgNameFont)),
+        qMax(1, available));
 }
 
 // Floating pill button at top-right of bubble.
@@ -1882,7 +1889,42 @@ struct FormattedText {
     QList<QTextLayout::FormatRange> formats;
     QList<LinkInfo> links;
     QList<BlockRange> blocks;
+    /// `plain` with each emoji's code units replaced by U+00A0 placeholders, which is
+    /// what goes into the QTextLayout; sprites are drawn over the gaps. Same length as
+    /// `plain`, so every index above stays valid. Empty when the message has no emoji —
+    /// then `plain` is laid out directly and nothing costs anything.
+    QString display;
+    QList<TeleMatrix::EmojiText::Entry> emoji;
 };
+
+/// The string to hand to QTextLayout. Selection, copy and link matching keep using
+/// `plain`; only the layout ever sees the placeholders.
+[[nodiscard]] const QString &layoutSource(const FormattedText &text) {
+    return text.display.isEmpty() ? text.plain : text.display;
+}
+
+/// Sprite geometry for the message-body font. Built once: the interface scale and the
+/// custom font family are both fixed at startup, and MetricsFor probes the shaper.
+[[nodiscard]] const TeleMatrix::EmojiText::Metrics &bodyEmojiMetrics() {
+    static const auto result = TeleMatrix::EmojiText::MetricsFor(
+        QFont(st::msgFont),
+        st::emojiInlineSlot,
+        st::emojiInlineGlyph);
+    return result;
+}
+
+/// The same, for the handful of other fonts that carry emoji (link-preview title and
+/// description, monospace inside code blocks).
+[[nodiscard]] const TeleMatrix::EmojiText::Metrics &emojiMetricsFor(const QFont &font) {
+    static QHash<QString, TeleMatrix::EmojiText::Metrics> cache;
+    const auto key = font.key();
+    auto it = cache.find(key);
+    if (it == cache.end()) {
+        it = cache.insert(key, TeleMatrix::EmojiText::MetricsFor(
+            font, st::emojiInlineSlot, st::emojiInlineGlyph));
+    }
+    return *it;
+}
 
 // Forward declarations for cache helpers.
 FormattedText resolveText(const TimelineItem &item);
@@ -1899,7 +1941,8 @@ struct BlockAwareLayoutResult {
 BlockAwareLayoutResult layoutWithBlocks(
     QTextLayout &layout,
     int availWidth,
-    const QList<BlockRange> &blocks);
+    const QList<BlockRange> &blocks,
+    const QString &sourceText);
 
 // ─── Paint cache: avoid QTextDocument::setHtml() and QTextLayout per frame ───
 // Keyed by eventId + body hash.  Cleared on setMessages() via clearPaintCache().
@@ -1968,12 +2011,13 @@ static void capPaintCache(Cache &cache) {
 /// layout every paint. Keyed by eventId; invalidated on width or header-text change.
 struct CachedForwardedLayout {
     std::shared_ptr<QTextLayout> layout;
+    QList<TeleMatrix::EmojiText::Entry> emoji;
     int innerWidth = -1;
     uint strHash = 0;
 };
 static QHash<QString, CachedForwardedLayout> s_fwdLayoutCache;
 
-static QTextLayout &cachedForwardedLayout(
+static const CachedForwardedLayout &cachedForwardedLayout(
         const QString &eventId, const QString &fwdStr, int innerWidth) {
     const auto h = qHash(fwdStr);
     auto it = s_fwdLayoutCache.find(eventId);
@@ -1981,9 +2025,20 @@ static QTextLayout &cachedForwardedLayout(
         && it->innerWidth == innerWidth
         && it->strHash == h
         && it->layout) {
-        return *it->layout;
+        return *it;
     }
-    auto layout = std::make_shared<QTextLayout>(fwdStr, st::msgServiceFont);
+    const auto font = QFont(st::msgServiceFont);
+    const auto &emojiMetrics = emojiMetricsFor(font);
+    auto display = QString();
+    auto emoji = QList<TeleMatrix::EmojiText::Entry>();
+    const auto hasEmoji = TeleMatrix::EmojiText::Prepare(fwdStr, &display, &emoji);
+    auto layout = std::make_shared<QTextLayout>(
+        hasEmoji ? display : fwdStr,
+        st::msgServiceFont);
+    if (hasEmoji) {
+        layout->setFormats(
+            TeleMatrix::EmojiText::SpacingFormats(emoji, font, emojiMetrics));
+    }
     // Same reason as cachedDrawableLayout: retain the shaped glyphs, otherwise
     // this cached layout re-shapes on every paint.
     layout->setCacheEnabled(true);
@@ -2001,10 +2056,11 @@ static QTextLayout &cachedForwardedLayout(
     layout->endLayout();
     CachedForwardedLayout entry;
     entry.layout = std::move(layout);
+    entry.emoji = std::move(emoji);
     entry.innerWidth = innerWidth;
     entry.strHash = h;
     capPaintCache(s_fwdLayoutCache);
-    return *s_fwdLayoutCache.insert(eventId, std::move(entry))->layout;
+    return *s_fwdLayoutCache.insert(eventId, std::move(entry));
 }
 
 /// Body hash for cache validation (detects edits).
@@ -2042,6 +2098,12 @@ static const CachedResolvedText &cachedText(
             fr.format.setForeground(linkColor);
         }
     }
+    // Last, so QTextEngine's format merge lets the emoji slots win over bold and
+    // monospace ranges — the reserved width has to be identical everywhere.
+    entry.baseFormats += TeleMatrix::EmojiText::SpacingFormats(
+        entry.resolved.emoji,
+        QFont(st::msgFont),
+        bodyEmojiMetrics());
     capPaintCache(s_textCache);
     return *s_textCache.insert(item.eventId, std::move(entry));
 }
@@ -2060,7 +2122,7 @@ static const CachedLayoutMetrics &cachedMetrics(
         return *it;
     }
     const auto &ct = cachedText(item, isOut);
-    QTextLayout layout(ct.resolved.plain, QFont(st::msgFont));
+    QTextLayout layout(layoutSource(ct.resolved), QFont(st::msgFont));
     {
         QTextOption opt;
         opt.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
@@ -2089,7 +2151,11 @@ static const CachedLayoutMetrics &cachedMetrics(
         }
         layout.endLayout();
     } else {
-        const auto lr = layoutWithBlocks(layout, availWidth, ct.resolved.blocks);
+        const auto lr = layoutWithBlocks(
+            layout,
+            availWidth,
+            ct.resolved.blocks,
+            ct.resolved.plain);
         m.textHeight = lr.textHeight;
         m.lastLineWidth = lr.lastLineWidth;
         m.maxLineWidth = lr.maxLineWidth;
@@ -2115,7 +2181,9 @@ static const QTextLayout &cachedDrawableLayout(
     }
 
     const auto &ct = cachedText(item, isOut);
-    auto layout = std::make_shared<QTextLayout>(ct.resolved.plain, QFont(st::msgFont));
+    auto layout = std::make_shared<QTextLayout>(
+        layoutSource(ct.resolved),
+        QFont(st::msgFont));
     // Without this, endLayout() calls QTextEngine::freeMemory() and throws away
     // every shaped glyph — so caching the QTextLayout saves the line breaking but
     // NOT the shaping, and each draw() re-runs HarfBuzz over the whole message.
@@ -2147,7 +2215,11 @@ static const QTextLayout &cachedDrawableLayout(
         }
         layout->endLayout();
     } else {
-        layoutWithBlocks(*layout, availWidth, ct.resolved.blocks);
+        layoutWithBlocks(
+            *layout,
+            availWidth,
+            ct.resolved.blocks,
+            ct.resolved.plain);
     }
 
     CachedDrawableLayout entry;
@@ -2729,14 +2801,17 @@ FormattedText resolveText(const TimelineItem &item) {
     if (!formatted.isEmpty()) {
         auto ft = parseFormattedBody(formatted);
         autoDetectLinks(ft);
+        TeleMatrix::EmojiText::Prepare(ft.plain, &ft.display, &ft.emoji);
         return ft;
     }
     // QTextLayout only breaks lines at QChar::LineSeparator (U+2028),
     // not at '\n' (U+000A).  Replace so plain-text messages wrap correctly.
     QString text = bodyText(item);
     text.replace(u'\n', QChar::LineSeparator);
-    FormattedText ft = { text, {}, {}, {} };
+    FormattedText ft;
+    ft.plain = text;
     autoDetectLinks(ft);
+    TeleMatrix::EmojiText::Prepare(ft.plain, &ft.display, &ft.emoji);
     return ft;
 }
 
@@ -2895,7 +2970,8 @@ int findBlock(int textPos, const QList<BlockRange> &blocks) {
 BlockAwareLayoutResult layoutWithBlocks(
     QTextLayout &layout,
     int availWidth,
-    const QList<BlockRange> &blocks)
+    const QList<BlockRange> &blocks,
+    const QString &sourceText)
 {
     BlockAwareLayoutResult result{};
     int totalHeight = 0;
@@ -2994,8 +3070,12 @@ BlockAwareLayoutResult layoutWithBlocks(
     // not the unwrapped width. So we measure the source text directly
     // using QFontMetrics on the monospace font.
     if (!blocks.isEmpty()) {
-        const auto plainText = layout.text();
-        static const QFontMetrics monoFm(st::monospaceFont(st::fsize));
+        // The source, not layout.text(): the latter holds NBSP placeholders, which
+        // would measure a code block containing emoji far too narrow.
+        const auto &plainText = sourceText;
+        static const QFont monoFont(st::monospaceFont(st::fsize));
+        static const auto monoEmoji = TeleMatrix::EmojiText::MetricsFor(
+            monoFont, st::emojiInlineSlot, st::emojiInlineGlyph);
         for (const auto &blk : blocks) {
             if (blk.type != BlockType::Pre) continue;
 
@@ -3012,7 +3092,8 @@ BlockAwareLayoutResult layoutWithBlocks(
                         || blockText[j] == u'\n');
                 if (atEnd || atSep) {
                     const auto lineText = blockText.mid(lineStart, j - lineStart);
-                    const auto lineW = monoFm.horizontalAdvance(lineText)
+                    const auto lineW = TeleMatrix::EmojiText::Width(
+                            lineText, monoFont, monoEmoji)
                         + padLeft + padRight;
                     result.preMaxNaturalWidth = qMax(
                         result.preMaxNaturalWidth, lineW);
@@ -3247,8 +3328,17 @@ QStringList linkPreviewTextLines(
         return {};
     }
 
-    QTextLayout layout(text, font);
+    const auto &emojiMetrics = emojiMetricsFor(font);
+    auto display = QString();
+    auto emoji = QList<TeleMatrix::EmojiText::Entry>();
+    const auto hasEmoji = TeleMatrix::EmojiText::Prepare(text, &display, &emoji);
+
+    QTextLayout layout(hasEmoji ? display : text, font);
     configureLinkPreviewTextLayout(layout);
+    if (hasEmoji) {
+        layout.setFormats(
+            TeleMatrix::EmojiText::SpacingFormats(emoji, font, emojiMetrics));
+    }
     layout.beginLayout();
     QStringList result;
     while (result.size() < maxLines) {
@@ -3260,9 +3350,12 @@ QStringList linkPreviewTextLines(
         const auto lineEnd = line.textStart() + line.textLength();
         const auto truncated = (result.size() + 1 == maxLines)
             && (lineEnd < text.size());
+        // Slices come from the source, not the placeholders: the two strings share
+        // indices, and the caller draws these through EmojiText.
         if (truncated) {
             const auto tail = text.mid(line.textStart());
-            result.push_back(QFontMetrics(font).elidedText(tail, Qt::ElideRight, width));
+            result.push_back(
+                TeleMatrix::EmojiText::Elide(tail, font, emojiMetrics, width));
         } else {
             result.push_back(text.mid(line.textStart(), line.textLength()));
         }
@@ -3283,11 +3376,17 @@ int drawCachedLinkPreviewText(
     }
 
     const auto fm = QFontMetrics(font);
+    const auto &emojiMetrics = emojiMetricsFor(font);
 
     p.save();
     p.setFont(font);
     for (auto i = 0; i != lines.size(); ++i) {
-        p.drawText(x, y + (i * lineHeight) + fm.ascent(), lines[i]);
+        TeleMatrix::EmojiText::DrawLine(
+            p,
+            x,
+            y + (i * lineHeight) + fm.ascent(),
+            lines[i],
+            emojiMetrics);
     }
     p.restore();
 
@@ -3311,7 +3410,23 @@ CaptionLayout layoutCaptionLines(const QString &caption, int availWidth) {
     auto text = caption;
     text.replace(u'\n', QChar::LineSeparator);
 
-    QTextLayout layout(text, QFont(st::msgFont));
+    auto display = QString();
+    auto emoji = QList<TeleMatrix::EmojiText::Entry>();
+    const auto hasEmoji = TeleMatrix::EmojiText::Prepare(text, &display, &emoji);
+
+    QTextLayout layout(hasEmoji ? display : text, QFont(st::msgFont));
+    {
+        // Emoji placeholders are non-breaking, so an all-emoji caption is one
+        // unbreakable word; without the break-anywhere fallback it overflows the
+        // bubble instead of wrapping. Every other layout here already sets this.
+        QTextOption option;
+        option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        layout.setTextOption(option);
+    }
+    if (hasEmoji) {
+        layout.setFormats(TeleMatrix::EmojiText::SpacingFormats(
+            emoji, QFont(st::msgFont), bodyEmojiMetrics()));
+    }
     layout.beginLayout();
     while (true) {
         auto line = layout.createLine();
@@ -3886,13 +4001,8 @@ void paintReplyBlock(
         const auto baseline = replyRect.top()
             + (replyHeight - st::msgFont->height) / 2
             + st::msgFont->ascent;
-        p.drawText(
-            textLeft,
-            baseline,
-            st::fontMetrics(st::msgFont).elidedText(
-                data.text,
-                Qt::ElideRight,
-                textWidth));
+        TeleMatrix::EmojiText::DrawElided(
+            p, textLeft, baseline, textWidth, data.text, bodyEmojiMetrics());
     } else {
         // Name uses service color (msgInServiceFg / msgOutServiceFg).
         const auto nameColor = isOutgoing ? st::msgOutServiceFg : st::msgInServiceFg;
@@ -3914,13 +4024,13 @@ void paintReplyBlock(
 
         p.setFont(st::msgServiceNameFont);
         p.setPen(nameColor);
-        p.drawText(
+        TeleMatrix::EmojiText::DrawElided(
+            p,
             textLeft,
             titleBaseline,
-            st::fontMetrics(st::msgServiceNameFont).elidedText(
-                data.name,
-                Qt::ElideRight,
-                textWidth));
+            textWidth,
+            data.name,
+            emojiMetricsFor(QFont(st::msgServiceNameFont)));
 
         p.setFont(st::msgFont);
         // Colorized text ("Photo", "Video", "File") uses date color
@@ -3929,13 +4039,13 @@ void paintReplyBlock(
             ? (isOutgoing ? st::msgOutDateFg : st::msgInDateFg)
             : (isOutgoing ? st::historyTextOutFg : st::historyTextInFg);
         p.setPen(textColor);
-        p.drawText(
+        TeleMatrix::EmojiText::DrawElided(
+            p,
             textLeft,
             previewBaseline,
-            st::fontMetrics(st::msgFont).elidedText(
-                data.text.simplified(),
-                Qt::ElideRight,
-                textWidth));
+            textWidth,
+            data.text.simplified(),
+            bodyEmojiMetrics());
     }
 }
 
@@ -4956,10 +5066,12 @@ void paintStatusMessage(
         const auto reserveFastReply = false /* reply pill is floating, no sender-row reservation */;
         p.setFont(st::msgNameFont);
         p.setPen(senderColor(item.sender.id));
-        p.drawText(
+        TeleMatrix::EmojiText::DrawLine(
+            p,
             bubbleLeft + kBubblePaddingH,
             contentTop + st::msgNameFont->ascent,
-            elidedSenderName(item, bubbleWidth, reserveFastReply));
+            elidedSenderName(item, bubbleWidth, reserveFastReply),
+            emojiMetricsFor(QFont(st::msgNameFont)));
         contentTop += kSenderNameHeight;
     }
 
@@ -5276,10 +5388,12 @@ void paintPollMessage(
         const auto reserveFastReply = false /* reply pill is floating, no sender-row reservation */;
         p.setFont(st::msgNameFont);
         p.setPen(senderColor(item.sender.id));
-        p.drawText(
+        TeleMatrix::EmojiText::DrawLine(
+            p,
             bubbleLeft + kBubblePaddingH,
             contentTop + st::msgNameFont->ascent,
-            elidedSenderName(item, bubbleWidth, reserveFastReply));
+            elidedSenderName(item, bubbleWidth, reserveFastReply),
+            emojiMetricsFor(QFont(st::msgNameFont)));
         if (reserveFastReply && context.isHovered && !context.selectionMode) {
             paintFastReplyAction(
                 p,
@@ -5296,11 +5410,13 @@ void paintPollMessage(
         const auto fwdStr = forwardedText(item);
         p.setFont(st::msgServiceFont);
         p.setPen(isOut ? st::msgOutServiceFg : st::msgInServiceFg);
-        const auto &fwdFm = st::fontMetrics(st::msgServiceFont);
-        p.drawText(
+        TeleMatrix::EmojiText::DrawElided(
+            p,
             bubbleLeft + kBubblePaddingH,
             contentTop + st::msgServiceFont->ascent,
-            fwdFm.elidedText(fwdStr, Qt::ElideRight, innerWidth));
+            innerWidth,
+            fwdStr,
+            emojiMetricsFor(QFont(st::msgServiceFont)));
         contentTop += fwdHeight;
     }
 
@@ -5598,10 +5714,12 @@ void paintTextMessage(
         const auto reserveFastReply = false /* reply pill is floating, no sender-row reservation */;
         p.setFont(st::msgNameFont);
         p.setPen(senderColor(item.sender.id));
-        p.drawText(
+        TeleMatrix::EmojiText::DrawLine(
+            p,
             bubbleLeft + kBubblePaddingH,
             contentTop + st::msgNameFont->ascent,
-            elidedSenderName(item, bubbleWidth, reserveFastReply));
+            elidedSenderName(item, bubbleWidth, reserveFastReply),
+            emojiMetricsFor(QFont(st::msgNameFont)));
         if (reserveFastReply && context.isHovered && !context.selectionMode) {
             paintFastReplyAction(
                 p,
@@ -5621,19 +5739,26 @@ void paintTextMessage(
         p.setFont(st::msgServiceFont);
         p.setPen(isOut ? st::msgOutServiceFg : st::msgInServiceFg);
         const auto fwdInnerW = bubbleWidth - 2 * kBubblePaddingH;
-        const auto &fwdFm = st::fontMetrics(st::msgServiceFont);
-        const auto fwdTextWidth = fwdFm.horizontalAdvance(fwdStr);
+        const auto &fwdEmoji = emojiMetricsFor(QFont(st::msgServiceFont));
+        const auto fwdTextWidth = TeleMatrix::EmojiText::Width(
+            fwdStr, st::msgServiceFont, fwdEmoji);
         const auto fwdLines = (fwdTextWidth > fwdInnerW) ? 2 : 1;
         if (fwdLines == 1) {
-            p.drawText(
+            TeleMatrix::EmojiText::DrawElided(
+                p,
                 bubbleLeft + kBubblePaddingH,
                 contentTop + st::msgServiceFont->ascent,
-                fwdFm.elidedText(fwdStr, Qt::ElideRight, fwdInnerW));
+                fwdInnerW,
+                fwdStr,
+                fwdEmoji);
         } else {
             // Two lines with word wrap; layout cached per (eventId, width) so it
             // isn't rebuilt every paint.
-            auto &fwdLayout = cachedForwardedLayout(item.eventId, fwdStr, fwdInnerW);
-            fwdLayout.draw(&p, QPointF(bubbleLeft + kBubblePaddingH, contentTop));
+            const auto &fwd = cachedForwardedLayout(item.eventId, fwdStr, fwdInnerW);
+            const auto origin = QPointF(bubbleLeft + kBubblePaddingH, contentTop);
+            fwd.layout->draw(&p, origin);
+            TeleMatrix::EmojiText::DrawSprites(
+                p, *fwd.layout, fwd.emoji, origin, fwdEmoji);
         }
         contentTop += fwdHeight;
     }
@@ -5711,6 +5836,14 @@ void paintTextMessage(
             overlays.append(glowRange);
         }
         bodyLayout.draw(&p, QPointF(textLeft, contentTop), overlays);
+        // After draw(), so selection backgrounds and link underlines — which come out
+        // of `overlays` inside draw() — end up behind the sprites.
+        TeleMatrix::EmojiText::DrawSprites(
+            p,
+            bodyLayout,
+            resolved.emoji,
+            QPointF(textLeft, contentTop),
+            bodyEmojiMetrics());
     }
     if (context.urlPreviewFetching && !resolved.links.isEmpty()) {
         scheduleContextRepaint(context); // keep the URL glow breathing
@@ -6531,10 +6664,12 @@ void paintImageMessage(
             const auto reserveFastReply = false /* reply pill is floating, no sender-row reservation */;
             p.setFont(st::msgNameFont);
             p.setPen(senderColor(item.sender.id));
-            p.drawText(
+            TeleMatrix::EmojiText::DrawLine(
+                p,
                 bubbleLeft + kBubblePaddingH,
                 senderTop + st::msgNameFont->ascent,
-                elidedSenderName(item, bubbleWidth, reserveFastReply));
+                elidedSenderName(item, bubbleWidth, reserveFastReply),
+                emojiMetricsFor(QFont(st::msgNameFont)));
             if (reserveFastReply && context.isHovered && !context.selectionMode) {
                 paintFastReplyAction(
                     p,
@@ -6848,10 +6983,12 @@ void paintVideoMessage(
             const auto reserveFastReply = false /* reply pill is floating, no sender-row reservation */;
             p.setFont(st::msgNameFont);
             p.setPen(senderColor(item.sender.id));
-            p.drawText(
+            TeleMatrix::EmojiText::DrawLine(
+                p,
                 bubbleLeft + kBubblePaddingH,
                 senderTop + st::msgNameFont->ascent,
-                elidedSenderName(item, bubbleWidth, reserveFastReply));
+                elidedSenderName(item, bubbleWidth, reserveFastReply),
+                emojiMetricsFor(QFont(st::msgNameFont)));
             if (reserveFastReply && context.isHovered && !context.selectionMode) {
                 paintFastReplyAction(
                     p,
@@ -7356,10 +7493,12 @@ void paintAudioMessage(
         const auto reserveFastReply = false /* reply pill is floating, no sender-row reservation */;
         p.setFont(st::msgNameFont);
         p.setPen(senderColor(item.sender.id));
-        p.drawText(
+        TeleMatrix::EmojiText::DrawLine(
+            p,
             bubbleLeft + kBubblePaddingH,
             kBubblePaddingV + st::msgNameFont->ascent,
-            elidedSenderName(item, bubbleWidth, reserveFastReply));
+            elidedSenderName(item, bubbleWidth, reserveFastReply),
+            emojiMetricsFor(QFont(st::msgNameFont)));
         if (reserveFastReply && context.isHovered && !context.selectionMode) {
             paintFastReplyAction(
                 p,
@@ -7593,22 +7732,31 @@ int cursorAt(
     const qreal localX = pos.x() - textLeft;
     const qreal localY = pos.y() - textTop;
 
+    // Every emoji placeholder is a legal cursor stop, unlike the surrogate pairs it
+    // replaced, so a hit can now land mid-emoji. selectedText() slices resolved.plain
+    // with whatever comes back from here, and an unsnapped index would put half a
+    // surrogate pair on the clipboard. This is the one choke point: isOverText() and
+    // linkAt() both route through it.
+    const auto snap = [&](int position) {
+        return TeleMatrix::EmojiText::SnapCursor(resolved.emoji, position);
+    };
+
     // Find which line the y falls on.
     for (int i = 0; i < layout.lineCount(); ++i) {
         const auto line = layout.lineAt(i);
         if (localY >= line.y() && localY < line.y() + line.height()) {
-            return line.xToCursor(localX);
+            return snap(line.xToCursor(localX));
         }
     }
 
     if (clamp && layout.lineCount() > 0) {
         // Above all lines → start of first line.
         if (localY < layout.lineAt(0).y()) {
-            return layout.lineAt(0).textStart();
+            return snap(layout.lineAt(0).textStart());
         }
         // Below all lines → end of last line.
         const auto last = layout.lineAt(layout.lineCount() - 1);
-        return last.textStart() + last.textLength();
+        return snap(last.textStart() + last.textLength());
     }
 
     return -1;

@@ -5,6 +5,8 @@
 // files in the project root for full terms.
 
 #include "history_widget.h"
+
+#include "ui/text/emoji_text.h"
 #include "trust_shield.h"
 #include "app/app_controller.h"
 #include "app/unread_state_store.h"
@@ -1428,19 +1430,22 @@ protected:
         const auto titleColor = st::dialogsNameFg;
         p.setPen(titleColor);
         p.setFont(st::semiboldFont);
-        const auto nameMetrics = QFontMetrics(st::semiboldFont);
-        const auto nameElided = nameMetrics.elidedText(
+        const auto &nameEmoji = TeleMatrix::EmojiText::CachedMetricsFor(
+            st::semiboldFont, st::emojiInlineSlot, st::emojiInlineGlyph);
+        const auto nameElided = TeleMatrix::EmojiText::Elide(
             _name,
-            Qt::ElideRight,
+            st::semiboldFont,
+            nameEmoji,
             qMax(0, nameWidth - statusIconsSpace));
-        auto statusIconLeft = nameLeft + nameMetrics.horizontalAdvance(nameElided);
         const auto nameTop = _savedMessagesMode
             ? (kTopBarHeight - st::semiboldFont->height) / 2
             : kTopBarNameTop;
-        p.drawText(
+        auto statusIconLeft = nameLeft + TeleMatrix::EmojiText::DrawLine(
+            p,
             nameLeft,
             nameTop + st::semiboldFont->ascent,
-            nameElided);
+            nameElided,
+            nameEmoji);
 
         const auto drawStatusIcon = [&](StatusIcon icon) {
             statusIconLeft += kTopBarStatusIconSkip;
@@ -1568,13 +1573,17 @@ protected:
                     elided);
                 p.setOpacity(1.0);
             } else {
-                const auto subtitleElided = fm.elidedText(
-                    _subtitle, Qt::ElideRight, nameWidth);
                 p.setPen(st::dialogsTextFg);
-                p.drawText(
+                TeleMatrix::EmojiText::DrawElided(
+                    p,
                     nameLeft,
                     statusTop + st::dialogsTextFont->ascent,
-                    subtitleElided);
+                    nameWidth,
+                    _subtitle,
+                    TeleMatrix::EmojiText::CachedMetricsFor(
+                        st::dialogsTextFont,
+                        st::emojiInlineSlot,
+                        st::emojiInlineGlyph));
             }
         }
 

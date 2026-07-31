@@ -5,6 +5,7 @@
 // files in the project root for full terms.
 
 #include "account_edit_name_dialog.h"
+#include "ui/widgets/emoji_input_field.h"
 
 #include <QEventLoop>
 #include <QFont>
@@ -232,8 +233,8 @@ AccountEditNameDialog::AccountEditNameDialog(
         _multilineField->setPlainText(currentName);
         inputLayout->addWidget(_multilineField);
     } else {
-        _nameField = new ::Ui::InputField(
-            inputContainer, st::defaultInputField, rpl::single<QString>(ph));
+        _nameField = new ::Ui::EmojiInputField(
+            inputContainer, st::defaultInputField, ph);
         _nameField->setMaxLength(kMaxDisplayNameLength);
         _nameField->setText(currentName);
         inputLayout->addWidget(_nameField);
@@ -281,9 +282,9 @@ AccountEditNameDialog::AccountEditNameDialog(
         connect(_multilineField, &QPlainTextEdit::textChanged, this,
                 [this] { updateSaveButton(); });
     } else {
-        connect(_nameField, &QLineEdit::textChanged, this,
+        connect(_nameField, &QTextEdit::textChanged, this,
                 [this] { updateSaveButton(); });
-        connect(_nameField, &QLineEdit::returnPressed, this, [this] {
+        connect(_nameField, &::Ui::EmojiInputField::submitted, this, [this] {
             if (_save->isEnabled()) {
                 accept();
             }

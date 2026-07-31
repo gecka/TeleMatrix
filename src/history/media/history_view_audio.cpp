@@ -6,6 +6,8 @@
 
 #include "history_view_audio.h"
 
+#include "ui/text/emoji_text.h"
+
 #include "../../protocol/media_cache.h"
 #include "ui/format_bytes.h"
 
@@ -544,14 +546,19 @@ void paint(
 
         p.setFont(st::semiboldFont);
         p.setPen(isOut ? st::historyTextOutFg : st::historyTextInFg);
-        const auto elidedName = st::fontMetrics(st::semiboldFont).elidedText(
-            fileName,
-            Qt::ElideMiddle,
-            textWidth);
-        p.drawText(
+        const auto &nameEmoji = TeleMatrix::EmojiText::CachedMetricsFor(
+            st::semiboldFont, st::emojiInlineSlot, st::emojiInlineGlyph);
+        TeleMatrix::EmojiText::DrawLine(
+            p,
             textLeft,
             contentTop + st::docNameTop + st::semiboldFont->ascent,
-            elidedName);
+            TeleMatrix::EmojiText::Elide(
+                fileName,
+                st::semiboldFont,
+                nameEmoji,
+                textWidth,
+                Qt::ElideMiddle),
+            nameEmoji);
 
         QString statusText;
         const auto activeDurationMs = (ctx.audioState && ctx.audioState->durationMs > 0)
