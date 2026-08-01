@@ -306,6 +306,11 @@ private:
     /// pointer-to-member slot for `logoutRequested`; `signOut` is the body.
     void handleLogout();
     void signOut(SignOutReason reason);
+    /// Freeze the window and soften it away, so nothing on screen stays
+    /// identifiable while the session is torn down. Returns the curtain, or a
+    /// null pointer if there was nothing on screen to cover.
+    [[nodiscard]] QPointer<QWidget> raiseSignOutCurtain();
+    void dissolveSignOutCurtain(QPointer<QWidget> curtain);
     /// Connect this account's bridge to the remote-sign-out signal. Call after
     /// every bridge creation, for background accounts too: a dead token has to
     /// be acted on whether or not that account is the one on screen.

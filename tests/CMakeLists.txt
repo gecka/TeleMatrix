@@ -15,6 +15,7 @@ set(TELEMATRIX_TEST_AREAS
     dialogs_width
     account_index
     forced_sign_out
+    sign_out_curtain
     unread_state_store
     history_return_stack
     history_selection_state

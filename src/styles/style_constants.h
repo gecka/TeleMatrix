@@ -1601,6 +1601,14 @@ inline int settingsAccountTextLeft = 66;
 // Account switch: the outgoing account's UI slides away to reveal the new one.
 inline constexpr int accountSwitchSlideDuration = 500;
 
+// Sign-out: the window softens out of focus, loses colour and pulls back while
+// a paper wash rises through it. Long enough to read as the session being set
+// down rather than snatched away — but the privacy guarantee it carries (see
+// ui/sign_out_curtain.h) lands at 40% of it, so nothing on screen survives
+// past ~240ms regardless.
+inline constexpr int signOutCurtainDuration = 600;
+inline constexpr int signOutCurtainFadeDuration = 260;
+
 inline QColor mainMenuRowBgOver       = QColor(0xF4, 0xF4, 0xF4);
 inline QColor mainMenuRowBgDown       = QColor(0xE8, 0xE8, 0xE8);
 inline QColor mainMenuRowText         = windowFg;

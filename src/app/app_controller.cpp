@@ -26,6 +26,7 @@
 #include "../ui/style/icon_provider.h"
 #include "../ui/style/runtime_scale.h"
 #include "../ui/emoji_config.h"
+#include "sign_out_curtain.h"
 #include "../ui/emoji_sprites.h"
 #include "../styles/style_constants.h"
 #include "../history/history_confirm_dialog.h"
@@ -45,6 +46,7 @@
 #include <vector>
 
 #include <QApplication>
+#include <QGraphicsOpacityEffect>
 #include <QDialog>
 #include <QDir>
 #include <QPainter>
@@ -186,6 +188,115 @@ private:
     QPixmap _incoming;
     int _direction = 1;
     qreal _progress = 0.0;
+};
+
+// Signing out softens the window away rather than cutting it: it drifts out of
+// focus, pulls back a notch, and a paper wash rises through it. See
+// app/sign_out_curtain.h — the point is that past 40% of the transition nothing
+// on screen is identifiable, in a screenshot or a screen-share as much as to
+// the person sitting there.
+//
+// It paints a FROZEN copy of the window rather than filtering the live tree:
+// what a screenshot, a recording or an Exposé thumbnail captures is the window's
+// composited buffer, so the only way to guarantee what they can capture is for
+// the buffer itself to hold nothing else.
+class SignOutCurtain final : public QWidget {
+public:
+    // `contentRatio` locates the frozen content within the window as fractions
+    // rather than pixels. Signing out ends on the intro, and showIntro()
+    // re-centres the window at its default size — a pixel rect captured before
+    // that would leave the content stranded at the old geometry the moment the
+    // window changed size, which is a visible jump at the end of the effect.
+    SignOutCurtain(QWidget *parent, const QImage &snapshot, QRectF contentRatio)
+    : QWidget(parent)
+    , _pyramid(BuildCurtainPyramid(snapshot))
+    , _contentRatio(contentRatio) {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_OpaquePaintEvent, true);
+        // Installed up front, at full opacity, rather than when the fade
+        // starts: adding an effect changes how Qt renders the widget, and
+        // swapping that in mid-transition is itself a visible step.
+        _effect = new QGraphicsOpacityEffect(this);
+        _effect->setOpacity(1.0);
+        setGraphicsEffect(_effect);
+        if (parent) {
+            parent->installEventFilter(this);
+        }
+    }
+
+    void run(int durationMs) {
+        auto *animation = new QVariantAnimation(this);
+        animation->setDuration(durationMs);
+        // Symmetric ease: the window drifts out of focus rather than being cut,
+        // and the settle at the end has no stop in it.
+        animation->setEasingCurve(QEasingCurve::InOutCubic);
+        animation->setStartValue(0.0);
+        animation->setEndValue(1.0);
+        connect(animation, &QVariantAnimation::valueChanged, this,
+            [this](const QVariant &value) {
+                _progress = value.toReal();
+                update();
+            });
+        _animation = animation;
+        animation->start(QAbstractAnimation::DeleteWhenStopped);
+    }
+
+    // Hold the frame exactly where it is. Called before the fade so the two
+    // animations cannot run against each other, which would keep softening the
+    // picture while it is on its way out.
+    void freeze() {
+        if (_animation) {
+            _animation->stop();
+        }
+    }
+
+    void fadeOut(int durationMs) {
+        freeze();
+        auto *animation = new QVariantAnimation(this);
+        animation->setDuration(durationMs);
+        animation->setEasingCurve(QEasingCurve::OutCubic);
+        animation->setStartValue(1.0);
+        animation->setEndValue(0.0);
+        connect(animation, &QVariantAnimation::valueChanged, this,
+            [this](const QVariant &value) {
+                _effect->setOpacity(value.toReal());
+            });
+        connect(animation, &QVariantAnimation::finished, this, [this] {
+            deleteLater();
+        });
+        animation->start(QAbstractAnimation::DeleteWhenStopped);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override {
+        QPainter p(this);
+        PaintCurtain(p, rect(), contentRect(), _pyramid, _progress, CurtainPaper());
+    }
+
+    bool eventFilter(QObject *object, QEvent *event) override {
+        // Track the window: a resize mid-transition must not open a strip of
+        // live content down the side.
+        if (object == parentWidget() && event->type() == QEvent::Resize) {
+            setGeometry(parentWidget()->rect());
+        }
+        return QWidget::eventFilter(object, event);
+    }
+
+private:
+    [[nodiscard]] QRect contentRect() const {
+        const auto r = rect();
+        return QRect(
+            int(r.x() + _contentRatio.x() * r.width()),
+            int(r.y() + _contentRatio.y() * r.height()),
+            int(_contentRatio.width() * r.width()),
+            int(_contentRatio.height() * r.height()));
+    }
+
+    CurtainPyramid _pyramid;
+    QRectF _contentRatio;
+    qreal _progress = 0.0;
+    QGraphicsOpacityEffect *_effect = nullptr;
+    QPointer<QVariantAnimation> _animation;
 };
 
 // Key for one account's local-cache passphrase. Namespaced by data-directory name
@@ -2124,11 +2235,21 @@ void AppController::signOut(SignOutReason reason) {
         // cancelText would otherwise render the default "Cancel" label.
         /*showCancel=*/!remote);
 
+    // The curtain goes up with the teardown, so it is raised inside it rather
+    // than here: cancelling never starts one, and never sees one. Shared
+    // because the teardown creates it but the dissolve after exec() needs it —
+    // the callback runs inside exec(), so this frame always outlives it.
+    auto curtain = std::make_shared<QPointer<QWidget>>();
+
     // Held by pointer because on the remote path the teardown outlives the
     // dialog — the user can close the popup while it is still running — so it
     // must never be touched after deleteLater.
     QPointer<HistoryConfirmDialog> popup(dialog);
-    auto runTeardown = [this, popup, remote] {
+    auto runTeardown = [this, popup, remote, curtain] {
+        // Soften the window away: nothing identifiable may survive on screen
+        // past the first fraction of a second of signing out.
+        *curtain = raiseSignOutCurtain();
+
         const auto account = _domain.active();
         // Clear this account's persisted session and secrets immediately. Only
         // its own keys: a sibling account that stays signed in must keep working,
@@ -2172,7 +2293,10 @@ void AppController::signOut(SignOutReason reason) {
         // window's central widget: the dialog is a sibling of it, and a freshly
         // shown central widget stacks above its siblings. Only matters on the
         // remote path, where the popup outlives the rebuild.
-        auto restack = [popup, remote]() {
+        auto restack = [popup, remote, curtain]() {
+            if (*curtain) {
+                (*curtain)->raise();
+            }
             if (remote && popup) {
                 popup->raise();
             }
@@ -2322,6 +2446,65 @@ void AppController::signOut(SignOutReason reason) {
 
     dialog->exec();
     dialog->deleteLater();
+    // The dialog is gone, so the curtain has nothing left to sit behind:
+    // dissolve it to reveal the intro underneath. A cancelled sign-out never
+    // raised one, and this is a no-op.
+    dissolveSignOutCurtain(*curtain);
+}
+
+QPointer<QWidget> AppController::raiseSignOutCurtain() {
+    if (!_window || !_mainWidget) {
+        return {};
+    }
+
+    // Anything in its own top-level window is outside a child overlay's reach —
+    // and MediaViewOverlay is exactly that (Qt::Tool), so an open photo would
+    // stay perfectly legible while the window behind it softened away. Popups
+    // and tooltips are top-level too. Take them all down first.
+    for (auto *top : QApplication::topLevelWidgets()) {
+        if (top != _window && top->isVisible()) {
+            top->hide();
+        }
+    }
+
+    // The central widget, not the window: the confirm dialog is a SIBLING of
+    // it, so grabbing the window would freeze a copy of the dialog into the
+    // curtain and then draw the real one on top of its own ghost.
+    const auto snapshot = _mainWidget->grab().toImage();
+    if (snapshot.isNull()) {
+        return {};
+    }
+
+    // As fractions of the window, not pixels: showIntro() re-centres the window
+    // at its default size, and a pixel rect would strand the content at the old
+    // geometry the moment that happened.
+    const auto window = QRectF(_window->rect());
+    const auto content = QRectF(_mainWidget->geometry());
+    const QRectF ratio(
+        (content.x() - window.x()) / window.width(),
+        (content.y() - window.y()) / window.height(),
+        content.width() / window.width(),
+        content.height() / window.height());
+
+    auto *curtain = new SignOutCurtain(_window, snapshot, ratio);
+    curtain->setGeometry(_window->rect());
+    curtain->show();
+    curtain->raise();
+    curtain->run(st::signOutCurtainDuration);
+    return QPointer<QWidget>(curtain);
+}
+
+void AppController::dissolveSignOutCurtain(QPointer<QWidget> curtain) {
+    if (!curtain) {
+        return;
+    }
+    // static_cast, not qobject_cast: SignOutCurtain has no Q_OBJECT of its own,
+    // so a qobject_cast would match its base and succeed for any QWidget. Sound
+    // here because raiseSignOutCurtain is the only thing that produces this
+    // pointer — the QWidget in the signature is only to keep the class out of
+    // the header.
+    static_cast<SignOutCurtain*>(curtain.data())
+        ->fadeOut(st::signOutCurtainFadeDuration);
 }
 
 void AppController::wireSessionInvalidation(Account *account) {

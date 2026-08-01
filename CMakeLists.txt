@@ -304,6 +304,8 @@ add_library(telematrix_core OBJECT
     src/app/dialogs_width.cpp
     src/app/forced_sign_out.h
     src/app/forced_sign_out.cpp
+    src/app/sign_out_curtain.h
+    src/app/sign_out_curtain.cpp
     src/history/history_return_stack.h
     src/history/history_return_stack.cpp
     src/history/history_scroll_state.h
