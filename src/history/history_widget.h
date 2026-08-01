@@ -97,6 +97,12 @@ public:
     /// Navigate to a specific message. Loads the room if different from current.
     void showMessage(const QString &roomId, const QString &eventId);
 
+    /// Navigate to a message that is expected to be at the live tail — what a
+    /// desktop notification points at. Unlike showMessage() this keeps (or
+    /// restores) the live timeline and only falls back to a focused fetch when
+    /// the target really is outside the live window. See history/jump_routing.h.
+    void showMessageLive(const QString &roomId, const QString &eventId);
+
     /// Jump to a message in the current room; fetches via focusOnEvent if not loaded.
     void jumpToMessage(const QString &eventId);
     /// Start a focused-slice fetch for eventId without choosing a preloader location.
@@ -554,6 +560,11 @@ private:
         QString eventId;
     };
     std::optional<PendingJump> _pendingJump;
+    // Set alongside _pendingJump for a notification jump: the target is expected
+    // at the live tail, so loadRoomData must NOT focus the window on it. Spent
+    // on the first live slice that still lacks the target, which escalates to a
+    // focused fetch.
+    bool _pendingJumpPreferLive = false;
     uint64_t _nextJumpRequestId = 1;
     // After a jump completes, holds the target event ID so that
     // setSlice anchors to it (not the first visible message).

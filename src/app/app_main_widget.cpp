@@ -675,14 +675,7 @@ void AppMainWidget::setupLayout() {
             showRoomPreview(roomId, via);
             return;
         }
-        if (roomId != _activeRoomId) {
-            _activeRoomId = roomId;
-            if (_unreadStateStore) {
-                _unreadStateStore->setActiveRoomId(roomId);
-            }
-            emit activeRoomChanged(roomId);
-            _dialogs->selectRoomById(roomId);
-        }
+        setActiveRoom(roomId);
     });
 
     // Main menu overlay (Telegram-style left drawer).
@@ -1056,22 +1049,34 @@ void AppMainWidget::handleApplicationStateChanged(Qt::ApplicationState state) {
     }
 }
 
+void AppMainWidget::setActiveRoom(const QString &roomId) {
+    if (_activeRoomId == roomId) {
+        return;
+    }
+    _activeRoomId = roomId;
+    if (_unreadStateStore) {
+        _unreadStateStore->setActiveRoomId(roomId);
+    }
+    emit activeRoomChanged(roomId);
+    // Sync the chat list highlight to match the displayed room.
+    // Without this, external triggers (push notifications, deep links)
+    // leave the list highlighting the previous room.
+    if (_dialogs) {
+        _dialogs->selectRoomById(roomId);
+    }
+}
+
 void AppMainWidget::showRoomAtEvent(const QString &roomId, const QString &eventId) {
     if (eventId.isEmpty() || !_history) {
         showRoom(roomId);
         return;
     }
-    // showMessage is the same jump funnel a search result hit uses: it opens the
-    // room positioned on the event and highlights it, instead of landing on the
-    // unread delimiter the way a plain open does.
-    _history->showMessage(roomId, eventId);
-    if (_activeRoomId != roomId) {
-        _activeRoomId = roomId;
-        if (_unreadStateStore) {
-            _unreadStateStore->setActiveRoomId(roomId);
-        }
-        emit activeRoomChanged(roomId);
-    }
+    // A toast points at the message that just arrived, so this stays on the live
+    // timeline and highlights it there. Routing it through the jump funnel the
+    // way a search hit goes would detach the room onto a focused window around
+    // the event — see history/jump_routing.h.
+    _history->showMessageLive(roomId, eventId);
+    setActiveRoom(roomId);
 }
 
 void AppMainWidget::showRoom(const QString &roomId) {
@@ -1082,19 +1087,7 @@ void AppMainWidget::showRoom(const QString &roomId) {
             _history->loadRoom(roomId);
         }
     }
-    if (_activeRoomId != roomId) {
-        _activeRoomId = roomId;
-        if (_unreadStateStore) {
-            _unreadStateStore->setActiveRoomId(roomId);
-        }
-        emit activeRoomChanged(roomId);
-        // Sync the chat list highlight to match the displayed room.
-        // Without this, external triggers (push notifications, deep links)
-        // leave the list highlighting the previous room.
-        if (_dialogs) {
-            _dialogs->selectRoomById(roomId);
-        }
-    }
+    setActiveRoom(roomId);
 }
 
 bool AppMainWidget::eventFilter(QObject *watched, QEvent *event) {

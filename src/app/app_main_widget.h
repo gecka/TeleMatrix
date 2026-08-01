@@ -50,8 +50,8 @@ public:
 
     /// Load and display a room in the history panel.
     void showRoom(const QString &roomId);
-    /// Open `roomId` scrolled to `eventId` and highlight it — the same funnel a
-    /// search result uses. Falls back to showRoom() when the id is empty.
+    /// Open `roomId` on its live timeline and highlight `eventId` there — the
+    /// notification-click path. Falls back to showRoom() when the id is empty.
     void showRoomAtEvent(const QString &roomId, const QString &eventId);
 
     /// Show a room we are not a member of: its name and description over an empty timeline, with a
@@ -106,6 +106,10 @@ protected:
         const QString &roomId, const QString &userId, const QString &displayName);
 
 private:
+    /// Point the active-room bookkeeping (unread store, activeRoomChanged, chat
+    /// list highlight) at `roomId`. No-op when it is already active, so it is
+    /// safe to call after a path that has already switched rooms itself.
+    void setActiveRoom(const QString &roomId);
     void setupLayout();
     void applySyncState(int state);
     void setNetworkOnline(bool online);

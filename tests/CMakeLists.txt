@@ -23,6 +23,7 @@ set(TELEMATRIX_TEST_AREAS
     compose_html
     block_format_presence
     jump_load_controller
+    jump_routing
     unread_bar_placement
     unread_read_progress
     bubble_corners

@@ -13,6 +13,7 @@
 #include "history_inline_video.h"
 #include "history_list.h"
 #include "unread_bar_placement.h"
+#include "jump_routing.h"
 #include "history_input.h"
 #include "history_message.h"
 #include "history_emoji_picker.h"
@@ -2366,6 +2367,7 @@ HistoryWidget::HistoryWidget(
             if (!success) {
                 const auto failedEventId = _pendingJump->eventId;
                 _pendingJump.reset();
+                _pendingJumpPreferLive = false;
                 if (_jumpLoad.active()
                     && _jumpLoad.onFetchFailed()
                         == JumpLoadController::Action::Fallback) {
@@ -5874,6 +5876,7 @@ void HistoryWidget::beginFocusFetch(const QString &eventId) {
     // Start a focused-slice fetch for eventId in the current room. The jump
     // loading-cover (enterJumpLoad) owns the visual state.
     _pendingJump = PendingJump{_nextJumpRequestId++, _currentRoomId, eventId};
+    _pendingJumpPreferLive = false;
     _focusJumpEventId.clear();
     _bridge->focusOnEvent(_currentRoomId, eventId, _pendingJump->requestId);
 }
@@ -6097,6 +6100,7 @@ void HistoryWidget::closeRoom() {
     _unreadBarDismissed = false;
     // Cancel any in-flight jump loading-cover episode.
     _pendingJump.reset();
+    _pendingJumpPreferLive = false;
     _jumpLoad.reset();
     _jumpLoadEventId.clear();
     if (_jumpFloorTimer) {
@@ -6694,6 +6698,7 @@ void HistoryWidget::schedulePendingJumpVisibilityTimeout(
             return;
         }
         _pendingJump.reset();
+        _pendingJumpPreferLive = false;
         if (_jumpLoad.active()
             && _jumpLoad.onFetchFailed() == JumpLoadController::Action::Fallback) {
             finishJumpFallback();
@@ -6972,6 +6977,45 @@ void HistoryWidget::scrollToUnreadOrBottom() {
 
 void HistoryWidget::showMessage(const QString &roomId, const QString &eventId) {
     jumpTo(roomId, eventId, JumpSource::Normal);
+}
+
+void HistoryWidget::showMessageLive(
+        const QString &roomId,
+        const QString &eventId) {
+    if (roomId.isEmpty() || eventId.isEmpty() || !_list) {
+        return;
+    }
+    // A toast can outlive our membership, or name a room we never joined; there
+    // is no timeline to open, so hand it over for a preview like jumpTo() does.
+    if (roomId != _currentRoomId && !isJoinedRoom(roomId)) {
+        emit roomSwitchRequested(roomId);
+        return;
+    }
+    switch (JumpRouting::routeNotificationJump(
+            roomId == _currentRoomId,
+            _list->isLive(),
+            _list->hasMessage(eventId))) {
+    case JumpRouting::Route::InstantScroll:
+        scrollToMessageAndHighlight(eventId);
+        return;
+    case JumpRouting::Route::ReturnToLiveThenHighlight:
+        _pendingJump = PendingJump{_nextJumpRequestId++, roomId, eventId};
+        _pendingJumpPreferLive = true;
+        returnToLive();
+        return;
+    case JumpRouting::Route::LiveOpenThenHighlight:
+        // Deliberately no enterJumpLoad(): this is a room switch, so it gets the
+        // normal switch preloader rather than the opaque jump cover.
+        _pendingJump = PendingJump{_nextJumpRequestId++, roomId, eventId};
+        _pendingJumpPreferLive = true;
+        loadRoom(roomId);
+        emit roomSwitchRequested(roomId);
+        return;
+    case JumpRouting::Route::FocusFetch:
+        enterJumpLoad(eventId, JumpSource::Normal);
+        beginFocusFetch(eventId);
+        return;
+    }
 }
 
 void HistoryWidget::jumpTo(
@@ -7619,11 +7663,22 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
     // (no animation — the 180ms animation races with later SDK slice snaps) under
     // the cover; the JumpLoadController decides when to reveal (both the 1s floor
     // AND the target must be ready).
-    if (_pendingJump && _pendingJump->roomId == roomId
-            && _list->hasMessage(_pendingJump->eventId)) {
+    const auto pendingJumpHere = _pendingJump && _pendingJump->roomId == roomId;
+    const auto pendingJumpLoaded = pendingJumpHere
+        && _list->hasMessage(_pendingJump->eventId);
+    if (pendingJumpHere && pendingJumpLoaded) {
         const auto jumpId = _pendingJump->eventId;
+        const auto wasPreferLive = _pendingJumpPreferLive;
         _pendingJump.reset();
+        _pendingJumpPreferLive = false;
         _focusJumpEventId = jumpId;
+        if (wasPreferLive && _list) {
+            // Opening a toast is explicit "I am reading this" intent, but the
+            // replace that delivered the live slice armed the read-detection
+            // hold — without re-arming, the receipt would wait for a manual
+            // scroll. Cleared before the scroll so the move it causes detects.
+            _list->resetReadDetectionHold();
+        }
         const auto y = _list->yForEventId(jumpId);
         if (y >= 0) {
             const auto rh = _list->rowHeightForEventId(jumpId);
@@ -7632,6 +7687,11 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
                 y + (qMax(0, rh) / 2) - (_scroll->height() / 2),
                 _scroll->scrollTopMax());
             _scroll->scrollToY(targetY);
+        }
+        if (wasPreferLive && _list) {
+            // Re-run detection at the settled position: when the scroll above was
+            // a no-op (already there) nothing else would trigger it.
+            _list->updateVisibleTop(_scroll->scrollTop());
         }
         // Prevent the queued loadRoomData scroll lambda from overriding this.
         _jumpScrollApplied = true;
@@ -7645,6 +7705,17 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
             _list->setLoadingTimeline(false);
             _list->highlightMessage(jumpId);
         }
+    } else if (pendingJumpHere
+            && JumpRouting::shouldEscalateToFocusFetch(
+                _pendingJumpPreferLive,
+                slice.isLive,
+                pendingJumpLoaded)) {
+        // A notification target that was not at the live tail after all (an old
+        // toast, or a burst since it fired): serve it as a real jump. Re-arming
+        // via beginFocusFetch spends the preferLive flag, so this fires once.
+        const auto jumpId = _pendingJump->eventId;
+        enterJumpLoad(jumpId, JumpSource::Normal);
+        beginFocusFetch(jumpId);
     }
 
     // After slice delivery and scroll adjustments, check if the viewport
@@ -8219,6 +8290,7 @@ void HistoryWidget::loadRoom(const QString &roomId) {
     // loadRoom(), so we must preserve it here for loadRoomData() to consume.
     if (_pendingJump && _pendingJump->roomId != roomId) {
         _pendingJump.reset();
+        _pendingJumpPreferLive = false;
     }
     _jumpScrollApplied = false;
 
@@ -8258,7 +8330,11 @@ void HistoryWidget::loadRoom(const QString &roomId) {
         // A cross-room JUMP (matrix.to link / search result) keeps its own jump
         // cover until the destination's focused slice arrives. A plain switch has
         // no cover: it clears the timeline at once and shows the "Loading…" pill.
-        const bool crossRoomJump = _pendingJump && _pendingJump->roomId == roomId;
+        // A notification open is a plain switch — it never raised a cover, and
+        // must not inherit one an interrupted jump left up.
+        const bool crossRoomJump = _pendingJump
+            && _pendingJump->roomId == roomId
+            && !_pendingJumpPreferLive;
 
         // Clear old room's messages BEFORE making the scroll area visible.
         // HistoryList::resizeEvent calls recalculateLayout() which is O(N)
@@ -8508,9 +8584,16 @@ void HistoryWidget::loadRoomData(
     // If switching rooms with a pending jump target, trigger focusOnEvent.
     const bool hasPendingJump = _pendingJump && _pendingJump->roomId == roomId;
     if (switchingRoom && hasPendingJump) {
-        _bridge->focusOnEvent(roomId, _pendingJump->eventId, _pendingJump->requestId);
+        if (_pendingJumpPreferLive) {
+            // The target is expected at the live tail. The Rust window outlives a
+            // room switch, so a room an earlier jump left focused would come back
+            // focused — reset it to live instead of focusing it on the target.
+            _bridge->returnToLive(roomId);
+        } else {
+            _bridge->focusOnEvent(roomId, _pendingJump->eventId, _pendingJump->requestId);
+        }
         // Show the (light) preloader on the destination timeline while the
-        // focused slice loads; applyTimelineSlice clears it once it arrives.
+        // slice loads; applyTimelineSlice clears it once it arrives.
         if (_list) {
             _list->setLoadingTimeline(true);
         }
