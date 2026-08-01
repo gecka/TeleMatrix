@@ -58,6 +58,7 @@ pub mod search_backfill;
 pub mod search_index;
 mod search_service;
 mod secret_vault;
+mod session_invalidation;
 mod session_lifecycle_service;
 mod session_storage_service;
 mod session_task_service;

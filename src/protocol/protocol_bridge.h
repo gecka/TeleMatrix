@@ -951,6 +951,14 @@ signals:
         const QString &displayName,
         const QString &lastSeenIp,
         qint64 lastSeenTs);
+    /// Emitted at most once per session, when the homeserver rejects this
+    /// session's access token: it was signed out from somewhere else (device
+    /// deleted on another client, admin action, password change, denied OAuth
+    /// refresh). The account this bridge belongs to must be signed out locally
+    /// — sync is already stopped by the time this arrives. `softLogout` means
+    /// the device itself survived, so the sign-out is in principle recoverable
+    /// by re-authenticating rather than final.
+    void sessionInvalidated(bool softLogout);
 
     /// Emitted when room settings snapshot is ready.
     void roomSettingsReady(bool success, const RoomSettingsSnapshot &snapshot);

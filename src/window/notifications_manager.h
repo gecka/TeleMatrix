@@ -109,6 +109,15 @@ public:
     /// Stop delivering an account's notifications (it signed out).
     void detachAccount(const QString &dirName);
 
+    /// Alert that an account was signed out by its homeserver, naming it by
+    /// `accountLabel` (its user id).
+    ///
+    /// Deliberately NOT gated on the desktop-notification setting, unlike every
+    /// other alert here: this fires for a background account, whose row simply
+    /// disappears from the switcher: the toast is the only thing telling the
+    /// user it happened, and it is a security event rather than a message.
+    void showAccountSignedOut(const QString &accountLabel);
+
     /// Clear notifications for a specific room (e.g., when user opens it).
     void clearFromRoom(const QString &roomId);
 

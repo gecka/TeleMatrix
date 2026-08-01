@@ -2310,6 +2310,14 @@ pub type TmNewLoginCallback = extern "C" fn(
     userdata: *mut libc::c_void,
 );
 
+/// Callback type for a remote sign-out: the homeserver rejected this session's
+/// access token (`M_UNKNOWN_TOKEN`), so the account must be signed out locally.
+/// `soft_logout` mirrors the spec flag — the device survived and the session
+/// could in principle be re-authenticated, rather than being gone for good.
+/// Fires at most once per session.
+pub type TmSessionInvalidatedCallback =
+    extern "C" fn(soft_logout: bool, userdata: *mut libc::c_void);
+
 /// Callback fired around a room's member fetch: `in_progress` true when it
 /// starts, false when it finishes.
 pub type TmMemberSyncCallback =
@@ -4228,6 +4236,28 @@ pub unsafe extern "C" fn tm_set_new_login_callback(
             );
         },
     ));
+}
+
+/// Register the remote-sign-out callback. Fires at most once per session, when
+/// the homeserver rejects this session's access token.
+///
+/// # Safety
+/// - `h` must be a valid Handle pointer.
+/// - `callback` will be invoked on a background thread.
+/// - `userdata` is passed through to the callback unchanged.
+#[no_mangle]
+pub unsafe extern "C" fn tm_set_session_invalidated_callback(
+    h: *mut Handle,
+    callback: TmSessionInvalidatedCallback,
+    userdata: *mut libc::c_void,
+) {
+    let handle = unsafe { &*h };
+    let ud = Userdata::new(userdata);
+    handle
+        .matrix
+        .on_session_invalidated(Box::new(move |soft_logout| {
+            callback(soft_logout, ud.as_ptr());
+        }));
 }
 
 /// Callback fired when a message's URL link-preview fetch starts/stops, so the UI

@@ -6,6 +6,7 @@
 
 #include "app_controller.h"
 #include "account.h"
+#include "forced_sign_out.h"
 #include "app_main_window.h"
 #include "app_main_widget.h"
 #include "tray_icon.h"
@@ -402,6 +403,7 @@ AppController::AppController(QObject *parent)
 	_domain.active()->setBridge(std::make_unique<ProtocolBridge>(dataDir));
 	wireUnreadBadgeFeed(_domain.active());
 	wireSavedMessagesCache(_domain.active());
+	wireSessionInvalidation(_domain.active());
 
     _translator = new QTranslator(this);
     applyLanguageAndLocale(_settings.languageId());
@@ -1311,6 +1313,7 @@ void AppController::startAccountSession(int index) {
     account->setBridge(std::make_unique<ProtocolBridge>(dataDir));
     wireUnreadBadgeFeed(account);
     wireSavedMessagesCache(account);
+    wireSessionInvalidation(account);
     account->setState(Account::State::Restoring);
 
     // No interactive retry here, unlike the active account's path: a background
@@ -1593,6 +1596,7 @@ void AppController::showAddAccountIntro() {
     pending->setBridge(std::make_unique<ProtocolBridge>(dataDir));
     wireUnreadBadgeFeed(pending.get());
     wireSavedMessagesCache(pending.get());
+    wireSessionInvalidation(pending.get());
 
     // Added to the domain so the sign-in machinery has an Account to fill in, but
     // deliberately NOT activated and NOT saved: until it has a session it is only
@@ -2090,21 +2094,41 @@ void AppController::onLoginSuccess([[maybe_unused]] const QString &userId) {
 }
 
 void AppController::handleLogout() {
-    // Confirmation dialog. On confirm it stays open
-    // in a busy state (buttons disabled + centered spinner) while the async
-    // teardown runs, rather than swapping in a separate "Clearing local data"
-    // overlay. finishBusy() closes it once the fresh intro UI is built.
+    signOut(SignOutReason::UserRequested);
+}
+
+void AppController::signOut(SignOutReason reason) {
+    // User-requested: a confirmation dialog. On confirm it stays open in a busy
+    // state (buttons disabled + centered spinner) while the async teardown runs,
+    // rather than swapping in a separate "Clearing local data" overlay.
+    // finishBusy() closes it once the fresh intro UI is built.
+    //
+    // Remote: there is nothing to confirm — the homeserver already ended the
+    // session. The teardown starts immediately, the dialog only reports it, and
+    // its button does nothing but close the popup. So this path sets no busy
+    // callback, and the teardown must not be tied to the dialog's lifetime.
+    const bool remote = (reason == SignOutReason::Remote);
     auto *dialog = new HistoryConfirmDialog(
         _window,
-        QString(),
-        tr("Are you sure you want to sign out?"),
-        tr("Sign out"),
+        remote ? tr("You've been signed out") : QString(),
+        remote
+            ? tr("This session was signed out on your homeserver — from another "
+                 "device, or by your server administrator.")
+            : tr("Are you sure you want to sign out?"),
+        remote ? tr("OK") : tr("Sign out"),
         QString(),
         HistoryConfirmDialog::Attention,
         st::signOutConfirmWidth,
-        st::boxButtonPadding.bottom() + Style::ConvertScale(10));
+        st::boxButtonPadding.bottom() + Style::ConvertScale(10),
+        // No cancel on the remote path: there is nothing to decline. An empty
+        // cancelText would otherwise render the default "Cancel" label.
+        /*showCancel=*/!remote);
 
-    dialog->setBusyOnConfirm([this, dialog] {
+    // Held by pointer because on the remote path the teardown outlives the
+    // dialog — the user can close the popup while it is still running — so it
+    // must never be touched after deleteLater.
+    QPointer<HistoryConfirmDialog> popup(dialog);
+    auto runTeardown = [this, popup, remote] {
         const auto account = _domain.active();
         // Clear this account's persisted session and secrets immediately. Only
         // its own keys: a sibling account that stays signed in must keep working,
@@ -2144,7 +2168,16 @@ void AppController::handleLogout() {
 
         // Runs once — whichever of the loggedOut callback or the safety timeout fires first.
         auto done = std::make_shared<bool>(false);
-        auto finishLogout = [this, dialog, done]() {
+        // Hand the popup back to the front after any path that replaces the
+        // window's central widget: the dialog is a sibling of it, and a freshly
+        // shown central widget stacks above its siblings. Only matters on the
+        // remote path, where the popup outlives the rebuild.
+        auto restack = [popup, remote]() {
+            if (remote && popup) {
+                popup->raise();
+            }
+        };
+        auto finishLogout = [this, popup, remote, restack, done]() {
             if (*done) {
                 return;
             }
@@ -2195,7 +2228,10 @@ void AppController::handleLogout() {
                     showIntro();
                 }
                 refreshNotificationsBadge();
-                dialog->finishBusy();
+                restack();
+                if (!remote && popup) {
+                    popup->finishBusy();
+                }
                 return;
             }
 
@@ -2207,6 +2243,7 @@ void AppController::handleLogout() {
                 account->setBridge(std::make_unique<ProtocolBridge>(dataDir));
                 wireUnreadBadgeFeed(account);
                 wireSavedMessagesCache(account);
+                wireSessionInvalidation(account);
             }
             connect(bridge(), &ProtocolBridge::loginResult,
                     this, [this](bool success, const QString &userId, const QString &displayName, const QString &avatarUrl) {
@@ -2227,9 +2264,15 @@ void AppController::handleLogout() {
             _mainWidget = nullptr;
 
             // Build the intro UI behind the busy dialog, then close the dialog:
-            // its exec() returns and handleLogout deletes it, revealing the intro.
+            // its exec() returns and signOut deletes it, revealing the intro.
+            // On the remote path there is no busy dialog to close — the popup is
+            // independent and the user dismisses it whenever they like, finding
+            // the intro underneath.
             showIntro();
-            dialog->finishBusy();
+            restack();
+            if (!remote && popup) {
+                popup->finishBusy();
+            }
         };
 
         if (loggingOutBridge) {
@@ -2265,10 +2308,132 @@ void AppController::handleLogout() {
         } else {
             finishLogout();
         }
-    });
+    };
+
+    if (remote) {
+        // Sign out first, then report it. The synchronous head of the teardown
+        // (secrets, settings, bridge handover) runs before the popup appears;
+        // the async tail lands while it is up, so the intro is already built
+        // underneath by the time the user closes it.
+        runTeardown();
+    } else {
+        dialog->setBusyOnConfirm(runTeardown);
+    }
 
     dialog->exec();
     dialog->deleteLater();
+}
+
+void AppController::wireSessionInvalidation(Account *account) {
+    const auto bridge = account ? account->bridge() : nullptr;
+    if (!bridge) {
+        return;
+    }
+    // Bound to the dir name captured now, never to whichever account is active
+    // when this arrives: these are asynchronous, and the user can switch (or
+    // add) accounts in between. Filing one homeserver's rejection against a
+    // different account would sign out an account that is perfectly fine.
+    // Same discipline as the sessionRestored handlers (MA-6).
+    connect(bridge, &ProtocolBridge::sessionInvalidated,
+            this, [this, dirName = account->dirName()](bool softLogout) {
+        handleSessionInvalidated(dirName, softLogout);
+    });
+}
+
+void AppController::handleSessionInvalidated(
+        const QString &dirName,
+        bool softLogout) {
+    const auto index = _domain.indexOfDirName(dirName);
+    const auto route = RouteForcedSignOut(
+        index,
+        _domain.activeIndex(),
+        _forcedSignOutInFlight.contains(dirName));
+    if (route == ForcedSignOutRoute::Ignore) {
+        return;
+    }
+    _forcedSignOutInFlight.insert(dirName);
+    qWarning() << "[session] homeserver rejected the access token for"
+        << dirName << "- signing out (softLogout:" << softLogout << ")";
+
+    if (route == ForcedSignOutRoute::Active) {
+        if (_window) {
+            _window->show();
+        }
+        signOut(SignOutReason::Remote);
+        return;
+    }
+    forceSignOutBackgroundAccount(index);
+}
+
+void AppController::forceSignOutBackgroundAccount(int index) {
+    const auto account = _domain.account(index);
+    if (!account) {
+        return;
+    }
+    const auto dirName = account->dirName();
+    const auto dataDir = account->dataDir();
+    const auto label = account->settings().sessionUserId().isEmpty()
+        ? dirName
+        : account->settings().sessionUserId();
+
+    // The only thing that tells the user this happened: its row is about to
+    // disappear from the switcher, and no dialog interrupts the account in use.
+    if (_notifications) {
+        _notifications->showAccountSignedOut(label);
+        _notifications->detachAccount(dirName);
+    }
+
+    // This account's secrets only — a sibling that is still signed in has to
+    // keep working, so this is never the wholesale bundle wipe (MA-2).
+    account->deleteSecrets();
+    account->clear();
+
+    // Keep the bridge alive until the Rust teardown finishes: FFI callbacks
+    // keep arriving until the runtime stops, and destroying it now can leave
+    // one holding a dangling QObject. Mirrors handleLogout's handover.
+    auto *loggingOutBridge = account->takeBridge().release();
+
+    // The slot goes now rather than after the async teardown: the account is
+    // signed out either way, and leaving a bridgeless row in the switcher for
+    // the duration would just be a ghost. Removing a non-active index leaves
+    // the active account on screen untouched (ActiveIndexAfterRemoval).
+    _domain.remove(index);
+    saveSettings();
+    refreshNotificationsBadge();
+
+    if (!loggingOutBridge) {
+        if (!dataDir.isEmpty()) {
+            QDir(dataDir).removeRecursively();
+        }
+        return;
+    }
+
+    // The server-side logout will itself be rejected (that is why we are here);
+    // it is best-effort in Rust and the local wipe proceeds regardless.
+    connect(loggingOutBridge, &ProtocolBridge::shutdownComplete,
+            this, [dataDir]() {
+        if (!dataDir.isEmpty()) {
+            QDir(dataDir).removeRecursively();
+        }
+    });
+    connect(loggingOutBridge, &ProtocolBridge::loggedOut,
+            loggingOutBridge, [loggingOutBridge](bool success) {
+        if (!success) {
+            qWarning() << "[session] Rust logout reported failure for a remotely"
+                << "signed-out account; local data wipe may be incomplete";
+        }
+        loggingOutBridge->shutdownAsync();
+    });
+    loggingOutBridge->logout();
+
+    // Safety net if the loggedOut callback is lost: force the teardown, which
+    // still emits shutdownComplete and so still removes the data dir.
+    QPointer<ProtocolBridge> oldBridge(loggingOutBridge);
+    QTimer::singleShot(15000, this, [oldBridge]() {
+        if (oldBridge) {
+            oldBridge->shutdownAsync(); // idempotent
+        }
+    });
 }
 
 void AppController::watchBridgeStoreErrors() {

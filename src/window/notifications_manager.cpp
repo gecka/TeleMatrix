@@ -186,6 +186,28 @@ void System::detachAccount(const QString &dirName) {
     }
 }
 
+void System::showAccountSignedOut(const QString &accountLabel) {
+    if (!_manager) {
+        return;
+    }
+    // isInvite=true == "no message actions": Reply / Mark-as-read make no sense
+    // for a security alert. Empty roomId -> clicking only focuses the app; the
+    // account it referred to is gone, so there is nothing to open.
+    _manager->showNotification(
+        /*roomId*/ QString(), /*eventId*/ QString(),
+        tr("Signed out"), /*chatName*/ QString(),
+        tr("%1 was signed out by its homeserver.").arg(accountLabel),
+        /*isDirect*/ false, /*isMention*/ false,
+        /*avatarPath*/ QString(), /*isInvite*/ true);
+
+    if (!Platform::shouldSuppressAlerts()) {
+        maybePlaySound();
+        if (_settings && _settings->bounceDockIcon()) {
+            _manager->bounceDockIcon();
+        }
+    }
+}
+
 void System::onIncomingNotification(
     const QString &accountDirName,
     const QString &roomId,

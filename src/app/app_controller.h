@@ -296,7 +296,26 @@ private:
     /// are being rebuilt (an account switch).
     void showMain(bool restoreWindowGeometry = true);
     void onLoginSuccess(const QString &userId);
+    /// Why a sign-out is happening. `Remote` skips the "are you sure?" question
+    /// — the homeserver has already decided — and explains instead.
+    enum class SignOutReason {
+        UserRequested,
+        Remote,
+    };
+    /// Sign out the active account. Kept parameterless so it stays usable as a
+    /// pointer-to-member slot for `logoutRequested`; `signOut` is the body.
     void handleLogout();
+    void signOut(SignOutReason reason);
+    /// Connect this account's bridge to the remote-sign-out signal. Call after
+    /// every bridge creation, for background accounts too: a dead token has to
+    /// be acted on whether or not that account is the one on screen.
+    void wireSessionInvalidation(Account *account);
+    /// The homeserver rejected `dirName`'s access token. Routes to the
+    /// interactive or the in-place sign-out (see `RouteForcedSignOut`).
+    void handleSessionInvalidated(const QString &dirName, bool softLogout);
+    /// Sign out an account that is not the one on screen, without disturbing the
+    /// account that is: notify, tear its bridge down, and drop its slot.
+    void forceSignOutBackgroundAccount(int index);
     /// Watch the bridge sync state for the unrecoverable local-store error
     /// and inform the user (call after every bridge (re)creation).
     void watchBridgeStoreErrors();
@@ -354,6 +373,11 @@ private:
     bool _startupQuitRequested = false;
     // Guards against re-entering the switch while the UI subtree is being rebuilt.
     bool _switchingAccount = false;
+    // Accounts (by dir name) whose forced sign-out is already underway. Every
+    // in-flight request against a dead token rejects, so the signal repeats;
+    // restarting the teardown would double-wipe and race its own bridge
+    // shutdown. Entries are never removed: the account leaves with the teardown.
+    QSet<QString> _forcedSignOutInFlight;
 };
 
 } // namespace TeleMatrix

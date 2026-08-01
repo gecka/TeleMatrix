@@ -2019,6 +2019,16 @@ static void newLoginCallbackTrampoline(
     });
 }
 
+static void sessionInvalidatedCallbackTrampoline(bool softLogout, void *userdata)
+{
+    withGuardedBridge(userdata, [=](ProtocolBridge *bridge) {
+        QMetaObject::invokeMethod(bridge,
+            [=]() {
+                emit bridge->sessionInvalidated(softLogout);
+            }, Qt::QueuedConnection);
+    });
+}
+
 static void uploadProgressCallbackTrampoline(
     const char *transactionId,
     uint64_t current,
@@ -2669,6 +2679,10 @@ void ProtocolBridge::registerCallbacks() {
     tm_set_new_login_callback(
         _handle,
         newLoginCallbackTrampoline,
+        guard);
+    tm_set_session_invalidated_callback(
+        _handle,
+        sessionInvalidatedCallbackTrampoline,
         guard);
     tm_set_preview_fetching_callback(
         _handle,

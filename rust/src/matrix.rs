@@ -204,6 +204,10 @@ pub struct MatrixProtocol {
     invite_notification_callback: crate::notification_service::InviteNotificationCallbackSlot,
     /// Fires once when a new, unverified session appears on the account.
     new_login_callback: crate::new_login_service::NewLoginCallbackSlot,
+    /// Fires once when the homeserver rejects our access token (`M_UNKNOWN_TOKEN`),
+    /// i.e. this session was signed out from somewhere else. See
+    /// [`crate::session_invalidation`].
+    session_invalidated_callback: crate::session_invalidation::SessionInvalidatedCallbackSlot,
     /// Fires (room_id, in_progress) around a room's one-shot member fetch, so the
     /// UI can show a "syncing members" indicator while lazy profiles resolve.
     member_sync_callback: MemberSyncCallbackSlot,
@@ -305,6 +309,7 @@ impl MatrixProtocol {
             invite_notification_callback: Arc::new(Mutex::new(None)),
             member_sync_callback: Arc::new(Mutex::new(None)),
             new_login_callback: Arc::new(Mutex::new(None)),
+            session_invalidated_callback: Arc::new(Mutex::new(None)),
             preview_fetch_callback: Arc::new(Mutex::new(None)),
             upload_progress_callback: Arc::new(Mutex::new(None)),
             recent_emoji_callback: Arc::new(Mutex::new(None)),
@@ -531,6 +536,19 @@ impl MatrixProtocol {
     /// Register the "new login" (new-device) banner + notification callback.
     pub fn on_new_login(&self, callback: crate::new_login_service::NewLoginFn) {
         let mut cb = lock_matrix_mutex(&self.new_login_callback, "new_login_callback");
+        *cb = Some(callback);
+    }
+
+    /// Register the "this session was signed out remotely" callback. Fires at
+    /// most once per session; the C++ side signs the owning account out.
+    pub fn on_session_invalidated(
+        &self,
+        callback: crate::session_invalidation::SessionInvalidatedFn,
+    ) {
+        let mut cb = lock_matrix_mutex(
+            &self.session_invalidated_callback,
+            "session_invalidated_callback",
+        );
         *cb = Some(callback);
     }
 
@@ -771,6 +789,44 @@ impl MatrixProtocol {
                     verification.emit_user_trust_changed(identity.user_id().as_str(), state as u32);
                 }
             }
+        });
+    }
+
+    /// Watch for the homeserver rejecting our access token — this session was
+    /// signed out from somewhere else (device deleted from another client, an
+    /// admin removed it, a password change revoked it, a denied OAuth refresh).
+    ///
+    /// Without this the session died in place: every request 401s, the sliding
+    /// sync service restarts forever against the dead token, and the UI sits on
+    /// "Waiting for network…". Unlike a failed sync, `M_UNKNOWN_TOKEN` is
+    /// positive proof from the server — see [`crate::session_invalidation`].
+    fn spawn_session_invalidated_watch(&self, client: Client) {
+        // Subscribe HERE, not inside the task: the broadcast does not replay, so
+        // a 401 landing before the task's first poll would otherwise be missed.
+        let mut changes = client.subscribe_to_session_changes();
+        let callback = self.session_invalidated_callback.clone();
+        let sliding = self.sliding_sync.clone();
+        self.session_tasks.spawn(async move {
+            let Some(soft_logout) =
+                crate::session_invalidation::wait_for_invalidation(&mut changes).await
+            else {
+                return;
+            };
+            warn!("homeserver rejected our access token (soft_logout={soft_logout}); this session was signed out remotely");
+
+            // Stop sync before handing over to C++. The consumer loop treats the
+            // resulting terminal Error as transient and would keep restarting the
+            // service against a token the server has already rejected, for the
+            // whole duration of the teardown.
+            let service = match sliding.lock() {
+                Ok(mut guard) => guard.take(),
+                Err(_) => None,
+            };
+            if let Some(service) = service {
+                service.stop().await;
+            }
+
+            crate::session_invalidation::emit(&callback, soft_logout);
         });
     }
 
@@ -1432,6 +1488,7 @@ impl MatrixProtocol {
         self.spawn_device_verified_watch(client.clone());
         self.spawn_user_trust_watch(client.clone());
         self.spawn_new_login_watch(client.clone());
+        self.spawn_session_invalidated_watch(client.clone());
 
         // Register the incoming self-verification request handler once, post-auth.
         // It is a client-level to-device handler (sync-backend-independent) that

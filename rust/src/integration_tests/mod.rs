@@ -15,5 +15,6 @@ mod common;
 
 mod room_directory;
 mod rooms_list;
+mod session_invalidation;
 mod session_teardown;
 mod smoke;
