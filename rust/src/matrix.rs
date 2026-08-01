@@ -939,10 +939,12 @@ impl MatrixProtocol {
         let presence_typing = self.presence_typing.clone();
         let local_cache = self.local_cache.clone();
         let room_list_callback = self.room_list.callback.clone();
-        let client_for_handler = client.clone();
 
-        client.add_event_handler(move |_ev: TagEvent, room: Room| {
-            let client = client_for_handler.clone();
+        // `client` is injected per invocation, never captured: the handler store
+        // lives inside `ClientInner`, so a captured `Client` is a reference cycle
+        // that keeps the sqlite stores open forever. See
+        // `integration_tests::session_teardown`.
+        client.add_event_handler(move |_ev: TagEvent, room: Room, client: Client| {
             let timeline_cache = timeline_cache.clone();
             let rooms_cache = rooms_cache.clone();
             let notification_overrides = notification_overrides.clone();

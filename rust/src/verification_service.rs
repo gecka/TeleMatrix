@@ -288,16 +288,19 @@ impl VerificationService {
         let verification_state_callback = self.state_callback.clone();
         let incoming_verification_request_callback = self.incoming_request_callback.clone();
         let request_closed_callback = self.request_closed_callback.clone();
-        let client_for_verification = client.clone();
         verification_debug!("registering incoming self-verification request handler");
+        // `client` is an injected handler argument, never a captured one: the
+        // handler store lives inside `ClientInner`, so a captured `Client` is a
+        // reference cycle that keeps the sqlite stores open forever. See
+        // `integration_tests::session_teardown`.
         client.add_event_handler(
-            move |ev: ToDeviceEvent<ToDeviceKeyVerificationRequestEventContent>| {
+            move |ev: ToDeviceEvent<ToDeviceKeyVerificationRequestEventContent>,
+                  client: Client| {
                 let verification_ctx = verification_ctx.clone();
                 let verification_state_callback = verification_state_callback.clone();
                 let incoming_verification_request_callback =
                     incoming_verification_request_callback.clone();
                 let request_closed_callback = request_closed_callback.clone();
-                let client = client_for_verification.clone();
                 async move {
                     let Some(own_user_id) = client.user_id() else {
                         return;
@@ -440,109 +443,110 @@ impl VerificationService {
         let verification_state_callback = self.state_callback.clone();
         let incoming_user_request_callback = self.incoming_user_request_callback.clone();
         let request_closed_callback = self.request_closed_callback.clone();
-        let client_for_verification = client.clone();
         verification_debug!("registering incoming user-verification request handler");
-        client.add_event_handler(move |ev: OriginalSyncRoomMessageEvent, room: Room| {
-            let verification_ctx = verification_ctx.clone();
-            let verification_state_callback = verification_state_callback.clone();
-            let incoming_user_request_callback = incoming_user_request_callback.clone();
-            let request_closed_callback = request_closed_callback.clone();
-            let client = client_for_verification.clone();
-            async move {
-                let Some(own_user_id) = client.user_id() else {
-                    return;
-                };
-                // Only OTHER users' requests here; our own devices arrive via
-                // to-device and are handled by the self-verification handler.
-                if ev.sender == own_user_id {
-                    return;
-                }
-                let MessageType::VerificationRequest(ref content) = ev.content.msgtype else {
-                    return;
-                };
-                // Spec: only respond if we are the named recipient.
-                if content.to != own_user_id {
-                    return;
-                }
-                let flow_id = ev.event_id.to_string();
-                let sender = ev.sender.clone();
-                verification_debug!(
-                    "incoming user-verification request sender={} flow_id={}",
-                    sender,
-                    flow_id
-                );
-
-                let mut request = None;
-                for _ in 0..8 {
-                    if let Some(found) = client
-                        .encryption()
-                        .get_verification_request(&sender, &flow_id)
-                        .await
-                    {
-                        request = Some(found);
-                        break;
+        // Injected, not captured — see `register_incoming_request_handler`.
+        client.add_event_handler(
+            move |ev: OriginalSyncRoomMessageEvent, room: Room, client: Client| {
+                let verification_ctx = verification_ctx.clone();
+                let verification_state_callback = verification_state_callback.clone();
+                let incoming_user_request_callback = incoming_user_request_callback.clone();
+                let request_closed_callback = request_closed_callback.clone();
+                async move {
+                    let Some(own_user_id) = client.user_id() else {
+                        return;
+                    };
+                    // Only OTHER users' requests here; our own devices arrive via
+                    // to-device and are handled by the self-verification handler.
+                    if ev.sender == own_user_id {
+                        return;
                     }
-                    tokio::time::sleep(Duration::from_millis(125)).await;
-                }
-                let Some(request) = request else {
+                    let MessageType::VerificationRequest(ref content) = ev.content.msgtype else {
+                        return;
+                    };
+                    // Spec: only respond if we are the named recipient.
+                    if content.to != own_user_id {
+                        return;
+                    }
+                    let flow_id = ev.event_id.to_string();
+                    let sender = ev.sender.clone();
                     verification_debug!(
-                        "incoming user-verification request not in crypto store flow_id={}",
+                        "incoming user-verification request sender={} flow_id={}",
+                        sender,
                         flow_id
                     );
-                    return;
-                };
 
-                let display_name = match room.get_member_no_sync(&sender).await {
-                    Ok(Some(member)) => member
-                        .display_name()
-                        .map(|name| name.to_owned())
-                        .filter(|name| !name.trim().is_empty())
-                        .unwrap_or_else(|| sender.to_string()),
-                    _ => sender.to_string(),
-                };
-
-                let mut stored = false;
-                {
-                    let mut ctx = verification_ctx.lock().await;
-                    let replace = ctx
-                        .request
-                        .as_ref()
-                        .map(|current| {
-                            current.is_done()
-                                || current.is_cancelled()
-                                || matches!(
-                                    current.state(),
-                                    VerificationRequestState::Created { .. }
-                                )
-                        })
-                        .unwrap_or(true);
-                    if replace {
-                        ctx.request = Some(request.clone());
-                        ctx.sas = None;
-                        stored = true;
+                    let mut request = None;
+                    for _ in 0..8 {
+                        if let Some(found) = client
+                            .encryption()
+                            .get_verification_request(&sender, &flow_id)
+                            .await
+                        {
+                            request = Some(found);
+                            break;
+                        }
+                        tokio::time::sleep(Duration::from_millis(125)).await;
                     }
-                }
+                    let Some(request) = request else {
+                        verification_debug!(
+                            "incoming user-verification request not in crypto store flow_id={}",
+                            flow_id
+                        );
+                        return;
+                    };
 
-                if stored {
+                    let display_name = match room.get_member_no_sync(&sender).await {
+                        Ok(Some(member)) => member
+                            .display_name()
+                            .map(|name| name.to_owned())
+                            .filter(|name| !name.trim().is_empty())
+                            .unwrap_or_else(|| sender.to_string()),
+                        _ => sender.to_string(),
+                    };
+
+                    let mut stored = false;
+                    {
+                        let mut ctx = verification_ctx.lock().await;
+                        let replace = ctx
+                            .request
+                            .as_ref()
+                            .map(|current| {
+                                current.is_done()
+                                    || current.is_cancelled()
+                                    || matches!(
+                                        current.state(),
+                                        VerificationRequestState::Created { .. }
+                                    )
+                            })
+                            .unwrap_or(true);
+                        if replace {
+                            ctx.request = Some(request.clone());
+                            ctx.sas = None;
+                            stored = true;
+                        }
+                    }
+
+                    if stored {
+                        let cb = lock_verification_mutex(
+                            &incoming_user_request_callback,
+                            "incoming_user_verification_request_callback",
+                        );
+                        if let Some(ref f) = *cb {
+                            f(&flow_id, sender.as_str(), &display_name);
+                        }
+                        Self::spawn_incoming_request_watcher(request, request_closed_callback);
+                    }
+
                     let cb = lock_verification_mutex(
-                        &incoming_user_request_callback,
-                        "incoming_user_verification_request_callback",
+                        &verification_state_callback,
+                        "verification_state_callback",
                     );
                     if let Some(ref f) = *cb {
-                        f(&flow_id, sender.as_str(), &display_name);
+                        f(VerificationState::WaitingForReady as u32, &flow_id);
                     }
-                    Self::spawn_incoming_request_watcher(request, request_closed_callback);
                 }
-
-                let cb = lock_verification_mutex(
-                    &verification_state_callback,
-                    "verification_state_callback",
-                );
-                if let Some(ref f) = *cb {
-                    f(VerificationState::WaitingForReady as u32, &flow_id);
-                }
-            }
-        });
+            },
+        );
     }
 
     pub(crate) async fn start_sas_verification_for(

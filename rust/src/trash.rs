@@ -10,10 +10,18 @@
 //! which logout clears synchronously. Once those keys are gone the on-disk data
 //! is cryptographically inaccessible, so the slow recursive delete need not
 //! block logout. We move the stores into `{data_dir}/.trash/<unique>/` with an
-//! atomic rename (O(1) regardless of size, and works even with files still
-//! open) — which also frees the canonical paths instantly so the next login
-//! starts clean — then reclaim the space on a detached thread, with a startup
-//! [`sweep`] as the durable safety net for an app killed mid-delete.
+//! atomic rename (O(1) regardless of size) — which also frees the canonical
+//! paths instantly so the next login starts clean — then reclaim the space on a
+//! detached thread, with a startup [`sweep`] as the durable safety net for an
+//! app killed mid-delete.
+//!
+//! The rename requires the store's file handles to be CLOSED. On POSIX it would
+//! succeed with them still open, but Windows refuses to rename or delete a
+//! directory holding open files, so the caller must drop the SDK `Client` first
+//! and the wipe must stay retry-tolerant while sqlite's connections close on
+//! their background blocking threads. A `Client` that leaks (see
+//! `integration_tests::session_teardown`) holds those handles for the whole
+//! process lifetime, which no retry can outlast.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
