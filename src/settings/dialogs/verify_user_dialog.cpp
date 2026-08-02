@@ -288,6 +288,19 @@ VerifyUserDialog::VerifyUserDialog(
     _stack = new QStackedWidget(_panel);
     panelLayout->addWidget(_stack);
 
+    // Require a real match on both sides: while this dialog hasn't latched a
+    // flow yet, a foreign flow's code must not be adopted — it would
+    // otherwise mislabel this dialog's own later Cancelled with the wrong
+    // severity.
+    if (_bridge) {
+        connect(_bridge, &ProtocolBridge::verificationCancelInfo, this,
+                [this](const QString &flowId, const QString &code, bool) {
+            if (VerificationPageRules::adoptCancelCodeStrict(flowId, _transactionId)) {
+                _lastCancelCode = code;
+            }
+        });
+    }
+
     buildEmojiPage();
     buildSuccessPage();
 
@@ -407,9 +420,13 @@ void VerifyUserDialog::buildEmojiPage() {
         }
         auto *errorLayout = new QVBoxLayout(_emojiContainer);
         errorLayout->setContentsMargins(16, 16, 16, 16);
-        auto *errorText = new QLabel(tr(
-            "The request was denied or timed out, "
-            "or there was a verification mismatch"), _emojiContainer);
+        const bool security =
+            VerificationPageRules::isSecurityCancelCode(_lastCancelCode);
+        auto *errorText = new QLabel(security
+            ? tr("Verification failed: the keys did not match. "
+                 "Your messages may not be secure.")
+            : tr("The request was denied or timed out, "
+                 "or there was a verification mismatch"), _emojiContainer);
         errorText->setFont(st::baseFont(15));
         errorText->setWordWrap(true);
         errorText->setAlignment(Qt::AlignCenter);

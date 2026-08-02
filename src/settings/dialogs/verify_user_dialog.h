@@ -64,6 +64,9 @@ private:
 
     ProtocolBridge *_bridge = nullptr;
     QString _transactionId;
+    // SDK cancel code for this dialog's flow, latched from
+    // verificationCancelInfo just before the Cancelled it explains arrives.
+    QString _lastCancelCode;
     // Correlation id of our in-flight start call, 0 when none. A bool is not
     // enough: the session-verification popup's emoji page is another
     // main-window surface with no modality between us, so both can have a
