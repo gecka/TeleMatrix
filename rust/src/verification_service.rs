@@ -4,8 +4,6 @@
 // or later, with an OpenSSL linking exception. See the LICENSE and LEGAL
 // files in the project root for full terms.
 
-use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -16,24 +14,18 @@ use matrix_sdk::encryption::verification::{
     QrVerification, QrVerificationState, SasState, SasVerification, VerificationRequest,
     VerificationRequestState,
 };
-use matrix_sdk::ruma::api::client::to_device::send_event_to_device::v3::Request as RumaToDeviceRequest;
 use matrix_sdk::ruma::events::key::verification::request::ToDeviceKeyVerificationRequestEventContent;
 use matrix_sdk::ruma::events::key::verification::VerificationMethod;
 use matrix_sdk::ruma::events::room::message::{MessageType, OriginalSyncRoomMessageEvent};
 use matrix_sdk::ruma::events::ToDeviceEvent;
-use matrix_sdk::ruma::events::{AnyToDeviceEventContent, ToDeviceEventContent};
-use matrix_sdk::ruma::serde::Raw;
-use matrix_sdk::ruma::to_device::DeviceIdOrAllDevices;
-use matrix_sdk::ruma::{MilliSecondsSinceUnixEpoch, OwnedUserId, TransactionId, UserId};
+use matrix_sdk::ruma::{OwnedUserId, UserId};
 use matrix_sdk::{Client, Room};
 use tracing::{info, warn};
 
-use crate::matrix::SYNC_STATE_SYNCED;
 use crate::types::{
     QrCodeImage, SasEmoji, UserTrustState, VerificationCapabilities, VerificationState,
 };
 
-const VERIFICATION_TRANSPORT_READY_TIMEOUT: Duration = Duration::from_secs(30);
 const VERIFICATION_READY_TIMEOUT: Duration = Duration::from_secs(120);
 const VERIFICATION_TRANSITIONED_BEFORE_SELECTED_METHOD: &str =
     "Verification request transitioned before this client could start the selected method";
@@ -92,7 +84,6 @@ impl VerificationContext {
 #[derive(Clone)]
 pub(crate) struct VerificationService {
     ctx: Arc<tokio::sync::Mutex<VerificationContext>>,
-    sync_state: Arc<AtomicU32>,
     state_callback: Arc<Mutex<Option<VerificationStateCallback>>>,
     incoming_request_callback: Arc<Mutex<Option<IncomingVerificationRequestCallback>>>,
     /// Fires when another *user's* cross-signing identity trust changes, so the
@@ -121,10 +112,9 @@ pub(crate) struct VerificationService {
 }
 
 impl VerificationService {
-    pub(crate) fn new(sync_state: Arc<AtomicU32>) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             ctx: Arc::new(tokio::sync::Mutex::new(VerificationContext::new())),
-            sync_state,
             state_callback: Arc::new(Mutex::new(None)),
             incoming_request_callback: Arc::new(Mutex::new(None)),
             user_trust_changed_callback: Arc::new(Mutex::new(None)),
@@ -1467,103 +1457,18 @@ impl VerificationService {
         Ok(identity)
     }
 
-    async fn own_device_counts_for_verification(
-        client: &Client,
-        own_user_id: &OwnedUserId,
-    ) -> Result<(usize, usize)> {
-        let devices = client.encryption().get_user_devices(own_user_id).await?;
-        let current_device_id = client.device_id().map(|id| id.to_string());
-        let mut other_device_count = 0;
-        let mut signed_other_device_count = 0;
-        for device in devices.devices() {
-            if Some(device.device_id().as_str()) == current_device_id.as_deref() {
-                continue;
-            }
-            other_device_count += 1;
-            let signed = device.is_cross_signed_by_owner();
-            verification_debug!(
-                "verification candidate device id={} signed_by_owner={} has_curve25519={} dehydrated={}",
-                device.device_id(),
-                signed,
-                device.curve25519_key().is_some(),
-                device.is_dehydrated()
-            );
-            if signed {
-                signed_other_device_count += 1;
-            }
-        }
-        Ok((other_device_count, signed_other_device_count))
-    }
-
-    async fn wait_for_verification_transport_ready(
-        &self,
+    /// Element parity: one identity refresh (a single server key query), no
+    /// polling loop and no cross-signed-peer precondition — the SDK falls back
+    /// to a `*` to-device broadcast when no cross-signed device exists.
+    async fn verification_identity(
         client: &Client,
         own_user_id: &OwnedUserId,
     ) -> Result<UserIdentity> {
-        verification_debug!("waiting for verification transport readiness");
         client
             .encryption()
             .wait_for_e2ee_initialization_tasks()
             .await;
-        verification_debug!("e2ee initialization tasks completed before verification request");
-
-        let started = Instant::now();
-        let mut last_wait_log = Duration::ZERO;
-        loop {
-            let last_error = if self.sync_state.load(Ordering::Acquire) != SYNC_STATE_SYNCED {
-                "initial sync has not completed".to_string()
-            } else {
-                match Self::own_identity_for_verification(client, own_user_id).await {
-                    Ok(identity) => {
-                        let has_verification_target =
-                            match client.encryption().has_devices_to_verify_against().await {
-                                Ok(value) => value,
-                                Err(e) => {
-                                    warn!("Failed to check devices to verify against: {e}");
-                                    true
-                                }
-                            };
-                        match Self::own_device_counts_for_verification(client, own_user_id).await {
-                            Ok((other_count, signed_other_count)) => {
-                                if has_verification_target && signed_other_count > 0 {
-                                    if started.elapsed() > Duration::from_millis(250) {
-                                        info!(
-                                            "Verification transport ready after {:?}: other={}, signed_other={}",
-                                            started.elapsed(),
-                                            other_count,
-                                            signed_other_count
-                                        );
-                                    }
-                                    return Ok(identity);
-                                }
-                                format!(
-                                    "no signed verification recipient yet (other={other_count}, signed_other={signed_other_count}, has_target={has_verification_target})"
-                                )
-                            }
-                            Err(e) => format!("own device list unavailable: {e}"),
-                        }
-                    }
-                    Err(e) => format!("own identity unavailable: {e}"),
-                }
-            };
-
-            if started.elapsed() >= VERIFICATION_TRANSPORT_READY_TIMEOUT {
-                return Err(anyhow!(
-                    "Timed out waiting for verification transport readiness: {}",
-                    last_error
-                ));
-            }
-            let elapsed = started.elapsed();
-            if elapsed.saturating_sub(last_wait_log) >= Duration::from_secs(1) {
-                verification_debug!(
-                    "verification transport not ready after {:?}: {}",
-                    elapsed,
-                    last_error
-                );
-                last_wait_log = elapsed;
-            }
-            tokio::time::sleep(Duration::from_millis(250)).await;
-        }
+        Self::own_identity_for_verification(client, own_user_id).await
     }
 
     fn outgoing_verification_methods() -> Vec<VerificationMethod> {
@@ -1825,48 +1730,6 @@ impl VerificationService {
         }
     }
 
-    async fn send_element_style_own_verification_broadcast(
-        client: &Client,
-        own_user_id: &OwnedUserId,
-        request: &VerificationRequest,
-    ) -> Result<()> {
-        let Some(own_device_id) = client.device_id() else {
-            return Err(anyhow!("No own device id for verification broadcast"));
-        };
-
-        let event_content = AnyToDeviceEventContent::KeyVerificationRequest(
-            ToDeviceKeyVerificationRequestEventContent::new(
-                own_device_id.to_owned(),
-                request.flow_id().to_owned().into(),
-                Self::outgoing_verification_methods(),
-                MilliSecondsSinceUnixEpoch::now(),
-            ),
-        );
-        let event_type = event_content.event_type();
-        let raw_content = Raw::new(&event_content)
-            .map_err(|e| anyhow!("Failed to serialize verification request: {e}"))?;
-
-        let mut device_messages = BTreeMap::new();
-        device_messages.insert(DeviceIdOrAllDevices::AllDevices, raw_content);
-        let mut messages = BTreeMap::new();
-        messages.insert(own_user_id.to_owned(), device_messages);
-
-        let to_device_request =
-            RumaToDeviceRequest::new_raw(event_type, TransactionId::new(), messages);
-
-        verification_debug!(
-            "sending Element-style own verification broadcast flow_id={} to device_id=* methods=[{}]",
-            request.flow_id(),
-            Self::verification_methods_debug(&Self::outgoing_verification_methods())
-        );
-        client.send(to_device_request).await?;
-        verification_debug!(
-            "sent Element-style own verification broadcast flow_id={} to device_id=*",
-            request.flow_id()
-        );
-        Ok(())
-    }
-
     async fn ensure_verification_request(&self, client: Client) -> Result<VerificationRequest> {
         verification_debug!("ensure verification request start");
         let own_user_id = client
@@ -1925,15 +1788,14 @@ impl VerificationService {
         );
         self.emit_state(VerificationState::RequestingVerification);
 
-        let identity = self
-            .wait_for_verification_transport_ready(&client, &own_user_id)
-            .await?;
+        let identity = Self::verification_identity(&client, &own_user_id).await?;
 
         let request = identity
             .request_verification_with_methods(Self::outgoing_verification_methods())
             .await?;
-        Self::send_element_style_own_verification_broadcast(&client, &own_user_id, &request)
-            .await?;
+        // Tag every subsequent emitted state with this flow id (the user path
+        // at ensure_user_verification_request already does this).
+        self.set_current_flow_id(request.flow_id());
         verification_debug!(
             "created outgoing self-verification request source=own-user flow_id={} state={}",
             request.flow_id(),
@@ -1968,7 +1830,6 @@ impl VerificationService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicU32;
     use std::sync::Mutex as StdMutex;
 
     // QR verification only works if both negotiated method sets advertise the
@@ -2007,7 +1868,7 @@ mod tests {
     // — a logout leaves the C++ guard object behind.
     #[test]
     fn request_closed_callback_is_flow_tagged_and_clearable() {
-        let service = VerificationService::new(Arc::new(AtomicU32::new(0)));
+        let service = VerificationService::new();
         let captured = Arc::new(StdMutex::new(Vec::<String>::new()));
         let sink = captured.clone();
         service.on_request_closed(Box::new(move |flow_id| {
@@ -2044,7 +1905,7 @@ mod tests {
     // instead of showing the "Unable to decrypt" card.
     #[tokio::test]
     async fn skip_verification_emits_skipped_not_done() {
-        let service = VerificationService::new(Arc::new(AtomicU32::new(0)));
+        let service = VerificationService::new();
         let captured = Arc::new(StdMutex::new(Vec::<u32>::new()));
         let sink = captured.clone();
         service.on_state_changed(Box::new(move |state, _flow_id| {
@@ -2073,7 +1934,7 @@ mod tests {
     // UI tears down, even with no active SAS (it then just cancels the flow).
     #[tokio::test]
     async fn mismatch_sas_emits_cancelled() {
-        let service = VerificationService::new(Arc::new(AtomicU32::new(0)));
+        let service = VerificationService::new();
         let captured = Arc::new(StdMutex::new(Vec::<u32>::new()));
         let sink = captured.clone();
         service.on_state_changed(Box::new(move |state, _flow_id| {
@@ -2095,7 +1956,7 @@ mod tests {
     // and a blanket reset there would strand that other flow.
     #[tokio::test]
     async fn reset_context_if_current_is_flow_scoped() {
-        let service = VerificationService::new(Arc::new(AtomicU32::new(0)));
+        let service = VerificationService::new();
         let gen_before = service.ctx.lock().await.generation;
 
         // No request stored: a flow-scoped reset for some other flow is a no-op.
@@ -2113,7 +1974,7 @@ mod tests {
     // can attribute states to the right flow (P0-5).
     #[test]
     fn emitted_state_carries_current_flow_id() {
-        let service = VerificationService::new(Arc::new(AtomicU32::new(0)));
+        let service = VerificationService::new();
         let captured = Arc::new(StdMutex::new(Vec::<(u32, String)>::new()));
         let sink = captured.clone();
         service.on_state_changed(Box::new(move |state, flow_id| {

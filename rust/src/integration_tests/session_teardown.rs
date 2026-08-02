@@ -21,7 +21,6 @@
 //! Handlers must take `client: Client` as an injected argument
 //! (`EventHandlerContext`) instead of capturing one.
 
-use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -75,7 +74,7 @@ async fn verification_handlers_do_not_leak_the_client() {
     let (_server, client) = mock_server_and_client().await;
     let sentinel = sentinel_for(&client);
 
-    let verification = VerificationService::new(Arc::new(AtomicU32::new(0)));
+    let verification = VerificationService::new();
     verification.register_incoming_request_handler(&client);
     verification.register_incoming_user_request_handler(&client);
 

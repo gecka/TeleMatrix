@@ -321,7 +321,7 @@ impl MatrixProtocol {
             recent_emoji: RecentEmojiService::new(local_cache.app_cache_store()),
             saved_messages: crate::saved_messages_service::SavedMessagesService::new(),
             local_cache,
-            verification: VerificationService::new(sync_state),
+            verification: VerificationService::new(),
             session_storage,
             session_lifecycle,
             encryption: EncryptionService::new(),
