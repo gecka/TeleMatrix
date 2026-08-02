@@ -80,6 +80,13 @@ private:
     /// moment they succeed, so the store has to be ready before the form, not
     /// after it.
     void showAccountStep(int index);
+    /// Show the emoji-compare step — the same index onEmojiChosen uses.
+    void showVerifyEmojiStep();
+    /// Whether a verification step (choice, emoji, QR, recovery key) is the
+    /// one currently showing. Used to decide whether an incoming request
+    /// arriving mid-intro should be auto-routed here; sign-in steps
+    /// (login/register/password) are not ours to hijack.
+    bool onVerificationStep() const;
 
     // Navigation handlers.
     void onStartNext();

@@ -4949,6 +4949,13 @@ void ProtocolBridge::confirmQrScanned() {
         static_cast<void *>(data));
 }
 
+void ProtocolBridge::replayPendingVerificationRequest() {
+    if (!_handle) {
+        return;
+    }
+    tm_replay_pending_verification_request(_handle);
+}
+
 // --- Account settings ---
 
 void ProtocolBridge::fetchAccountSummary() {

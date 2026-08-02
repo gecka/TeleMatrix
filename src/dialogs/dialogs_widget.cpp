@@ -1793,6 +1793,11 @@ void DialogsWidget::setupVerificationBanner() {
         }
         hideVerificationBanner();
     });
+
+    // A request may have arrived before this banner's consumer existed (main
+    // window built after the intro, account switch); replay it now that we
+    // are listening.
+    _bridge->replayPendingVerificationRequest();
 }
 
 void DialogsWidget::showVerificationBanner(

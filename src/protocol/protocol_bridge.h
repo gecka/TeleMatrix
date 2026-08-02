@@ -530,6 +530,11 @@ public:
     /// Send the QR scan confirmation. qrScanConfirmed reports only whether the
     /// send succeeded; completion arrives as verificationStateChanged(Done).
     void confirmQrScanned();
+    /// Re-deliver a still-answerable pending incoming request (self or
+    /// cross-user) to whichever consumer is attached now. Fire-and-forget;
+    /// results arrive through the normal incoming-request signals. Call after
+    /// attaching a consumer that may have missed the original signal.
+    void replayPendingVerificationRequest();
 
     // --- Cross-user verification ---
 

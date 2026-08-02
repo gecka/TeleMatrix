@@ -4653,6 +4653,20 @@ pub unsafe extern "C" fn tm_cancel_verification_for(
     });
 }
 
+/// Re-deliver a still-answerable pending incoming verification request through
+/// the incoming-request callbacks. Call after (re)attaching a consumer.
+///
+/// # Safety
+/// `h` must be a valid Handle pointer.
+#[no_mangle]
+pub unsafe extern "C" fn tm_replay_pending_verification_request(h: *mut Handle) {
+    let handle = unsafe { &*h };
+    let matrix = handle.matrix.clone();
+    handle.runtime.spawn(async move {
+        matrix.replay_pending_incoming_request().await;
+    });
+}
+
 /// Get verification capabilities asynchronously.
 ///
 /// # Safety

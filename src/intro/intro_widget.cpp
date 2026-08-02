@@ -213,7 +213,25 @@ IntroWidget::IntroWidget(
         if (success && _stack->currentWidget() == _loginStep) {
             _pendingUserId = userId;
             showStep(3); // Navigate to IntroVerifyChoice.
+            // A request may have arrived mid-sign-in, before this connection
+            // existed to hear it.
+            _bridge->replayPendingVerificationRequest();
         }
+    });
+
+    // An incoming self-verification request during the intro is the user
+    // verifying this new sign-in from their other device — route it straight
+    // into the emoji step (Element auto-accepts on its setup screen the same
+    // way). Only while a verification step is up; sign-in steps are not ours.
+    connect(_bridge, &ProtocolBridge::incomingVerificationRequestReceived,
+            this, [this](const QString &transactionId,
+                         const QString &, const QString &) {
+        if (!onVerificationStep()) {
+            return;
+        }
+        _verifyEmojiStep->setRequestFlowId(transactionId);
+        _verifyEmojiStep->setShowsAlternativeMethods(false);
+        showVerifyEmojiStep();
     });
 
     if (initialStep == InitialStep::Login) {
@@ -254,6 +272,18 @@ void IntroWidget::showAccountStep(int index) {
     }
     _createPasswordReturnStep = index;
     showStep(10);
+}
+
+void IntroWidget::showVerifyEmojiStep() {
+    showStep(4); // -> Emoji (same index as onEmojiChosen).
+}
+
+bool IntroWidget::onVerificationStep() const {
+    const auto *current = _stack->currentWidget();
+    return current == _verifyChoiceStep
+        || current == _verifyEmojiStep
+        || current == _verifyQrStep
+        || current == _verifyRecoveryKeyStep;
 }
 
 void IntroWidget::onStartNext() {

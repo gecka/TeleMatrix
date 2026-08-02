@@ -2339,6 +2339,13 @@ impl MatrixProtocol {
             .cancel_verification_for(expected_flow_id)
             .await
     }
+
+    /// Re-deliver a still-answerable pending incoming request to whichever
+    /// incoming-request callback is currently attached. Call after attaching a
+    /// consumer (main window, intro) that may have missed the original signal.
+    pub async fn replay_pending_incoming_request(&self) {
+        self.verification.replay_pending_incoming_request().await;
+    }
 }
 
 /// When to re-ask the backup for a room's keys while some of its messages are still

@@ -111,6 +111,18 @@ impl VerificationContext {
     }
 }
 
+/// An incoming request remembered so it can be replayed to a consumer that
+/// attaches after it arrived (main window built later, intro, a fresh
+/// account switch) — matrix-sdk 0.18 has no pending-request enumeration API.
+#[derive(Clone)]
+struct PendingIncomingRequest {
+    flow_id: String,
+    is_user: bool,
+    /// Device id (self-verification) or user id (cross-user).
+    counterpart_id: String,
+    display_label: String,
+}
+
 #[derive(Clone)]
 pub(crate) struct VerificationService {
     ctx: Arc<tokio::sync::Mutex<VerificationContext>>,
@@ -149,6 +161,10 @@ pub(crate) struct VerificationService {
     /// reset still carries the just-ended flow's id; it is overwritten when the
     /// next flow starts.
     current_flow_id: Arc<Mutex<String>>,
+    /// The most recent incoming request still worth replaying to a consumer
+    /// that attaches late. Cleared once the request it names stops being
+    /// answerable, so a replay can never resurrect a dead or stale request.
+    pending_incoming: Arc<Mutex<Option<PendingIncomingRequest>>>,
 }
 
 impl VerificationService {
@@ -165,6 +181,7 @@ impl VerificationService {
             cancel_info_callback: Arc::new(Mutex::new(None)),
             start_guard: Arc::new(tokio::sync::Mutex::new(())),
             current_flow_id: Arc::new(Mutex::new(String::new())),
+            pending_incoming: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -280,6 +297,14 @@ impl VerificationService {
                 lock_verification_mutex(&self.cancel_info_callback, "cancel_info_callback");
             *cb = None;
         }
+        {
+            // This service outlives one login: `clear_callbacks` runs on logout
+            // against the SAME instance the next sign-in reuses. Without this, a
+            // request remembered under the departing session could be replayed
+            // into the next one once a consumer re-attaches.
+            let mut pending = lock_verification_mutex(&self.pending_incoming, "pending_incoming");
+            *pending = None;
+        }
     }
 
     fn emit_sas_emojis(&self, flow_id: &str, emojis: &[SasEmoji]) {
@@ -374,6 +399,7 @@ impl VerificationService {
         let verification_state_callback = self.state_callback.clone();
         let incoming_verification_request_callback = self.incoming_request_callback.clone();
         let request_closed_callback = self.request_closed_callback.clone();
+        let pending_incoming = self.pending_incoming.clone();
         verification_debug!("registering incoming self-verification request handler");
         // `client` is an injected handler argument, never a captured one: the
         // handler store lives inside `ClientInner`, so a captured `Client` is a
@@ -387,6 +413,7 @@ impl VerificationService {
                 let incoming_verification_request_callback =
                     incoming_verification_request_callback.clone();
                 let request_closed_callback = request_closed_callback.clone();
+                let pending_incoming = pending_incoming.clone();
                 async move {
                     let Some(own_user_id) = client.user_id() else {
                         return;
@@ -491,6 +518,18 @@ impl VerificationService {
                     }
 
                     if stored_request {
+                        {
+                            let mut pending = lock_verification_mutex(
+                                &pending_incoming,
+                                "pending_incoming",
+                            );
+                            *pending = Some(PendingIncomingRequest {
+                                flow_id: transaction_id.clone(),
+                                is_user: false,
+                                counterpart_id: from_device.clone(),
+                                display_label: device_label.clone(),
+                            });
+                        }
                         let cb = lock_verification_mutex(
                             &incoming_verification_request_callback,
                             "incoming_verification_request_callback",
@@ -504,7 +543,11 @@ impl VerificationService {
                             );
                             f(&transaction_id, &from_device, &device_label);
                         }
-                        Self::spawn_incoming_request_watcher(request, request_closed_callback);
+                        Self::spawn_incoming_request_watcher(
+                            request,
+                            request_closed_callback,
+                            pending_incoming,
+                        );
                     }
 
                     let cb = lock_verification_mutex(
@@ -531,6 +574,7 @@ impl VerificationService {
         let verification_state_callback = self.state_callback.clone();
         let incoming_user_request_callback = self.incoming_user_request_callback.clone();
         let request_closed_callback = self.request_closed_callback.clone();
+        let pending_incoming = self.pending_incoming.clone();
         verification_debug!("registering incoming user-verification request handler");
         // Injected, not captured — see `register_incoming_request_handler`.
         client.add_event_handler(
@@ -539,6 +583,7 @@ impl VerificationService {
                 let verification_state_callback = verification_state_callback.clone();
                 let incoming_user_request_callback = incoming_user_request_callback.clone();
                 let request_closed_callback = request_closed_callback.clone();
+                let pending_incoming = pending_incoming.clone();
                 async move {
                     let Some(own_user_id) = client.user_id() else {
                         return;
@@ -617,6 +662,16 @@ impl VerificationService {
                     }
 
                     if stored {
+                        {
+                            let mut pending =
+                                lock_verification_mutex(&pending_incoming, "pending_incoming");
+                            *pending = Some(PendingIncomingRequest {
+                                flow_id: flow_id.clone(),
+                                is_user: true,
+                                counterpart_id: sender.to_string(),
+                                display_label: display_name.clone(),
+                            });
+                        }
                         let cb = lock_verification_mutex(
                             &incoming_user_request_callback,
                             "incoming_user_verification_request_callback",
@@ -624,7 +679,11 @@ impl VerificationService {
                         if let Some(ref f) = *cb {
                             f(&flow_id, sender.as_str(), &display_name);
                         }
-                        Self::spawn_incoming_request_watcher(request, request_closed_callback);
+                        Self::spawn_incoming_request_watcher(
+                            request,
+                            request_closed_callback,
+                            pending_incoming,
+                        );
                     }
 
                     let cb = lock_verification_mutex(
@@ -637,6 +696,58 @@ impl VerificationService {
                 }
             },
         );
+    }
+
+    /// Re-fire the pending incoming request to a freshly-attached consumer.
+    /// Consumers attach at different lifetimes (main window, intro); a request
+    /// that arrived before any consumer existed would otherwise vanish.
+    pub(crate) async fn replay_pending_incoming_request(&self) {
+        let pending = lock_verification_mutex(&self.pending_incoming, "pending_incoming").clone();
+        let Some(pending) = pending else {
+            return;
+        };
+        let answerable = {
+            let ctx = self.ctx.lock().await;
+            ctx.request
+                .as_ref()
+                .map(|r| {
+                    r.flow_id() == pending.flow_id && Self::request_state_is_answerable(&r.state())
+                })
+                .unwrap_or(false)
+        };
+        if !answerable {
+            *lock_verification_mutex(&self.pending_incoming, "pending_incoming") = None;
+            return;
+        }
+        verification_debug!(
+            "replaying pending incoming request flow_id={}",
+            pending.flow_id
+        );
+        if pending.is_user {
+            let cb = lock_verification_mutex(
+                &self.incoming_user_request_callback,
+                "incoming_user_verification_request_callback",
+            );
+            if let Some(ref f) = *cb {
+                f(
+                    &pending.flow_id,
+                    &pending.counterpart_id,
+                    &pending.display_label,
+                );
+            }
+        } else {
+            let cb = lock_verification_mutex(
+                &self.incoming_request_callback,
+                "incoming_verification_request_callback",
+            );
+            if let Some(ref f) = *cb {
+                f(
+                    &pending.flow_id,
+                    &pending.counterpart_id,
+                    &pending.display_label,
+                );
+            }
+        }
     }
 
     /// Answer a specific request with SAS. Initiate-only: the emojis arrive
@@ -1692,6 +1803,7 @@ impl VerificationService {
     fn spawn_incoming_request_watcher(
         request: VerificationRequest,
         closed_callback: Arc<Mutex<Option<VerificationRequestClosedCallback>>>,
+        pending: Arc<Mutex<Option<PendingIncomingRequest>>>,
     ) {
         let flow_id = request.flow_id().to_string();
         tokio::spawn(async move {
@@ -1716,6 +1828,16 @@ impl VerificationService {
                 }
             }
             verification_debug!("incoming request no longer answerable flow_id={}", flow_id);
+            {
+                let mut pending = lock_verification_mutex(&pending, "pending_incoming");
+                if pending
+                    .as_ref()
+                    .map(|p| p.flow_id == flow_id)
+                    .unwrap_or(false)
+                {
+                    *pending = None;
+                }
+            }
             Self::emit_request_closed(&closed_callback, &flow_id);
         });
     }
@@ -2112,5 +2234,27 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    // Replay with no live matching request must stay silent and clear the
+    // stale pending entry (the request died while nobody was listening).
+    #[tokio::test]
+    async fn replay_without_live_request_is_silent_and_clears() {
+        let service = VerificationService::new();
+        let fired = Arc::new(StdMutex::new(0u32));
+        let sink = fired.clone();
+        service.on_incoming_request(Box::new(move |_, _, _| {
+            *sink.lock().expect("sink not poisoned") += 1;
+        }));
+        *lock_verification_mutex(&service.pending_incoming, "pending_incoming") =
+            Some(PendingIncomingRequest {
+                flow_id: "$flow:example.org".into(),
+                is_user: false,
+                counterpart_id: "DEVICEID".into(),
+                display_label: "Laptop".into(),
+            });
+        service.replay_pending_incoming_request().await;
+        assert_eq!(*fired.lock().expect("fired not poisoned"), 0);
+        assert!(lock_verification_mutex(&service.pending_incoming, "pending_incoming").is_none());
     }
 }
