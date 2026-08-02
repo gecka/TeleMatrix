@@ -13,11 +13,11 @@ use crate::encryption_service::RecoverySetupError;
 use crate::types::{
     AccountActionResult, AccountSummary, CreateRoomRequest, DeleteDevicesResult, DeviceSessionList,
     EncryptionOverview, FolderMeta, HistoryVisibility, ImportKeysResult, MessageContent,
-    QrCodeImage, RegistrationRequest, RegistrationResult, ResetIdentityResult, RoomAccess,
-    RoomDirectoryPage, RoomDirectoryRequest, RoomMembersSnapshot, RoomNotificationMode,
-    RoomPreviewInfo, RoomSettingsSnapshot, RoomSummary, SasEmoji, SearchPage, SearchRequest,
-    SpaceHierarchyRequest, ThreePid, ThreePidMedium, ThreePidTokenResponse, TimelineItem,
-    TimelineSlice, UserProfile, UserProfileDetails, UsernameAvailability, VerificationCapabilities,
+    RegistrationRequest, RegistrationResult, ResetIdentityResult, RoomAccess, RoomDirectoryPage,
+    RoomDirectoryRequest, RoomMembersSnapshot, RoomNotificationMode, RoomPreviewInfo,
+    RoomSettingsSnapshot, RoomSummary, SearchPage, SearchRequest, SpaceHierarchyRequest, ThreePid,
+    ThreePidMedium, ThreePidTokenResponse, TimelineItem, TimelineSlice, UserProfile,
+    UserProfileDetails, UsernameAvailability, VerificationCapabilities,
 };
 
 /// The core protocol trait that both mock and future Matrix implementations must satisfy.
@@ -283,8 +283,9 @@ pub trait ProtocolClient: Send + Sync {
     /// Search messages in one room or across all rooms.
     async fn search_messages(&self, request: SearchRequest) -> Result<SearchPage>;
 
-    /// Start SAS emoji verification. Returns exactly 7 SAS emojis on success.
-    async fn start_sas_verification(&self) -> Result<Vec<SasEmoji>> {
+    /// Start SAS emoji verification. Initiate-only: success means the flow was
+    /// started, and the emojis arrive through the SAS-emojis callback.
+    async fn start_sas_verification(&self) -> Result<()> {
         Err(anyhow::anyhow!("SAS verification not supported"))
     }
 
@@ -293,8 +294,9 @@ pub trait ProtocolClient: Send + Sync {
         Err(anyhow::anyhow!("SAS verification not supported"))
     }
 
-    /// Show a QR code for device verification. Returns the QR module grid.
-    async fn start_qr_verification(&self) -> Result<QrCodeImage> {
+    /// Show a QR code for device verification. Initiate-only: the module grid
+    /// arrives through the QR-data callback.
+    async fn start_qr_verification(&self) -> Result<()> {
         Err(anyhow::anyhow!("QR verification not supported"))
     }
 

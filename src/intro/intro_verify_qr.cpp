@@ -74,6 +74,18 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
             this, &IntroVerifyQr::onQrCodeReady);
     connect(_bridge, &ProtocolBridge::qrScanConfirmed,
             this, &IntroVerifyQr::onQrScanConfirmed);
+    connect(_bridge, &ProtocolBridge::qrCodeDataReady,
+            this, [this](const QString &flowId, const QByteArray &modules, int size) {
+        if (!isVisible() || modules.isEmpty() || size <= 0) {
+            return;
+        }
+        _flowId = flowId;
+        _modules = modules;
+        _qrSize = size;
+        hideError();
+        setDescriptionText(tr("Scan this code with another session to verify."));
+        update();
+    });
     connect(_bridge, &ProtocolBridge::verificationStateChanged,
             this, [this](int state, const QString &flowId) {
         if (!isVisible()) {
@@ -81,7 +93,13 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         }
         constexpr int kQrCodeReady = 6;
         constexpr int kQrCodeScanned = 7;
+        constexpr int kDone = 8;
         constexpr int kCancelled = 9;
+        if (state == kDone
+            && (flowId.isEmpty() || _flowId.isEmpty() || flowId == _flowId)) {
+            Q_EMIT verified();
+            return;
+        }
         // Latch the flow id this page owns from its own positive states.
         if (state == kQrCodeReady || state == kQrCodeScanned) {
             _flowId = flowId;
@@ -143,29 +161,26 @@ QString IntroVerifyQr::nextButtonText() const {
     return tr("Continue");
 }
 
-void IntroVerifyQr::onQrCodeReady(bool success, const QByteArray &modules, int size) {
-    if (success && !modules.isEmpty() && size > 0) {
-        _modules = modules;
-        _qrSize = size;
-        hideError();
-        setDescriptionText(tr("Scan this code with another session to verify."));
-    } else {
-        _modules.clear();
-        _qrSize = 0;
-        showFailure(tr("Couldn’t start QR verification"));
+void IntroVerifyQr::onQrCodeReady(bool success, const QByteArray &, int) {
+    // success only means the flow started; the modules arrive on qrCodeDataReady.
+    if (success) {
+        return;
     }
+    _modules.clear();
+    _qrSize = 0;
+    showFailure(tr("Couldn’t start QR verification"));
     update();
 }
 
 void IntroVerifyQr::onQrScanConfirmed(bool success) {
+    // success only means the confirmation was sent; completion arrives as Done.
     if (success) {
-        Q_EMIT verified();
-    } else {
-        setWaitingState(false);
-        showFailure(tr(
-            "The request was denied or timed out, "
-            "or there was a verification mismatch"));
+        return;
     }
+    setWaitingState(false);
+    showFailure(tr(
+        "The request was denied or timed out, "
+        "or there was a verification mismatch"));
 }
 
 void IntroVerifyQr::setScannedState() {

@@ -5,7 +5,7 @@
 // files in the project root for full terms.
 
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use futures_util::StreamExt;
@@ -26,16 +26,16 @@ use crate::types::{
     QrCodeImage, SasEmoji, UserTrustState, VerificationCapabilities, VerificationState,
 };
 
-const VERIFICATION_READY_TIMEOUT: Duration = Duration::from_secs(120);
-const VERIFICATION_TRANSITIONED_BEFORE_SELECTED_METHOD: &str =
-    "Verification request transitioned before this client could start the selected method";
-
 type VerificationStateCallback = Box<dyn Fn(u32, &str) + Send>;
 type IncomingVerificationRequestCallback = Box<dyn Fn(&str, &str, &str) + Send>;
 type UserTrustChangedCallback = Box<dyn Fn(&str, u32) + Send>;
 type IncomingUserVerificationRequestCallback = Box<dyn Fn(&str, &str, &str) + Send>;
 /// Fires with a flow id when an incoming request can no longer be answered.
 type VerificationRequestClosedCallback = Box<dyn Fn(&str) + Send>;
+/// Fires with the flow id whenever a SAS reaches the compare-emoji stage.
+type SasEmojisCallback = Box<dyn Fn(&str, &[SasEmoji]) + Send>;
+/// Fires with the flow id when a QR code has been generated and rendered.
+type QrDataCallback = Box<dyn Fn(&str, &QrCodeImage) + Send>;
 
 macro_rules! verification_debug {
     ($($arg:tt)*) => {{
@@ -54,6 +54,14 @@ fn lock_verification_mutex<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard
     }
 }
 
+/// Which method this device wants once the request reaches Ready; the request
+/// watcher acts on it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DesiredMethod {
+    Sas,
+    Qr,
+}
+
 /// Internal state for an active sign-in verification flow.
 struct VerificationContext {
     request: Option<VerificationRequest>,
@@ -61,6 +69,12 @@ struct VerificationContext {
     qr: Option<QrVerification>,
     /// Generation counter to detect stale callbacks.
     generation: u64,
+    desired: Option<DesiredMethod>,
+    /// Bumped when `sas` is replaced so a superseded SAS watcher (lost
+    /// start-race tie-break) can tell it must stay silent.
+    sas_token: u64,
+    /// Watcher tasks for this flow; aborted on reset.
+    watchers: Vec<tokio::task::JoinHandle<()>>,
 }
 
 impl VerificationContext {
@@ -70,14 +84,22 @@ impl VerificationContext {
             sas: None,
             qr: None,
             generation: 0,
+            desired: None,
+            sas_token: 0,
+            watchers: Vec::new(),
         }
     }
 
     fn reset(&mut self) {
+        for handle in self.watchers.drain(..) {
+            handle.abort();
+        }
         self.request = None;
         self.sas = None;
         self.qr = None;
+        self.desired = None;
         self.generation += 1;
+        self.sas_token += 1;
     }
 }
 
@@ -98,6 +120,12 @@ pub(crate) struct VerificationService {
     /// uses it to take down the request banner, which otherwise sits there
     /// offering to accept a request that no longer exists.
     request_closed_callback: Arc<Mutex<Option<VerificationRequestClosedCallback>>>,
+    /// Fires when a SAS reaches the compare stage. Separate from the state
+    /// callback because the emojis can arrive at any time — including from a SAS
+    /// the *other* device started — so no start call can carry them back.
+    sas_emojis_callback: Arc<Mutex<Option<SasEmojisCallback>>>,
+    /// Fires when a QR code has been generated, for the same reason.
+    qr_data_callback: Arc<Mutex<Option<QrDataCallback>>>,
     /// Serializes outgoing start attempts so two near-simultaneous starts
     /// (e.g. tapping "emoji" then "QR") cannot create two requests that clobber
     /// each other's `ctx.request` and strand one flow.
@@ -120,6 +148,8 @@ impl VerificationService {
             user_trust_changed_callback: Arc::new(Mutex::new(None)),
             incoming_user_request_callback: Arc::new(Mutex::new(None)),
             request_closed_callback: Arc::new(Mutex::new(None)),
+            sas_emojis_callback: Arc::new(Mutex::new(None)),
+            qr_data_callback: Arc::new(Mutex::new(None)),
             start_guard: Arc::new(tokio::sync::Mutex::new(())),
             current_flow_id: Arc::new(Mutex::new(String::new())),
         }
@@ -171,6 +201,18 @@ impl VerificationService {
         *cb = Some(callback);
     }
 
+    /// Register a callback that fires when a SAS flow's emojis become available.
+    pub(crate) fn on_sas_emojis(&self, callback: SasEmojisCallback) {
+        let mut cb = lock_verification_mutex(&self.sas_emojis_callback, "sas_emojis_callback");
+        *cb = Some(callback);
+    }
+
+    /// Register a callback that fires when a QR code has been generated.
+    pub(crate) fn on_qr_data(&self, callback: QrDataCallback) {
+        let mut cb = lock_verification_mutex(&self.qr_data_callback, "qr_data_callback");
+        *cb = Some(callback);
+    }
+
     pub(crate) fn clear_callbacks(&self) {
         {
             let mut cb =
@@ -204,6 +246,28 @@ impl VerificationService {
                 "verification_request_closed_callback",
             );
             *cb = None;
+        }
+        {
+            let mut cb = lock_verification_mutex(&self.sas_emojis_callback, "sas_emojis_callback");
+            *cb = None;
+        }
+        {
+            let mut cb = lock_verification_mutex(&self.qr_data_callback, "qr_data_callback");
+            *cb = None;
+        }
+    }
+
+    fn emit_sas_emojis(&self, flow_id: &str, emojis: &[SasEmoji]) {
+        let cb = lock_verification_mutex(&self.sas_emojis_callback, "sas_emojis_callback");
+        if let Some(ref f) = *cb {
+            f(flow_id, emojis);
+        }
+    }
+
+    fn emit_qr_data(&self, flow_id: &str, image: &QrCodeImage) {
+        let cb = lock_verification_mutex(&self.qr_data_callback, "qr_data_callback");
+        if let Some(ref f) = *cb {
+            f(flow_id, image);
         }
     }
 
@@ -386,8 +450,10 @@ impl VerificationService {
                             Self::verification_request_state_details(&request.state())
                         );
                         if replace {
+                            // reset() aborts the superseded flow's watchers; a
+                            // bare overwrite would leave them emitting.
+                            ctx.reset();
                             ctx.request = Some(request.clone());
-                            ctx.sas = None;
                             stored_request = true;
                         }
                     }
@@ -510,8 +576,10 @@ impl VerificationService {
                             })
                             .unwrap_or(true);
                         if replace {
+                            // See the self-verification handler: reset() aborts
+                            // the superseded flow's watchers.
+                            ctx.reset();
                             ctx.request = Some(request.clone());
-                            ctx.sas = None;
                             stored = true;
                         }
                     }
@@ -539,16 +607,17 @@ impl VerificationService {
         );
     }
 
-    pub(crate) async fn start_sas_verification_for(
-        &self,
-        expected_flow_id: &str,
-    ) -> Result<Vec<SasEmoji>> {
+    /// Answer a specific request with SAS. Initiate-only: the emojis arrive
+    /// later through the SAS watcher's `sas_emojis_callback`.
+    pub(crate) async fn start_sas_verification_for(&self, expected_flow_id: &str) -> Result<()> {
+        // Held for the same reason as the outgoing starts: an accept racing a
+        // second start would answer the same request twice.
+        let _start_guard = self.start_guard.lock().await;
         let request = self
             .active_verification_request_for(expected_flow_id)
             .await
             .map_err(|e| anyhow!("No matching verification request: {e}"))?;
-        self.start_sas_verification_from_request(request, Some(expected_flow_id))
-            .await
+        self.activate_flow(request, DesiredMethod::Sas).await
     }
 
     pub(crate) async fn cancel_verification_for(&self, expected_flow_id: &str) -> Result<()> {
@@ -595,11 +664,13 @@ impl VerificationService {
         Ok(())
     }
 
+    /// Start (or adopt) a self-verification and drive it to SAS. Initiate-only:
+    /// the emojis arrive later through the SAS watcher.
     pub(crate) async fn start_sas_verification_checked(
         &self,
         client: Client,
         expected_flow_id: Option<&str>,
-    ) -> Result<Vec<SasEmoji>> {
+    ) -> Result<()> {
         debug_assert!(expected_flow_id.is_none());
         let _start_guard = self.start_guard.lock().await;
         let request = match self.ensure_verification_request(client).await {
@@ -611,25 +682,24 @@ impl VerificationService {
             }
         };
 
-        self.start_sas_verification_from_request(request, expected_flow_id)
-            .await
+        self.activate_flow(request, DesiredMethod::Sas).await
     }
 
     /// Start an interactive SAS (emoji) verification of ANOTHER user's identity.
     /// Sends an in-room verification request to the user (the SDK routes it
-    /// through a shared DM, creating one if none exists), waits for it to become
-    /// ready, then starts SAS and returns the emojis to compare. On a successful
-    /// SAS the SDK signs the user's master key with our user-signing key.
+    /// through a shared DM, creating one if none exists) and drives it to SAS
+    /// once the peer is ready. On a successful SAS the SDK signs the user's
+    /// master key with our user-signing key.
     pub(crate) async fn start_user_verification(
         &self,
         client: Client,
         user_id: &str,
-    ) -> Result<Vec<SasEmoji>> {
+    ) -> Result<()> {
         let _start_guard = self.start_guard.lock().await;
         // `ensure_user_verification_request` performs its own flow-scoped context
         // cleanup on failure, so the outer handler only surfaces the error state;
         // a blanket `reset_context()` here would wipe a concurrent flow (e.g. an
-        // incoming request that replaced `ctx` while we waited for readiness).
+        // incoming request that replaced `ctx`).
         let request = match self
             .ensure_user_verification_request(&client, user_id)
             .await
@@ -640,14 +710,13 @@ impl VerificationService {
                 return Err(e);
             }
         };
-        self.start_sas_verification_from_request(request, None)
-            .await
+        self.activate_flow(request, DesiredMethod::Sas).await
     }
 
-    /// Create + send an outgoing verification request to another user and store
-    /// it in the active context so `start_sas_verification_from_request` accepts
-    /// it. Fetches the target's cross-signing identity (cache first, then a
-    /// server key query) — a user without one cannot be verified.
+    /// Create + send an outgoing verification request to another user. Fetches
+    /// the target's cross-signing identity (cache first, then a server key
+    /// query) — a user without one cannot be verified. Storing the request and
+    /// attaching its watcher is `activate_flow`'s job.
     async fn ensure_user_verification_request(
         &self,
         client: &Client,
@@ -682,19 +751,6 @@ impl VerificationService {
             Self::verification_request_state_details(&request.state())
         );
 
-        {
-            let mut ctx = self.ctx.lock().await;
-            ctx.request = Some(request.clone());
-            ctx.sas = None;
-        }
-
-        if let Err(e) = self.wait_for_verification_request_ready(&request).await {
-            // Only clear the context if it is still ours — an incoming request may
-            // have replaced it while we waited (these handlers don't hold
-            // `start_guard`).
-            self.reset_context_if_current(Some(&flow_id)).await;
-            return Err(e);
-        }
         Ok(request)
     }
 
@@ -736,77 +792,30 @@ impl VerificationService {
 
         self.emit_state(VerificationState::SasWaitingForConfirm);
 
+        // Send-only: Done and Cancelled reach the UI from the SAS watcher, which
+        // is the sole owner of terminal states.
         sas.confirm().await?;
-
-        let mut changes = sas.changes();
-
-        let result = tokio::time::timeout(Duration::from_secs(30), async {
-            // `changes()` does not replay the current state, so if the other
-            // device already confirmed/cancelled by the time we subscribe, the
-            // next transition never comes. Check the terminal state once first.
-            if sas.is_done() {
-                return Ok(());
-            }
-            if sas.is_cancelled() {
-                return Err(anyhow!("SAS cancelled after confirm"));
-            }
-            while let Some(state) = changes.next().await {
-                match state {
-                    SasState::Done { .. } => return Ok(()),
-                    SasState::Cancelled(info) => {
-                        return Err(anyhow!("SAS cancelled after confirm: {}", info.reason()));
-                    }
-                    _ => continue,
-                }
-            }
-            Err(anyhow!("SAS stream ended without reaching Done"))
-        })
-        .await;
-
-        match result {
-            Ok(Ok(())) => {
-                self.emit_state(VerificationState::Done);
-                self.reset_context().await;
-                Ok(())
-            }
-            Ok(Err(e)) => {
-                self.emit_state(VerificationState::Cancelled);
-                self.reset_context().await;
-                Err(e)
-            }
-            Err(_) => {
-                if sas.is_done() {
-                    self.emit_state(VerificationState::Done);
-                    self.reset_context().await;
-                    Ok(())
-                } else {
-                    self.emit_state(VerificationState::Cancelled);
-                    self.reset_context().await;
-                    Err(anyhow!(
-                        "SAS confirmation timed out before the other device confirmed"
-                    ))
-                }
-            }
-        }
+        Ok(())
     }
 
-    pub(crate) async fn start_qr_verification_for(
-        &self,
-        expected_flow_id: &str,
-    ) -> Result<QrCodeImage> {
+    /// Answer a specific request with QR. Initiate-only: the module grid arrives
+    /// later through the request watcher's `qr_data_callback`.
+    pub(crate) async fn start_qr_verification_for(&self, expected_flow_id: &str) -> Result<()> {
+        let _start_guard = self.start_guard.lock().await;
         let request = self
             .active_verification_request_for(expected_flow_id)
             .await
             .map_err(|e| anyhow!("No matching verification request: {e}"))?;
-        self.start_qr_verification_from_request(request, Some(expected_flow_id))
-            .await
+        self.activate_flow(request, DesiredMethod::Qr).await
     }
 
+    /// Start (or adopt) a self-verification and drive it to QR. Initiate-only:
+    /// the module grid arrives later through `qr_data_callback`.
     pub(crate) async fn start_qr_verification_checked(
         &self,
         client: Client,
         expected_flow_id: Option<&str>,
-    ) -> Result<QrCodeImage> {
+    ) -> Result<()> {
         debug_assert!(expected_flow_id.is_none());
         let _start_guard = self.start_guard.lock().await;
         let request = match self.ensure_verification_request(client).await {
@@ -817,8 +826,7 @@ impl VerificationService {
                 return Err(e);
             }
         };
-        self.start_qr_verification_from_request(request, expected_flow_id)
-            .await
+        self.activate_flow(request, DesiredMethod::Qr).await
     }
 
     pub(crate) async fn confirm_qr_scanned(&self) -> Result<()> {
@@ -831,56 +839,9 @@ impl VerificationService {
         };
 
         // The high-level wrapper's confirm() runs confirm_scanning() and sends.
+        // Send-only: terminal states come from the QR watcher.
         qr.confirm().await?;
-
-        let mut changes = qr.changes();
-        let result = tokio::time::timeout(Duration::from_secs(30), async {
-            // `changes()` does not replay current state — check terminal states
-            // once before awaiting the next transition.
-            if qr.is_done() {
-                return Ok(());
-            }
-            if qr.is_cancelled() {
-                return Err(anyhow!("QR cancelled after confirm"));
-            }
-            while let Some(state) = changes.next().await {
-                match state {
-                    QrVerificationState::Done { .. } => return Ok(()),
-                    QrVerificationState::Cancelled(info) => {
-                        return Err(anyhow!("QR cancelled after confirm: {}", info.reason()));
-                    }
-                    _ => continue,
-                }
-            }
-            Err(anyhow!("QR stream ended without reaching Done"))
-        })
-        .await;
-
-        match result {
-            Ok(Ok(())) => {
-                self.emit_state(VerificationState::Done);
-                self.reset_context().await;
-                Ok(())
-            }
-            Ok(Err(e)) => {
-                self.emit_state(VerificationState::Cancelled);
-                self.reset_context().await;
-                Err(e)
-            }
-            Err(_) => {
-                if qr.is_done() {
-                    self.emit_state(VerificationState::Done);
-                    self.reset_context().await;
-                    Ok(())
-                } else {
-                    self.emit_state(VerificationState::Cancelled);
-                    self.reset_context().await;
-                    Err(anyhow!(
-                        "QR confirmation timed out before the other device confirmed"
-                    ))
-                }
-            }
-        }
+        Ok(())
     }
 
     pub(crate) async fn verify_with_recovery_key(&self, client: Client, key: &str) -> Result<()> {
@@ -1064,223 +1025,279 @@ impl VerificationService {
         ctx.reset();
     }
 
-    async fn start_sas_verification_from_request(
-        &self,
-        request: VerificationRequest,
-        expected_flow_id: Option<&str>,
-    ) -> Result<Vec<SasEmoji>> {
-        let selected_flow_id = request.flow_id().to_string();
-        self.set_current_flow_id(&selected_flow_id);
-        if let Some(expected) = expected_flow_id {
-            if selected_flow_id != expected {
-                return Err(anyhow!(
-                    "Verification flow_id={} does not match expected flow_id={}",
-                    selected_flow_id,
-                    expected
-                ));
+    /// Store the request and attach its watcher. The watcher is the single
+    /// owner of request-level emissions (Element's `onChange` shape).
+    async fn begin_flow(&self, request: VerificationRequest, desired: Option<DesiredMethod>) {
+        let mut ctx = self.ctx.lock().await;
+        let is_same = ctx
+            .request
+            .as_ref()
+            .map(|r| r.flow_id() == request.flow_id())
+            .unwrap_or(false);
+        if !is_same {
+            for handle in ctx.watchers.drain(..) {
+                handle.abort();
             }
+            ctx.sas = None;
+            ctx.qr = None;
+            ctx.sas_token += 1;
+            ctx.request = Some(request.clone());
+            let generation = ctx.generation;
+            let handle = self.spawn_request_watcher(request, generation);
+            ctx.watchers.push(handle);
         }
-
-        if !request.is_ready() {
-            if let Err(e) = self.wait_for_verification_request_ready(&request).await {
-                self.emit_state(VerificationState::Cancelled);
-                self.reset_context_if_current(expected_flow_id).await;
-                return Err(e);
-            }
+        if desired.is_some() {
+            ctx.desired = desired;
         }
-
-        {
-            let ctx = self.ctx.lock().await;
-            let active_flow_id = ctx
-                .request
-                .as_ref()
-                .map(|request| request.flow_id().to_string());
-            if active_flow_id.as_deref() != Some(selected_flow_id.as_str()) {
-                drop(ctx);
-                // Emit a terminal state tagged with OUR flow id so this flow's UI
-                // hides, without disturbing the flow that replaced us.
-                self.emit_state_for(VerificationState::Cancelled, &selected_flow_id);
-                return Err(anyhow!(
-                    "Active verification flow does not match selected flow_id={}",
-                    selected_flow_id
-                ));
-            }
-        }
-
-        if !request.is_ready() {
-            self.emit_state(VerificationState::Cancelled);
-            self.reset_context_if_current(expected_flow_id).await;
-            return Err(anyhow!("Verification request is not ready"));
-        }
-
-        self.emit_state(VerificationState::SasStarted);
-
-        let sas = request
-            .start_sas()
-            .await?
-            .ok_or_else(|| anyhow!("Failed to start SAS verification"))?;
-
-        let mut changes = sas.changes();
-        let emojis_result = tokio::time::timeout(Duration::from_secs(60), async {
-            if sas.can_be_presented() {
-                if let Some(emoji_arr) = sas.emoji() {
-                    return Ok(emoji_arr);
-                }
-            }
-
-            while let Some(state) = changes.next().await {
-                match state {
-                    SasState::KeysExchanged { .. } => {
-                        if let Some(emoji_arr) = sas.emoji() {
-                            return Ok(emoji_arr);
-                        }
-                    }
-                    SasState::Done { .. } => {
-                        // `changes()` coalesces transitions, so KeysExchanged may
-                        // be folded into a single Done delivery. Take the emojis
-                        // if they are present rather than failing outright.
-                        if let Some(emoji_arr) = sas.emoji() {
-                            return Ok(emoji_arr);
-                        }
-                        return Err(anyhow!("SAS completed before emojis shown"));
-                    }
-                    SasState::Cancelled(info) => {
-                        return Err(anyhow!("SAS cancelled: {}", info.reason()));
-                    }
-                    _ => {
-                        if let Some(emoji_arr) = sas.emoji() {
-                            return Ok(emoji_arr);
-                        }
-                    }
-                }
-            }
-            Err(anyhow!("SAS stream ended without emojis"))
-        })
-        .await
-        .map_err(|_| anyhow!("Timed out waiting for SAS emojis"));
-
-        let emojis: [matrix_sdk::encryption::verification::Emoji; 7] = match emojis_result {
-            Ok(Ok(e)) => e,
-            Ok(Err(e)) | Err(e) => {
-                self.emit_state(VerificationState::Cancelled);
-                self.reset_context_if_current(expected_flow_id).await;
-                return Err(e);
-            }
-        };
-
-        let sas_clone = sas.clone();
-        let spawned_generation;
-        {
-            let mut ctx = self.ctx.lock().await;
-            let still_current = ctx
-                .request
-                .as_ref()
-                .map(|request| request.flow_id() == selected_flow_id.as_str())
-                .unwrap_or(false);
-            if !still_current {
-                drop(ctx);
-                let _ = sas.cancel().await;
-                self.emit_state_for(VerificationState::Cancelled, &selected_flow_id);
-                return Err(anyhow!(
-                    "Active verification request changed before SAS was stored"
-                ));
-            }
-            ctx.sas = Some(sas);
-            spawned_generation = ctx.generation;
-        }
-
-        self.emit_state(VerificationState::SasEmojisAvailable);
-
-        {
-            let verification_ctx = self.ctx.clone();
-            let state_cb = self.state_callback.clone();
-            let spawned_flow_id = selected_flow_id.clone();
-            tokio::spawn(async move {
-                let mut changes = sas_clone.changes();
-                // `changes()` does not replay the current state, so a Cancelled
-                // that landed before we subscribed would be missed. Seed the
-                // loop with the current state, then follow future transitions.
-                let mut next_state = Some(sas_clone.state());
-                while let Some(state) = match next_state.take() {
-                    Some(state) => Some(state),
-                    None => changes.next().await,
-                } {
-                    match state {
-                        SasState::Cancelled(_) => {
-                            let mut ctx = verification_ctx.lock().await;
-                            let same_flow = ctx
-                                .request
-                                .as_ref()
-                                .map(|request| request.flow_id() == spawned_flow_id.as_str())
-                                .unwrap_or(false);
-                            if ctx.generation != spawned_generation || !same_flow {
-                                break;
-                            }
-                            let cb =
-                                lock_verification_mutex(&state_cb, "verification_state_callback");
-                            if let Some(ref f) = *cb {
-                                f(VerificationState::Cancelled as u32, &spawned_flow_id);
-                            }
-                            ctx.reset();
-                            break;
-                        }
-                        SasState::Done { .. } => break,
-                        _ => continue,
-                    }
-                }
-            });
-        }
-
-        Ok(emojis
-            .iter()
-            .map(|e| SasEmoji {
-                emoji: e.symbol.to_string(),
-                label: e.description.to_string(),
-            })
-            .collect())
     }
 
-    async fn start_qr_verification_from_request(
+    fn spawn_request_watcher(
         &self,
         request: VerificationRequest,
-        expected_flow_id: Option<&str>,
-    ) -> Result<QrCodeImage> {
-        let selected_flow_id = request.flow_id().to_string();
-        self.set_current_flow_id(&selected_flow_id);
-        if let Some(expected) = expected_flow_id {
-            if selected_flow_id != expected {
-                return Err(anyhow!(
-                    "Verification flow_id={} does not match expected flow_id={}",
-                    selected_flow_id,
-                    expected
-                ));
+        generation: u64,
+    ) -> tokio::task::JoinHandle<()> {
+        let service = self.clone();
+        tokio::spawn(async move {
+            let flow_id = request.flow_id().to_string();
+            let mut changes = request.changes();
+            // `changes()` does not replay the current state — seed with it.
+            let mut next_state = Some(request.state());
+            loop {
+                let state = match next_state.take() {
+                    Some(state) => state,
+                    None => match changes.next().await {
+                        Some(state) => state,
+                        None => break,
+                    },
+                };
+                verification_debug!(
+                    "request watcher flow_id={} state={}",
+                    flow_id,
+                    Self::verification_request_state_details(&state)
+                );
+                match state {
+                    VerificationRequestState::Ready { .. } => {
+                        service.emit_state_for(VerificationState::Ready, &flow_id);
+                        service.act_on_ready(&request, generation).await;
+                    }
+                    VerificationRequestState::Transitioned { verification } => {
+                        if let Some(sas) = verification.sas() {
+                            service.adopt_sas(sas, &flow_id, generation).await;
+                        }
+                        // QR transitions are driven by our own generate path;
+                        // nothing to adopt (this client never scans).
+                    }
+                    VerificationRequestState::Cancelled(info) => {
+                        if service.flow_is_current(&flow_id, generation).await {
+                            verification_debug!(
+                                "request cancelled flow_id={} code={} by_us={}",
+                                flow_id,
+                                info.cancel_code().as_str(),
+                                info.cancelled_by_us()
+                            );
+                            service.emit_state_for(VerificationState::Cancelled, &flow_id);
+                            service.reset_context_if_current(Some(&flow_id)).await;
+                        }
+                        break;
+                    }
+                    VerificationRequestState::Done => {
+                        // The SAS/QR watcher normally emits Done first; this is
+                        // the safety net for flows completing without one.
+                        service.emit_state_for(VerificationState::Done, &flow_id);
+                        service.reset_context_if_current(Some(&flow_id)).await;
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        })
+    }
+
+    async fn act_on_ready(&self, request: &VerificationRequest, generation: u64) {
+        let desired = {
+            let ctx = self.ctx.lock().await;
+            if ctx.generation != generation {
+                return;
+            }
+            ctx.desired
+        };
+        match desired {
+            Some(DesiredMethod::Sas) => self.start_sas_on_ready(request, generation).await,
+            Some(DesiredMethod::Qr) => self.generate_qr_on_ready(request, generation).await,
+            None => {}
+        }
+    }
+
+    async fn start_sas_on_ready(&self, request: &VerificationRequest, generation: u64) {
+        let flow_id = request.flow_id().to_string();
+        match request.start_sas().await {
+            Ok(Some(sas)) => self.adopt_sas(sas, &flow_id, generation).await,
+            Ok(None) => {
+                // Peer transitioned between Ready and start_sas — the watcher
+                // adopts theirs. Anything else is a real failure.
+                if !matches!(
+                    request.state(),
+                    VerificationRequestState::Transitioned { .. }
+                ) {
+                    self.fail_flow(&flow_id, "Failed to start SAS verification")
+                        .await;
+                }
+            }
+            Err(e) => {
+                self.fail_flow(&flow_id, &format!("Failed to start SAS: {e}"))
+                    .await;
             }
         }
+    }
 
-        if !request.is_ready() {
-            if let Err(e) = self.wait_for_verification_request_ready(&request).await {
-                self.emit_state(VerificationState::Cancelled);
-                self.reset_context_if_current(expected_flow_id).await;
-                return Err(e);
+    /// Store the SAS (ours or the peer's), accept it when the peer started it
+    /// — including a replacement after a lost start-race tie-break — and spawn
+    /// its watcher. matrix-sdk-ffi does exactly this on `Transitioned`.
+    async fn adopt_sas(&self, sas: SasVerification, flow_id: &str, generation: u64) {
+        {
+            let mut ctx = self.ctx.lock().await;
+            if ctx.generation != generation {
+                return;
+            }
+            let same_flow = ctx
+                .request
+                .as_ref()
+                .map(|r| r.flow_id() == flow_id)
+                .unwrap_or(false);
+            if !same_flow {
+                return;
+            }
+            if ctx.sas.is_some() && sas.we_started() {
+                // Our own start echoed back through the request stream.
+                return;
+            }
+            ctx.sas_token += 1;
+            let token = ctx.sas_token;
+            ctx.sas = Some(sas.clone());
+            let handle =
+                self.spawn_sas_watcher(sas.clone(), flow_id.to_string(), generation, token);
+            ctx.watchers.push(handle);
+        }
+        if !sas.we_started() {
+            if let Err(e) = sas.accept().await {
+                verification_debug!("failed to accept peer SAS flow_id={flow_id} error={e}");
             }
         }
+        self.emit_state_for(VerificationState::SasStarted, flow_id);
+    }
 
+    fn spawn_sas_watcher(
+        &self,
+        sas: SasVerification,
+        flow_id: String,
+        generation: u64,
+        token: u64,
+    ) -> tokio::task::JoinHandle<()> {
+        let service = self.clone();
+        tokio::spawn(async move {
+            let mut changes = sas.changes();
+            let mut next_state = Some(sas.state());
+            let mut emojis_emitted = false;
+            loop {
+                let state = match next_state.take() {
+                    Some(state) => state,
+                    None => match changes.next().await {
+                        Some(state) => state,
+                        None => break,
+                    },
+                };
+                // A replaced SAS must stay silent; the winner has its own watcher.
+                if !service.sas_token_is_current(generation, token).await {
+                    break;
+                }
+                match state {
+                    SasState::Done { .. } => {
+                        service.emit_state_for(VerificationState::Done, &flow_id);
+                        service.reset_context_if_current(Some(&flow_id)).await;
+                        break;
+                    }
+                    SasState::Cancelled(info) => {
+                        verification_debug!(
+                            "sas cancelled flow_id={} code={} by_us={}",
+                            flow_id,
+                            info.cancel_code().as_str(),
+                            info.cancelled_by_us()
+                        );
+                        service.emit_state_for(VerificationState::Cancelled, &flow_id);
+                        service.reset_context_if_current(Some(&flow_id)).await;
+                        break;
+                    }
+                    _ => {
+                        // Emojis appear on KeysExchanged, but `changes()` can
+                        // coalesce — take them from whatever state has them.
+                        if !emojis_emitted {
+                            if let Some(emoji_arr) = sas.emoji() {
+                                emojis_emitted = true;
+                                let emojis: Vec<SasEmoji> = emoji_arr
+                                    .iter()
+                                    .map(|e| SasEmoji {
+                                        emoji: e.symbol.to_string(),
+                                        label: e.description.to_string(),
+                                    })
+                                    .collect();
+                                service.emit_sas_emojis(&flow_id, &emojis);
+                                service.emit_state_for(
+                                    VerificationState::SasEmojisAvailable,
+                                    &flow_id,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    async fn generate_qr_on_ready(&self, request: &VerificationRequest, generation: u64) {
+        let flow_id = request.flow_id().to_string();
         let qr = match request.generate_qr_code().await {
             Ok(Some(qr)) => qr,
             Ok(None) => {
-                self.emit_state(VerificationState::Cancelled);
-                self.reset_context_if_current(expected_flow_id).await;
-                return Err(anyhow!(
-                    "QR verification unavailable (the other device can't scan, or cross-signing is missing)"
-                ));
+                self.fail_flow(
+                    &flow_id,
+                    "QR verification unavailable (the other device can't scan, or cross-signing is missing)",
+                )
+                .await;
+                return;
             }
             Err(e) => {
-                self.emit_state(VerificationState::Cancelled);
-                self.reset_context_if_current(expected_flow_id).await;
-                return Err(anyhow!("Failed to generate QR code: {e}"));
+                self.fail_flow(&flow_id, &format!("Failed to generate QR code: {e}"))
+                    .await;
+                return;
             }
         };
+        let image = match Self::render_qr(&qr) {
+            Ok(image) => image,
+            Err(e) => {
+                self.fail_flow(&flow_id, &e.to_string()).await;
+                return;
+            }
+        };
+        {
+            let mut ctx = self.ctx.lock().await;
+            if ctx.generation != generation
+                || ctx
+                    .request
+                    .as_ref()
+                    .map(|r| r.flow_id() != flow_id)
+                    .unwrap_or(true)
+            {
+                return;
+            }
+            ctx.qr = Some(qr.clone());
+            let handle = self.spawn_qr_watcher(qr, flow_id.clone(), generation);
+            ctx.watchers.push(handle);
+        }
+        self.emit_qr_data(&flow_id, &image);
+        self.emit_state_for(VerificationState::QrCodeReady, &flow_id);
+    }
 
+    fn render_qr(qr: &QrVerification) -> Result<QrCodeImage> {
         let code = qr
             .to_qr_code()
             .map_err(|e| anyhow!("Failed to render QR code: {e}"))?;
@@ -1290,91 +1307,108 @@ impl VerificationService {
             .into_iter()
             .map(|c| u8::from(c == qrcode::Color::Dark))
             .collect();
+        Ok(QrCodeImage { size, modules })
+    }
 
-        let qr_clone = qr.clone();
-        let spawned_generation;
-        {
-            let mut ctx = self.ctx.lock().await;
-            let still_current = ctx
+    fn spawn_qr_watcher(
+        &self,
+        qr: QrVerification,
+        flow_id: String,
+        generation: u64,
+    ) -> tokio::task::JoinHandle<()> {
+        let service = self.clone();
+        tokio::spawn(async move {
+            let mut changes = qr.changes();
+            let mut next_state = Some(qr.state());
+            loop {
+                let state = match next_state.take() {
+                    Some(state) => state,
+                    None => match changes.next().await {
+                        Some(state) => state,
+                        None => break,
+                    },
+                };
+                if !service.flow_is_current(&flow_id, generation).await {
+                    break;
+                }
+                match state {
+                    QrVerificationState::Scanned => {
+                        service.emit_state_for(VerificationState::QrCodeScanned, &flow_id);
+                    }
+                    QrVerificationState::Done { .. } => {
+                        service.emit_state_for(VerificationState::Done, &flow_id);
+                        service.reset_context_if_current(Some(&flow_id)).await;
+                        break;
+                    }
+                    QrVerificationState::Cancelled(info) => {
+                        verification_debug!(
+                            "qr cancelled flow_id={} code={} by_us={}",
+                            flow_id,
+                            info.cancel_code().as_str(),
+                            info.cancelled_by_us()
+                        );
+                        service.emit_state_for(VerificationState::Cancelled, &flow_id);
+                        service.reset_context_if_current(Some(&flow_id)).await;
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        })
+    }
+
+    async fn flow_is_current(&self, flow_id: &str, generation: u64) -> bool {
+        let ctx = self.ctx.lock().await;
+        ctx.generation == generation
+            && ctx
                 .request
                 .as_ref()
-                .map(|request| request.flow_id() == selected_flow_id.as_str())
-                .unwrap_or(false);
-            if !still_current {
-                drop(ctx);
-                let _ = qr.cancel().await;
-                self.emit_state_for(VerificationState::Cancelled, &selected_flow_id);
-                return Err(anyhow!(
-                    "Active verification request changed before QR was stored"
-                ));
+                .map(|r| r.flow_id() == flow_id)
+                .unwrap_or(false)
+    }
+
+    async fn sas_token_is_current(&self, generation: u64, token: u64) -> bool {
+        let ctx = self.ctx.lock().await;
+        ctx.generation == generation && ctx.sas_token == token
+    }
+
+    async fn fail_flow(&self, flow_id: &str, reason: &str) {
+        verification_debug!("verification flow failed flow_id={flow_id} reason={reason}");
+        self.emit_state_for(VerificationState::Cancelled, flow_id);
+        self.reset_context_if_current(Some(flow_id)).await;
+    }
+
+    /// User action driving a flow: accept if it's an incoming request in
+    /// `Requested`, record the desired method, let the watcher do the rest.
+    async fn activate_flow(
+        &self,
+        request: VerificationRequest,
+        desired: DesiredMethod,
+    ) -> Result<()> {
+        let flow_id = request.flow_id().to_string();
+        self.set_current_flow_id(&flow_id);
+        self.begin_flow(request.clone(), Some(desired)).await;
+        match request.state() {
+            VerificationRequestState::Cancelled(info) => {
+                return Err(anyhow!("Verification request cancelled: {}", info.reason()));
             }
-            ctx.qr = Some(qr);
-            spawned_generation = ctx.generation;
+            VerificationRequestState::Done => {
+                return Err(anyhow!("Verification request already completed"));
+            }
+            VerificationRequestState::Requested { .. } => {
+                // Sends m.key.verification.ready; local state flips to Ready
+                // synchronously and the watcher acts on it.
+                request
+                    .accept_with_methods(Self::accepted_verification_methods())
+                    .await?;
+            }
+            VerificationRequestState::Created { .. } => {
+                self.emit_state_for(VerificationState::WaitingForReady, &flow_id);
+            }
+            // Ready / Transitioned: the watcher seeds from the current state.
+            _ => {}
         }
-
-        self.emit_state(VerificationState::QrCodeReady);
-
-        {
-            let verification_ctx = self.ctx.clone();
-            let state_cb = self.state_callback.clone();
-            let spawned_flow_id = selected_flow_id.clone();
-            tokio::spawn(async move {
-                let mut changes = qr_clone.changes();
-                // `changes()` does not replay the current state, so a Scanned (or
-                // Cancelled) that landed before we subscribed would be missed and
-                // the "Continue" button would never enable. Seed the loop with the
-                // current state, then follow future transitions.
-                let mut next_state = Some(qr_clone.state());
-                while let Some(state) = match next_state.take() {
-                    Some(state) => Some(state),
-                    None => changes.next().await,
-                } {
-                    match state {
-                        QrVerificationState::Scanned => {
-                            let ctx = verification_ctx.lock().await;
-                            let same_flow = ctx
-                                .request
-                                .as_ref()
-                                .map(|request| request.flow_id() == spawned_flow_id.as_str())
-                                .unwrap_or(false);
-                            if ctx.generation != spawned_generation || !same_flow {
-                                break;
-                            }
-                            let cb =
-                                lock_verification_mutex(&state_cb, "verification_state_callback");
-                            if let Some(ref f) = *cb {
-                                f(VerificationState::QrCodeScanned as u32, &spawned_flow_id);
-                            }
-                        }
-                        QrVerificationState::Cancelled(_) => {
-                            let mut ctx = verification_ctx.lock().await;
-                            let same_flow = ctx
-                                .request
-                                .as_ref()
-                                .map(|request| request.flow_id() == spawned_flow_id.as_str())
-                                .unwrap_or(false);
-                            if ctx.generation != spawned_generation || !same_flow {
-                                break;
-                            }
-                            let cb =
-                                lock_verification_mutex(&state_cb, "verification_state_callback");
-                            if let Some(ref f) = *cb {
-                                f(VerificationState::Cancelled as u32, &spawned_flow_id);
-                            }
-                            drop(cb);
-                            ctx.reset();
-                            break;
-                        }
-                        // Done is driven by confirm_qr_scanned, which emits Done
-                        // and resets — just stop watching here.
-                        QrVerificationState::Done { .. } => break,
-                        _ => continue,
-                    }
-                }
-            });
-        }
-
-        Ok(QrCodeImage { size, modules })
+        Ok(())
     }
 
     fn emit_state(&self, state: VerificationState) {
@@ -1543,17 +1577,6 @@ impl VerificationService {
         });
     }
 
-    fn verification_request_state_name(state: &VerificationRequestState) -> &'static str {
-        match state {
-            VerificationRequestState::Created { .. } => "Created",
-            VerificationRequestState::Requested { .. } => "Requested",
-            VerificationRequestState::Ready { .. } => "Ready",
-            VerificationRequestState::Transitioned { .. } => "Transitioned",
-            VerificationRequestState::Done => "Done",
-            VerificationRequestState::Cancelled(_) => "Cancelled",
-        }
-    }
-
     fn verification_methods_debug(methods: &[VerificationMethod]) -> String {
         methods
             .iter()
@@ -1594,142 +1617,6 @@ impl VerificationService {
         }
     }
 
-    async fn wait_for_verification_request_ready(
-        &self,
-        request: &VerificationRequest,
-    ) -> Result<()> {
-        self.wait_for_verification_request_ready_for(request, VERIFICATION_READY_TIMEOUT)
-            .await
-    }
-
-    async fn wait_for_verification_request_ready_for(
-        &self,
-        request: &VerificationRequest,
-        timeout: Duration,
-    ) -> Result<()> {
-        verification_debug!(
-            "waiting for request Ready flow_id={} we_started={} self_verification={} timeout={:?}",
-            request.flow_id(),
-            request.we_started(),
-            request.is_self_verification(),
-            timeout
-        );
-        self.emit_state(VerificationState::WaitingForReady);
-
-        let started = Instant::now();
-        let mut changes = request.changes();
-        let mut accepted_incoming = false;
-        let mut last_logged_state = "";
-        loop {
-            let state = request.state();
-            let state_name = Self::verification_request_state_name(&state);
-            if state_name != last_logged_state {
-                verification_debug!(
-                    "request state flow_id={} state={}",
-                    request.flow_id(),
-                    Self::verification_request_state_details(&state)
-                );
-                last_logged_state = state_name;
-            }
-
-            match state {
-                VerificationRequestState::Ready { .. } => {
-                    self.emit_state(VerificationState::Ready);
-                    return Ok(());
-                }
-                VerificationRequestState::Requested { .. } if !accepted_incoming => {
-                    verification_debug!(
-                        "Accepting incoming verification request, flow_id={}",
-                        request.flow_id()
-                    );
-                    request
-                        .accept_with_methods(Self::accepted_verification_methods())
-                        .await?;
-                    verification_debug!(
-                        "accepted incoming verification request, flow_id={}",
-                        request.flow_id()
-                    );
-                    accepted_incoming = true;
-                    continue;
-                }
-                VerificationRequestState::Done => {
-                    return Err(anyhow!(
-                        "Verification request completed without becoming ready"
-                    ));
-                }
-                VerificationRequestState::Cancelled(info) => {
-                    return Err(anyhow!("Verification request cancelled: {}", info.reason()));
-                }
-                VerificationRequestState::Transitioned { .. } => {
-                    return Err(anyhow!(VERIFICATION_TRANSITIONED_BEFORE_SELECTED_METHOD));
-                }
-                _ => {}
-            }
-
-            let elapsed = started.elapsed();
-            if elapsed >= timeout {
-                return Err(anyhow!(
-                    "Verification request timed out waiting for other device"
-                ));
-            }
-
-            let remaining = timeout.saturating_sub(elapsed);
-            let wait_for = remaining.min(Duration::from_millis(250));
-            match tokio::time::timeout(wait_for, changes.next()).await {
-                Ok(Some(state)) => {
-                    let state_name = Self::verification_request_state_name(&state);
-                    if state_name != last_logged_state {
-                        verification_debug!(
-                            "request stream state flow_id={} state={}",
-                            request.flow_id(),
-                            Self::verification_request_state_details(&state)
-                        );
-                        last_logged_state = state_name;
-                    }
-                    match state {
-                        VerificationRequestState::Ready { .. } => {
-                            self.emit_state(VerificationState::Ready);
-                            return Ok(());
-                        }
-                        VerificationRequestState::Requested { .. } if !accepted_incoming => {
-                            verification_debug!(
-                                "Accepting incoming verification request, flow_id={}",
-                                request.flow_id()
-                            );
-                            request
-                                .accept_with_methods(Self::accepted_verification_methods())
-                                .await?;
-                            verification_debug!(
-                                "accepted incoming verification request, flow_id={}",
-                                request.flow_id()
-                            );
-                            accepted_incoming = true;
-                        }
-                        VerificationRequestState::Done => {
-                            return Err(anyhow!(
-                                "Verification request completed without becoming ready"
-                            ));
-                        }
-                        VerificationRequestState::Cancelled(info) => {
-                            return Err(anyhow!(
-                                "Verification request cancelled: {}",
-                                info.reason()
-                            ));
-                        }
-                        VerificationRequestState::Transitioned { .. } => {
-                            return Err(anyhow!(VERIFICATION_TRANSITIONED_BEFORE_SELECTED_METHOD));
-                        }
-                        _ => {}
-                    }
-                }
-                Err(_) => {}
-                Ok(None) => {
-                    return Err(anyhow!("Verification request stream ended unexpectedly"));
-                }
-            }
-        }
-    }
-
     async fn ensure_verification_request(&self, client: Client) -> Result<VerificationRequest> {
         verification_debug!("ensure verification request start");
         let own_user_id = client
@@ -1753,31 +1640,8 @@ impl VerificationService {
                     req.is_cancelled(),
                     req.is_ready()
                 );
-                if req.is_ready() {
-                    verification_debug!(
-                        "existing verification request already ready flow_id={}",
-                        req.flow_id()
-                    );
-                    return Ok(req.clone());
-                }
                 if !req.is_done() && !req.is_cancelled() {
-                    let request = req.clone();
-                    drop(ctx);
-                    if let Err(e) = self.wait_for_verification_request_ready(&request).await {
-                        verification_debug!(
-                            "existing verification request wait failed flow_id={} error={}",
-                            request.flow_id(),
-                            e
-                        );
-                        let mut ctx = self.ctx.lock().await;
-                        ctx.reset();
-                        return Err(e);
-                    }
-                    verification_debug!(
-                        "existing verification request became ready flow_id={}",
-                        request.flow_id()
-                    );
-                    return Ok(request);
+                    return Ok(req.clone());
                 }
             }
         }
@@ -1802,28 +1666,7 @@ impl VerificationService {
             Self::verification_request_state_details(&request.state())
         );
 
-        {
-            let mut ctx = self.ctx.lock().await;
-            ctx.request = Some(request.clone());
-            ctx.sas = None;
-        }
-
-        if let Err(e) = self.wait_for_verification_request_ready(&request).await {
-            verification_debug!(
-                "outgoing verification request wait failed source=own-user flow_id={} error={}",
-                request.flow_id(),
-                e
-            );
-            let mut ctx = self.ctx.lock().await;
-            ctx.reset();
-            Err(e)
-        } else {
-            verification_debug!(
-                "outgoing verification request became ready source=own-user flow_id={}",
-                request.flow_id()
-            );
-            Ok(request)
-        }
+        Ok(request)
     }
 }
 

@@ -181,6 +181,18 @@ IntroWidget::IntroWidget(
     connect(_verifyQrStep, &IntroVerifyQr::skipVerification,
             this, &IntroWidget::onQrSkipVerification);
     connect(_verifyQrStep, &IntroVerifyQr::verified, this, &IntroWidget::onQrVerified);
+    connect(_bridge, &ProtocolBridge::sasEmojisAvailable, this,
+            [this](const QString &flowId,
+                   const QStringList &emojis,
+                   const QStringList &labels) {
+        if (_stack->currentWidget() != _verifyQrStep) {
+            return;
+        }
+        // Peer picked emoji while our QR was up — follow them rather than
+        // leaving a QR code nobody will scan.
+        _verifyEmojiStep->presentAdoptedSas(flowId, emojis, labels);
+        showStep(4); // QR -> Emoji.
+    });
 
     // Wire recovery key verification.
     connect(_verifyRecoveryKeyStep, &IntroStep::goBack, this, &IntroWidget::onRecoveryKeyBack);

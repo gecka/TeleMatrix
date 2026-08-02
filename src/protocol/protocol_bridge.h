@@ -509,9 +509,11 @@ public:
 
     // --- Session verification ---
 
-    /// Start SAS emoji verification. Result arrives via sasVerificationStarted.
+    /// Start SAS emoji verification. The start result arrives via
+    /// sasVerificationStarted (lists empty); the emojis via sasEmojisAvailable.
     void startSasVerification(const QString &transactionId = QString());
-    /// Confirm SAS emoji match. Result arrives via sasConfirmed.
+    /// Send the SAS match confirmation. sasConfirmed reports only whether the
+    /// send succeeded; completion arrives as verificationStateChanged(Done).
     void confirmSasMatch();
     /// Verify session with recovery key. Result arrives via recoveryKeyVerified.
     void verifyWithRecoveryKey(const QString &key);
@@ -522,14 +524,17 @@ public:
     void mismatchSas();
     /// Get verification capabilities. Result arrives via verificationCapabilitiesReady.
     void getVerificationCapabilities();
-    /// Show a QR code for verification. Result arrives via qrCodeReady.
+    /// Show a QR code for verification. The start result arrives via qrCodeReady
+    /// (modules empty); the module grid via qrCodeDataReady.
     void startQrVerification(const QString &transactionId = QString());
-    /// Confirm the other device scanned our QR. Result arrives via qrScanConfirmed.
+    /// Send the QR scan confirmation. qrScanConfirmed reports only whether the
+    /// send succeeded; completion arrives as verificationStateChanged(Done).
     void confirmQrScanned();
 
     // --- Cross-user verification ---
 
-    /// Start verifying ANOTHER user's identity. Emojis arrive via sasVerificationStarted.
+    /// Start verifying ANOTHER user's identity. Emojis arrive via
+    /// sasEmojisAvailable.
     void startUserVerification(const QString &userId);
     /// Withdraw our verification of a user. Result via userVerificationWithdrawn.
     void withdrawUserVerification(const QString &userId);
@@ -895,7 +900,18 @@ signals:
     void deactivateAccountResult(const AccountActionResult &result);
 
     // --- Session verification signals ---
+    /// A SAS start was initiated (or failed to be). The lists are always empty —
+    /// the emojis arrive later on sasEmojisAvailable.
     void sasVerificationStarted(bool success, const QStringList &emojis, const QStringList &labels);
+    /// Emojis for a SAS flow — fires whenever they become available, including
+    /// a SAS the other device started. Replaces the payload that used to ride
+    /// sasVerificationStarted (whose lists are now always empty).
+    void sasEmojisAvailable(
+        const QString &flowId,
+        const QStringList &emojis,
+        const QStringList &labels);
+    /// QR modules for a flow — replaces the payload of qrCodeReady.
+    void qrCodeDataReady(const QString &flowId, const QByteArray &modules, int size);
     void sasConfirmed(bool success);
     void recoveryKeyVerified(bool success);
     void verificationSkipped(bool success);
@@ -909,6 +925,8 @@ signals:
     /// took it, the requester withdrew it, or it expired.
     void verificationRequestClosed(const QString &flowId);
     void verificationCapabilitiesReady(bool success, bool canDevice, bool canRecovery, bool sasOk, bool qrSupported);
+    /// A QR generation was initiated (or failed to be). `modules` is always
+    /// empty — the grid arrives later on qrCodeDataReady.
     void qrCodeReady(bool success, const QByteArray &modules, int size);
     void qrScanConfirmed(bool success);
     void deviceVerifiedChanged(bool verified);

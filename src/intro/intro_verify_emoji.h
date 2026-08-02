@@ -42,6 +42,14 @@ public:
     // method cancels it out from under them.
     void setShowsAlternativeMethods(bool shows);
 
+    // Adopt a SAS the other device started (it picked emoji while we were on
+    // another page). Rendered on the next activate() instead of starting a
+    // fresh flow.
+    void presentAdoptedSas(
+        const QString &flowId,
+        const QStringList &emojis,
+        const QStringList &labels);
+
 signals:
     void mismatch();
     void verified();
@@ -56,7 +64,8 @@ protected:
 
 private:
     void startVerification();
-    void onSasStarted(bool success, const QStringList &emojis, const QStringList &labels);
+    void resetForAttempt();
+    void presentEmojis(const QStringList &emojis, const QStringList &labels);
     void onSasConfirmed(bool success);
     void setWaitingState(bool waiting);
     void showFailure(const QString &message);
@@ -75,6 +84,11 @@ private:
     bool _waiting = false;
     QString _ignoredFlowId;
     QString _requestFlowId;
+    // The flow this page currently renders, latched from the emojis it received.
+    QString _flowId;
+    bool _presentPending = false;
+    QStringList _pendingEmojis;
+    QStringList _pendingLabels;
 };
 
 } // namespace TeleMatrix

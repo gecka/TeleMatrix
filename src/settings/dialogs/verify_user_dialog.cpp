@@ -442,14 +442,9 @@ void VerifyUserDialog::buildEmojiPage() {
         });
     };
 
-    // Connect bridge signals.
-    connect(_bridge, &ProtocolBridge::sasVerificationStarted,
-            this, [this, emojiContainer, showEmojiFailure](bool success, const QStringList &emojis, const QStringList &labels) {
-        if (!success) {
-            showEmojiFailure();
-            return;
-        }
-
+    const auto showEmojis = [this, emojiContainer](
+            const QStringList &emojis,
+            const QStringList &labels) {
         _emojiWaitLabel->hide();
         _emojiErrorLabel->hide();
 
@@ -520,29 +515,59 @@ void VerifyUserDialog::buildEmojiPage() {
         emojiContainer->showBackground();
         _emojiContainer->show();
         setActiveButtonEnabled(_emojiMatchButton, true, st::boxButtonHeight);
+    };
+
+    // Connect bridge signals.
+    connect(_bridge, &ProtocolBridge::sasVerificationStarted,
+            this, [showEmojiFailure](bool success, const QStringList &, const QStringList &) {
+        if (success) {
+            return; // emojis arrive via sasEmojisAvailable; only failures matter
+        }
+        showEmojiFailure();
+    });
+
+    connect(_bridge, &ProtocolBridge::sasEmojisAvailable,
+            this, [this, showEmojis](
+                const QString &flowId,
+                const QStringList &emojis,
+                const QStringList &labels) {
+        if (!flowId.isEmpty() && !_transactionId.isEmpty()
+            && flowId != _transactionId) {
+            return;
+        }
+        if (_transactionId.isEmpty()) {
+            _transactionId = flowId;
+        }
+        showEmojis(emojis, labels);
     });
 
     connect(_bridge, &ProtocolBridge::sasConfirmed,
-            this, [this, showEmojiFailure](bool success) {
+            this, [showEmojiFailure](bool success) {
+        // success only means the confirmation was sent; completion arrives as
+        // the Done state below.
         if (success) {
-            showPage(kPageSuccess);
-        } else {
-            showEmojiFailure();
-        }
-    });
-
-    // Handle Cancelled state from the Rust verification state machine.
-    connect(_bridge, &ProtocolBridge::verificationStateChanged,
-            this, [this, showEmojiFailure](int state, const QString &flowId) {
-        constexpr int kCancelled = 9;
-        if (state != kCancelled || _stack->currentIndex() != kPageEmoji) {
-            return;
-        }
-        // Ignore a Cancelled belonging to a different flow.
-        if (!flowId.isEmpty() && !_transactionId.isEmpty() && flowId != _transactionId) {
             return;
         }
         showEmojiFailure();
+    });
+
+    // Terminal states come from the Rust verification state machine.
+    connect(_bridge, &ProtocolBridge::verificationStateChanged,
+            this, [this, showEmojiFailure](int state, const QString &flowId) {
+        constexpr int kDone = 8;
+        constexpr int kCancelled = 9;
+        if (_stack->currentIndex() != kPageEmoji) {
+            return;
+        }
+        // Ignore a terminal state belonging to a different flow.
+        if (!flowId.isEmpty() && !_transactionId.isEmpty() && flowId != _transactionId) {
+            return;
+        }
+        if (state == kDone) {
+            showPage(kPageSuccess);
+        } else if (state == kCancelled) {
+            showEmojiFailure();
+        }
     });
 
     _stack->addWidget(_emojiPage); // index 0

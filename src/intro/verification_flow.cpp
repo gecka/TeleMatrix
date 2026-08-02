@@ -127,6 +127,19 @@ VerificationFlow::VerificationFlow(ProtocolBridge *bridge, QWidget *parent)
         onSkipped();
     });
 
+    connect(_bridge, &ProtocolBridge::sasEmojisAvailable, this,
+            [this](const QString &flowId,
+                   const QStringList &emojis,
+                   const QStringList &labels) {
+        if (_stack->currentIndex() != kStepQr) {
+            return;
+        }
+        // Peer picked emoji while our QR was up — follow them (Element's
+        // panel switches to the SAS phase the same way).
+        _emojiStep->presentAdoptedSas(flowId, emojis, labels);
+        showStep(kStepEmoji);
+    });
+
     connect(_recoveryKeyStep, &IntroVerifyRecoveryKey::verified,
             this, &VerificationFlow::onVerified);
     connect(_recoveryKeyStep, &IntroVerifyRecoveryKey::useEmojiVerification,

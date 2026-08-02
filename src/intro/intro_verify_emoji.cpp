@@ -172,18 +172,47 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
 
     // Listen for verification events from the protocol bridge.
     connect(_bridge, &ProtocolBridge::sasVerificationStarted,
-            this, &IntroVerifyEmoji::onSasStarted);
+            this, [this](bool success, const QStringList &, const QStringList &) {
+        if (!isVisible() || success) {
+            return; // emojis arrive via sasEmojisAvailable; only failures matter
+        }
+        showFailure(tr("Failed to start emoji verification"));
+    });
+    connect(_bridge, &ProtocolBridge::sasEmojisAvailable,
+            this, [this](
+                const QString &flowId,
+                const QStringList &emojis,
+                const QStringList &labels) {
+        if (!isVisible()) {
+            return;
+        }
+        _flowId = flowId;
+        presentEmojis(emojis, labels);
+    });
     connect(_bridge, &ProtocolBridge::sasConfirmed,
             this, &IntroVerifyEmoji::onSasConfirmed);
     connect(_bridge, &ProtocolBridge::verificationStateChanged,
             this, [this](int state, const QString &flowId) {
+        constexpr int kDone = 8;
         constexpr int kCancelled = 9;
-        if (state != kCancelled || !isVisible()) {
+        if (!isVisible()) {
+            return;
+        }
+        if (state == kDone
+            && (flowId.isEmpty() || _flowId.isEmpty() || flowId == _flowId)) {
+            Q_EMIT verified();
+            return;
+        }
+        if (state != kCancelled) {
             return;
         }
         // Ignore a Cancelled emitted while tearing down a flow we deliberately
         // left (e.g. the QR flow when the user chose "compare emoji instead").
         if (!flowId.isEmpty() && flowId == _ignoredFlowId) {
+            return;
+        }
+        // A different flow's cancellation is not ours to display.
+        if (!flowId.isEmpty() && !_flowId.isEmpty() && flowId != _flowId) {
             return;
         }
         setWaitingState(false);
@@ -201,15 +230,36 @@ void IntroVerifyEmoji::setShowsAlternativeMethods(bool shows) {
     updateEmojiLayout();
 }
 
+void IntroVerifyEmoji::presentAdoptedSas(
+        const QString &flowId,
+        const QStringList &emojis,
+        const QStringList &labels) {
+    _flowId = flowId;
+    _presentPending = true;
+    _pendingEmojis = emojis;
+    _pendingLabels = labels;
+}
+
 void IntroVerifyEmoji::activate() {
     IntroStep::activate();
+    if (_presentPending) {
+        _presentPending = false;
+        // resetForAttempt() clears the flow id the adopted SAS just latched.
+        const auto adoptedFlowId = _flowId;
+        resetForAttempt();
+        _flowId = adoptedFlowId;
+        presentEmojis(_pendingEmojis, _pendingLabels);
+        updateEmojiLayout();
+        update();
+        return;
+    }
     startVerification();
 }
 
-void IntroVerifyEmoji::startVerification() {
-    // Reset state for a fresh SAS attempt.
+void IntroVerifyEmoji::resetForAttempt() {
     _emojis.clear();
     _labels.clear();
+    _flowId.clear();
     _waiting = false;
     hideError();
     _retryLink->hide();
@@ -220,12 +270,17 @@ void IntroVerifyEmoji::startVerification() {
     _recoveryKeyLink->setEnabled(true);
     _qrLink->setEnabled(true);
     _skipLink->setEnabled(true);
+}
+
+void IntroVerifyEmoji::startVerification() {
+    resetForAttempt();
 
     // Show waiting state until emojis arrive.
     setDescriptionText(tr("Waiting for the other device\xE2\x80\xA6"));
 
+    // Keep _requestFlowId: Retry must re-answer the same incoming request. The
+    // flow controller owns setting and clearing it.
     _bridge->startSasVerification(_requestFlowId);
-    _requestFlowId.clear();
     updateEmojiLayout();
     update();
 }
@@ -242,35 +297,29 @@ QString IntroVerifyEmoji::nextButtonText() const {
     return tr("They match");
 }
 
-void IntroVerifyEmoji::onSasStarted(bool success, const QStringList &emojis, const QStringList &labels) {
-    if (success) {
-        _emojis = emojis;
-        _labels = labels;
-        hideError();
-        setDescriptionText(tr("They should appear in the same order on both sessions."));
-        nextButton()->setEnabled(true);
-        _mismatchLink->setEnabled(true);
-        // Active comparison started — lock the alternative-method links so the
-        // user can't switch verification method mid-flow.
-        _recoveryKeyLink->setEnabled(false);
-        _qrLink->setEnabled(false);
-    } else {
-        _emojis.clear();
-        _labels.clear();
-        showFailure(tr("Failed to start emoji verification"));
-    }
+void IntroVerifyEmoji::presentEmojis(const QStringList &emojis, const QStringList &labels) {
+    _emojis = emojis;
+    _labels = labels;
+    hideError();
+    setDescriptionText(tr("They should appear in the same order on both sessions."));
+    nextButton()->setEnabled(true);
+    _mismatchLink->setEnabled(true);
+    // Active comparison started — lock the alternative-method links so the
+    // user can't switch verification method mid-flow.
+    _recoveryKeyLink->setEnabled(false);
+    _qrLink->setEnabled(false);
     update();
 }
 
 void IntroVerifyEmoji::onSasConfirmed(bool success) {
+    // success only means the confirmation was sent; completion arrives as Done.
     if (success) {
-        Q_EMIT verified();
-    } else {
-        setWaitingState(false);
-        showFailure(tr(
-            "The request was denied or timed out, "
-            "or there was a verification mismatch"));
+        return;
     }
+    setWaitingState(false);
+    showFailure(tr(
+        "The request was denied or timed out, "
+        "or there was a verification mismatch"));
 }
 
 void IntroVerifyEmoji::setWaitingState(bool waiting) {

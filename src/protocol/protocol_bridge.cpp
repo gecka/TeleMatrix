@@ -1223,6 +1223,51 @@ static void sasCallbackTrampoline(
     });
 }
 
+static void sasEmojisAvailableTrampoline(
+    const char *flowId,
+    FfiSasEmojiList list,
+    void *userdata)
+{
+    const QString flow = flowId ? QString::fromUtf8(flowId) : QString();
+    QStringList emojis;
+    QStringList labels;
+    if (list.emojis && list.len > 0) {
+        emojis.reserve(static_cast<int>(list.len));
+        labels.reserve(static_cast<int>(list.len));
+        for (size_t i = 0; i < list.len; ++i) {
+            emojis.append(list.emojis[i].emoji
+                ? QString::fromUtf8(list.emojis[i].emoji) : QString());
+            labels.append(list.emojis[i].label
+                ? QString::fromUtf8(list.emojis[i].label) : QString());
+        }
+    }
+    tm_free_sas_emojis(list);
+    withGuardedBridge(userdata, [flow, emojis, labels](ProtocolBridge *bridge) {
+        QMetaObject::invokeMethod(bridge,
+            [bridge, flow, emojis, labels]() {
+                emit bridge->sasEmojisAvailable(flow, emojis, labels);
+            }, Qt::QueuedConnection);
+    });
+}
+
+static void qrDataTrampoline(const char *flowId, FfiQrCode qr, void *userdata)
+{
+    const QString flow = flowId ? QString::fromUtf8(flowId) : QString();
+    const int size = static_cast<int>(qr.size);
+    QByteArray modules;
+    if (qr.modules && size > 0) {
+        modules = QByteArray(
+            reinterpret_cast<const char *>(qr.modules), size * size);
+    }
+    tm_free_qr_code(qr);
+    withGuardedBridge(userdata, [flow, modules, size](ProtocolBridge *bridge) {
+        QMetaObject::invokeMethod(bridge,
+            [bridge, flow, modules, size]() {
+                emit bridge->qrCodeDataReady(flow, modules, size);
+            }, Qt::QueuedConnection);
+    });
+}
+
 static void qrCodeCallbackTrampoline(
     bool success,
     FfiQrCode qr,
@@ -2651,6 +2696,14 @@ void ProtocolBridge::registerCallbacks() {
     tm_set_verification_request_closed_callback(
         _handle,
         verificationRequestClosedTrampoline,
+        guard);
+    tm_set_sas_emojis_callback(
+        _handle,
+        sasEmojisAvailableTrampoline,
+        guard);
+    tm_set_qr_data_callback(
+        _handle,
+        qrDataTrampoline,
         guard);
     tm_set_user_trust_changed_callback(
         _handle,

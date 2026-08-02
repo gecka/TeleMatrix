@@ -69,6 +69,8 @@ type VerificationStateCallback = Box<dyn Fn(u32, &str) + Send>;
 type UserTrustChangedCallback = Box<dyn Fn(&str, u32) + Send>;
 type VerificationIncomingUserRequestCallback = Box<dyn Fn(&str, &str, &str) + Send>;
 type VerificationRequestClosedCallback = Box<dyn Fn(&str) + Send>;
+type VerificationSasEmojisCallback = Box<dyn Fn(&str, &[SasEmoji]) + Send>;
+type VerificationQrDataCallback = Box<dyn Fn(&str, &QrCodeImage) + Send>;
 
 /// Runtime handles the per-room latest-event preview-refresh tasks need. All
 /// fields are cheap `Arc`/service clones; bundled so the subscribe helper has one
@@ -2279,6 +2281,17 @@ impl MatrixProtocol {
         self.verification.on_request_closed(callback);
     }
 
+    /// Register a callback that fires when a SAS flow's emojis become available,
+    /// including a SAS the other device started.
+    pub fn on_sas_emojis(&self, callback: VerificationSasEmojisCallback) {
+        self.verification.on_sas_emojis(callback);
+    }
+
+    /// Register a callback that fires when a QR code has been generated.
+    pub fn on_qr_data(&self, callback: VerificationQrDataCallback) {
+        self.verification.on_qr_data(callback);
+    }
+
     /// Read another user's cross-signing trust state (for trust shields).
     pub async fn user_trust_state(&self, user_id: &str) -> Result<UserTrustState> {
         let client = self.require_client().await?;
@@ -2286,7 +2299,8 @@ impl MatrixProtocol {
     }
 
     /// Start an interactive SAS (emoji) verification of another user's identity.
-    pub async fn start_user_verification(&self, user_id: &str) -> Result<Vec<SasEmoji>> {
+    /// Initiate-only; the emojis arrive via `on_sas_emojis`.
+    pub async fn start_user_verification(&self, user_id: &str) -> Result<()> {
         let client = self.require_client().await?;
         self.verification
             .start_user_verification(client, user_id)
@@ -2301,16 +2315,13 @@ impl MatrixProtocol {
             .await
     }
 
-    pub async fn start_sas_verification_for(
-        &self,
-        expected_flow_id: &str,
-    ) -> Result<Vec<SasEmoji>> {
+    pub async fn start_sas_verification_for(&self, expected_flow_id: &str) -> Result<()> {
         self.verification
             .start_sas_verification_for(expected_flow_id)
             .await
     }
 
-    pub async fn start_qr_verification_for(&self, expected_flow_id: &str) -> Result<QrCodeImage> {
+    pub async fn start_qr_verification_for(&self, expected_flow_id: &str) -> Result<()> {
         self.verification
             .start_qr_verification_for(expected_flow_id)
             .await
@@ -3189,7 +3200,7 @@ impl ProtocolClient for MatrixProtocol {
 
     // ----- Verification trait methods -----
 
-    async fn start_sas_verification(&self) -> Result<Vec<SasEmoji>> {
+    async fn start_sas_verification(&self) -> Result<()> {
         let client = self.require_client().await?;
         self.verification
             .start_sas_verification_checked(client, None)
@@ -3201,7 +3212,7 @@ impl ProtocolClient for MatrixProtocol {
         Ok(())
     }
 
-    async fn start_qr_verification(&self) -> Result<QrCodeImage> {
+    async fn start_qr_verification(&self) -> Result<()> {
         let client = self.require_client().await?;
         self.verification
             .start_qr_verification_checked(client, None)

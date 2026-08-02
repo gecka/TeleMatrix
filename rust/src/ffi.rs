@@ -4337,7 +4337,9 @@ pub unsafe extern "C" fn tm_free_qr_code(qr: FfiQrCode) {
     let _ = unsafe { reclaim_boxed_slice(qr.modules, qr.size * qr.size) };
 }
 
-/// Start SAS emoji verification asynchronously.
+/// Start SAS emoji verification asynchronously. `success` = the flow was
+/// initiated; the emoji list here is always empty — emojis arrive via
+/// `tm_set_sas_emojis_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer.
@@ -4352,31 +4354,18 @@ pub unsafe extern "C" fn tm_start_sas_verification(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        match client.start_sas_verification().await {
-            Ok(emojis) => {
-                let ffi_emojis: Vec<FfiSasEmoji> = emojis
-                    .iter()
-                    .map(|e| FfiSasEmoji {
-                        emoji: str_to_c(&e.emoji),
-                        label: str_to_c(&e.label),
-                    })
-                    .collect();
-                let len = ffi_emojis.len();
-                let ptr = leak_boxed_slice(ffi_emojis);
-                callback(true, FfiSasEmojiList { emojis: ptr, len }, ud.as_ptr());
-            }
-            Err(_) => {
-                let empty = FfiSasEmojiList {
-                    emojis: ptr::null_mut(),
-                    len: 0,
-                };
-                callback(false, empty, ud.as_ptr());
-            }
-        }
+        let started = client.start_sas_verification().await.is_ok();
+        let empty = FfiSasEmojiList {
+            emojis: ptr::null_mut(),
+            len: 0,
+        };
+        callback(started, empty, ud.as_ptr());
     });
 }
 
 /// Start SAS emoji verification for a specific verification request.
+/// `success` = the flow was initiated; emojis arrive via
+/// `tm_set_sas_emojis_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer and `transaction_id` must be a valid
@@ -4394,31 +4383,18 @@ pub unsafe extern "C" fn tm_start_sas_verification_for(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        match matrix.start_sas_verification_for(&tx).await {
-            Ok(emojis) => {
-                let ffi_emojis: Vec<FfiSasEmoji> = emojis
-                    .iter()
-                    .map(|e| FfiSasEmoji {
-                        emoji: str_to_c(&e.emoji),
-                        label: str_to_c(&e.label),
-                    })
-                    .collect();
-                let len = ffi_emojis.len();
-                let ptr = leak_boxed_slice(ffi_emojis);
-                callback(true, FfiSasEmojiList { emojis: ptr, len }, ud.as_ptr());
-            }
-            Err(_) => {
-                let empty = FfiSasEmojiList {
-                    emojis: ptr::null_mut(),
-                    len: 0,
-                };
-                callback(false, empty, ud.as_ptr());
-            }
-        }
+        let started = matrix.start_sas_verification_for(&tx).await.is_ok();
+        let empty = FfiSasEmojiList {
+            emojis: ptr::null_mut(),
+            len: 0,
+        };
+        callback(started, empty, ud.as_ptr());
     });
 }
 
-/// Show a QR code for device verification (no specific request).
+/// Show a QR code for device verification (no specific request). `success` =
+/// the flow was initiated; the module grid here is always empty — it arrives
+/// via `tm_set_qr_data_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer.
@@ -4433,24 +4409,17 @@ pub unsafe extern "C" fn tm_start_qr_verification(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        match client.start_qr_verification().await {
-            Ok(image) => {
-                let size = image.size;
-                let modules = leak_boxed_slice(image.modules);
-                callback(true, FfiQrCode { modules, size }, ud.as_ptr());
-            }
-            Err(_) => {
-                let empty = FfiQrCode {
-                    modules: ptr::null_mut(),
-                    size: 0,
-                };
-                callback(false, empty, ud.as_ptr());
-            }
-        }
+        let started = client.start_qr_verification().await.is_ok();
+        let empty = FfiQrCode {
+            modules: ptr::null_mut(),
+            size: 0,
+        };
+        callback(started, empty, ud.as_ptr());
     });
 }
 
-/// Show a QR code for a specific verification request.
+/// Show a QR code for a specific verification request. `success` = the flow
+/// was initiated; the module grid arrives via `tm_set_qr_data_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer and `transaction_id` a valid C string.
@@ -4467,20 +4436,12 @@ pub unsafe extern "C" fn tm_start_qr_verification_for(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        match matrix.start_qr_verification_for(&tx).await {
-            Ok(image) => {
-                let size = image.size;
-                let modules = leak_boxed_slice(image.modules);
-                callback(true, FfiQrCode { modules, size }, ud.as_ptr());
-            }
-            Err(_) => {
-                let empty = FfiQrCode {
-                    modules: ptr::null_mut(),
-                    size: 0,
-                };
-                callback(false, empty, ud.as_ptr());
-            }
-        }
+        let started = matrix.start_qr_verification_for(&tx).await.is_ok();
+        let empty = FfiQrCode {
+            modules: ptr::null_mut(),
+            size: 0,
+        };
+        callback(started, empty, ud.as_ptr());
     });
 }
 
@@ -4743,6 +4704,68 @@ pub unsafe extern "C" fn tm_set_verification_state_callback(
         }));
 }
 
+/// Emojis for a SAS flow, delivered whenever they become available —
+/// including a SAS the peer started (adopted `Transitioned`).
+pub type TmSasEmojisAvailableCallback =
+    extern "C" fn(flow_id: *const c_char, emojis: FfiSasEmojiList, userdata: *mut libc::c_void);
+
+/// Register a callback for SAS emojis becoming available.
+///
+/// # Safety
+/// `h` must be a valid Handle pointer.
+#[no_mangle]
+pub unsafe extern "C" fn tm_set_sas_emojis_callback(
+    h: *mut Handle,
+    callback: TmSasEmojisAvailableCallback,
+    userdata: *mut libc::c_void,
+) {
+    let handle = unsafe { &*h };
+    let ud = Userdata::new(userdata);
+    handle
+        .matrix
+        .on_sas_emojis(Box::new(move |flow_id, emojis| {
+            let c_flow_id = CString::new(flow_id).unwrap_or_default();
+            let ffi_emojis: Vec<FfiSasEmoji> = emojis
+                .iter()
+                .map(|e| FfiSasEmoji {
+                    emoji: str_to_c(&e.emoji),
+                    label: str_to_c(&e.label),
+                })
+                .collect();
+            let len = ffi_emojis.len();
+            let ptr = leak_boxed_slice(ffi_emojis);
+            callback(
+                c_flow_id.as_ptr(),
+                FfiSasEmojiList { emojis: ptr, len },
+                ud.as_ptr(),
+            );
+        }));
+}
+
+/// QR code modules for a flow, delivered when generation completes.
+pub type TmQrDataCallback =
+    extern "C" fn(flow_id: *const c_char, qr: FfiQrCode, userdata: *mut libc::c_void);
+
+/// Register a callback for a generated QR code's module grid.
+///
+/// # Safety
+/// `h` must be a valid Handle pointer.
+#[no_mangle]
+pub unsafe extern "C" fn tm_set_qr_data_callback(
+    h: *mut Handle,
+    callback: TmQrDataCallback,
+    userdata: *mut libc::c_void,
+) {
+    let handle = unsafe { &*h };
+    let ud = Userdata::new(userdata);
+    handle.matrix.on_qr_data(Box::new(move |flow_id, image| {
+        let c_flow_id = CString::new(flow_id).unwrap_or_default();
+        let size = image.size;
+        let modules = leak_boxed_slice(image.modules.clone());
+        callback(c_flow_id.as_ptr(), FfiQrCode { modules, size }, ud.as_ptr());
+    }));
+}
+
 /// Register a callback for device verification status changes.
 ///
 /// # Safety
@@ -4864,7 +4887,8 @@ pub unsafe extern "C" fn tm_set_user_trust_changed_callback(
 }
 
 /// Start an interactive SAS (emoji) verification of another user's identity.
-/// Returns the emojis to compare via the callback, like `tm_start_sas_verification`.
+/// `success` = the flow was initiated; emojis arrive via
+/// `tm_set_sas_emojis_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer; `user_id` a valid C string.
@@ -4881,27 +4905,12 @@ pub unsafe extern "C" fn tm_start_user_verification(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        match matrix.start_user_verification(&uid).await {
-            Ok(emojis) => {
-                let ffi_emojis: Vec<FfiSasEmoji> = emojis
-                    .iter()
-                    .map(|e| FfiSasEmoji {
-                        emoji: str_to_c(&e.emoji),
-                        label: str_to_c(&e.label),
-                    })
-                    .collect();
-                let len = ffi_emojis.len();
-                let ptr = leak_boxed_slice(ffi_emojis);
-                callback(true, FfiSasEmojiList { emojis: ptr, len }, ud.as_ptr());
-            }
-            Err(_) => {
-                let empty = FfiSasEmojiList {
-                    emojis: ptr::null_mut(),
-                    len: 0,
-                };
-                callback(false, empty, ud.as_ptr());
-            }
-        }
+        let started = matrix.start_user_verification(&uid).await.is_ok();
+        let empty = FfiSasEmojiList {
+            emojis: ptr::null_mut(),
+            len: 0,
+        };
+        callback(started, empty, ud.as_ptr());
     });
 }
 
