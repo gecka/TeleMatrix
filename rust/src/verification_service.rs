@@ -57,6 +57,19 @@ fn lock_verification_mutex<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard
     }
 }
 
+/// Shared body for `VerificationService::track_banner_watcher`: also called
+/// from the detached handler closures in `register_incoming_request_handler`
+/// / `register_incoming_user_request_handler`, which clone the Arc rather
+/// than holding `self`.
+fn track_banner_watcher_in(
+    banner_watchers: &Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    handle: tokio::task::JoinHandle<()>,
+) {
+    let mut watchers = lock_verification_mutex(banner_watchers, "banner_watchers");
+    watchers.retain(|h| !h.is_finished());
+    watchers.push(handle);
+}
+
 /// Which method this device wants once the request reaches Ready; the request
 /// watcher acts on it.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -165,6 +178,12 @@ pub(crate) struct VerificationService {
     /// that attaches late. Cleared once the request it names stops being
     /// answerable, so a replay can never resurrect a dead or stale request.
     pending_incoming: Arc<Mutex<Option<PendingIncomingRequest>>>,
+    /// Banner watchers for incoming requests. Deliberately NOT in ctx.watchers:
+    /// that vec resets on every flow change, and a banner must outlive flow
+    /// changes until its own request stops being answerable. Aborted only on
+    /// teardown (logout / fresh login), where their Client clones would
+    /// otherwise hold the stores open across the wipe.
+    banner_watchers: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
 }
 
 impl VerificationService {
@@ -182,6 +201,24 @@ impl VerificationService {
             start_guard: Arc::new(tokio::sync::Mutex::new(())),
             current_flow_id: Arc::new(Mutex::new(String::new())),
             pending_incoming: Arc::new(Mutex::new(None)),
+            banner_watchers: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    /// Test-only: production call sites are detached closures without `self`
+    /// and call `track_banner_watcher_in` on the cloned Arc directly.
+    #[cfg(test)]
+    fn track_banner_watcher(&self, handle: tokio::task::JoinHandle<()>) {
+        track_banner_watcher_in(&self.banner_watchers, handle);
+    }
+
+    /// Abort every tracked banner watcher and empty the vec. Called on
+    /// teardown (logout / fresh login), where each watcher's `Client` clone
+    /// would otherwise hold the stores open across the wipe.
+    pub(crate) fn abort_banner_watchers(&self) {
+        let mut watchers = lock_verification_mutex(&self.banner_watchers, "banner_watchers");
+        for handle in watchers.drain(..) {
+            handle.abort();
         }
     }
 
@@ -400,6 +437,7 @@ impl VerificationService {
         let incoming_verification_request_callback = self.incoming_request_callback.clone();
         let request_closed_callback = self.request_closed_callback.clone();
         let pending_incoming = self.pending_incoming.clone();
+        let banner_watchers = self.banner_watchers.clone();
         verification_debug!("registering incoming self-verification request handler");
         // `client` is an injected handler argument, never a captured one: the
         // handler store lives inside `ClientInner`, so a captured `Client` is a
@@ -414,6 +452,7 @@ impl VerificationService {
                     incoming_verification_request_callback.clone();
                 let request_closed_callback = request_closed_callback.clone();
                 let pending_incoming = pending_incoming.clone();
+                let banner_watchers = banner_watchers.clone();
                 async move {
                     let Some(own_user_id) = client.user_id() else {
                         return;
@@ -543,11 +582,12 @@ impl VerificationService {
                             );
                             f(&transaction_id, &from_device, &device_label);
                         }
-                        Self::spawn_incoming_request_watcher(
+                        let handle = Self::spawn_incoming_request_watcher(
                             request,
                             request_closed_callback,
                             pending_incoming,
                         );
+                        track_banner_watcher_in(&banner_watchers, handle);
                     }
 
                     let cb = lock_verification_mutex(
@@ -575,6 +615,7 @@ impl VerificationService {
         let incoming_user_request_callback = self.incoming_user_request_callback.clone();
         let request_closed_callback = self.request_closed_callback.clone();
         let pending_incoming = self.pending_incoming.clone();
+        let banner_watchers = self.banner_watchers.clone();
         verification_debug!("registering incoming user-verification request handler");
         // Injected, not captured — see `register_incoming_request_handler`.
         client.add_event_handler(
@@ -584,6 +625,7 @@ impl VerificationService {
                 let incoming_user_request_callback = incoming_user_request_callback.clone();
                 let request_closed_callback = request_closed_callback.clone();
                 let pending_incoming = pending_incoming.clone();
+                let banner_watchers = banner_watchers.clone();
                 async move {
                     let Some(own_user_id) = client.user_id() else {
                         return;
@@ -679,11 +721,12 @@ impl VerificationService {
                         if let Some(ref f) = *cb {
                             f(&flow_id, sender.as_str(), &display_name);
                         }
-                        Self::spawn_incoming_request_watcher(
+                        let handle = Self::spawn_incoming_request_watcher(
                             request,
                             request_closed_callback,
                             pending_incoming,
                         );
+                        track_banner_watcher_in(&banner_watchers, handle);
                     }
 
                     let cb = lock_verification_mutex(
@@ -1851,7 +1894,7 @@ impl VerificationService {
         request: VerificationRequest,
         closed_callback: Arc<Mutex<Option<VerificationRequestClosedCallback>>>,
         pending: Arc<Mutex<Option<PendingIncomingRequest>>>,
-    ) {
+    ) -> tokio::task::JoinHandle<()> {
         let flow_id = request.flow_id().to_string();
         tokio::spawn(async move {
             let mut changes = request.changes();
@@ -1886,7 +1929,7 @@ impl VerificationService {
                 }
             }
             Self::emit_request_closed(&closed_callback, &flow_id);
-        });
+        })
     }
 
     fn verification_methods_debug(methods: &[VerificationMethod]) -> String {
@@ -2303,6 +2346,28 @@ mod tests {
         service.replay_pending_incoming_request().await;
         assert_eq!(*fired.lock().expect("fired not poisoned"), 0);
         assert!(lock_verification_mutex(&service.pending_incoming, "pending_incoming").is_none());
+    }
+
+    // A pending incoming request's banner watcher holds a Client clone; logout
+    // must be able to abort it or the store wipe runs against open handles —
+    // the same Windows failure mode reset_context closes for flow watchers.
+    #[tokio::test]
+    async fn abort_banner_watchers_aborts_tracked_tasks() {
+        let service = VerificationService::new();
+        let handle = tokio::spawn(std::future::pending::<()>());
+        let probe = handle.abort_handle();
+        service.track_banner_watcher(handle);
+        service.abort_banner_watchers();
+        for _ in 0..50 {
+            if probe.is_finished() {
+                assert!(
+                    lock_verification_mutex(&service.banner_watchers, "banner_watchers").is_empty()
+                );
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("banner watcher was not aborted");
     }
 
     // `clear_callbacks()` (called on logout) must drop `pending_incoming` too:

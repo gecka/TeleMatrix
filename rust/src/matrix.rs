@@ -2072,6 +2072,9 @@ impl MatrixProtocol {
                 // Before the remote logout, so the runtime has an await point to
                 // reap the watchers `reset` aborts and drop their clones too.
                 self.verification.reset_context().await;
+                // Same reasoning, for the untracked half: banner watchers for
+                // incoming requests each hold a request (and so a Client) clone.
+                self.verification.abort_banner_watchers();
                 self.session_lifecycle
                     .logout_remote_best_effort(&client)
                     .await;
