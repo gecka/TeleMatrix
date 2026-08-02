@@ -71,6 +71,7 @@ type VerificationIncomingUserRequestCallback = Box<dyn Fn(&str, &str, &str) + Se
 type VerificationRequestClosedCallback = Box<dyn Fn(&str) + Send>;
 type VerificationSasEmojisCallback = Box<dyn Fn(&str, &[SasEmoji]) + Send>;
 type VerificationQrDataCallback = Box<dyn Fn(&str, &QrCodeImage) + Send>;
+type VerificationCancelInfoCallback = Box<dyn Fn(&str, &str, bool) + Send>;
 
 /// Runtime handles the per-room latest-event preview-refresh tasks need. All
 /// fields are cheap `Arc`/service clones; bundled so the subscribe helper has one
@@ -2290,6 +2291,12 @@ impl MatrixProtocol {
     /// Register a callback that fires when a QR code has been generated.
     pub fn on_qr_data(&self, callback: VerificationQrDataCallback) {
         self.verification.on_qr_data(callback);
+    }
+
+    /// Register a callback that fires with a flow's SDK cancel code just
+    /// before its `Cancelled` state, so the UI can pick a failure severity.
+    pub fn on_verification_cancel_info(&self, callback: VerificationCancelInfoCallback) {
+        self.verification.on_cancel_info(callback);
     }
 
     /// Read another user's cross-signing trust state (for trust shields).

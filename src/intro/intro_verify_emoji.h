@@ -92,6 +92,9 @@ private:
     QString _requestFlowId;
     // The flow this page currently renders, latched from the emojis it received.
     QString _flowId;
+    // SDK cancel code for the current attempt's flow, latched from
+    // verificationCancelInfo just before the Cancelled it explains arrives.
+    QString _lastCancelCode;
     bool _presentPending = false;
     QStringList _pendingEmojis;
     QStringList _pendingLabels;

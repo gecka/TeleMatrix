@@ -63,6 +63,9 @@ private:
     bool _scanned = false;
     bool _waiting = false;
     QString _flowId;
+    // SDK cancel code for the current attempt's flow, latched from
+    // verificationCancelInfo just before the Cancelled it explains arrives.
+    QString _lastCancelCode;
 };
 
 } // namespace TeleMatrix

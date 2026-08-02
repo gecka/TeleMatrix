@@ -1924,6 +1924,24 @@ static void verificationRequestClosedTrampoline(
     });
 }
 
+// Why a verification flow was cancelled — always fires just before the
+// matching verificationStateChanged(Cancelled, ...) (Rust emission order).
+static void verificationCancelInfoTrampoline(
+    const char *flowId,
+    const char *cancelCode,
+    bool cancelledByUs,
+    void *userdata)
+{
+    const auto flow = flowId ? QString::fromUtf8(flowId) : QString();
+    const auto code = cancelCode ? QString::fromUtf8(cancelCode) : QString();
+    withGuardedBridge(userdata, [flow, code, cancelledByUs](ProtocolBridge *bridge) {
+        QMetaObject::invokeMethod(bridge,
+            [bridge, flow, code, cancelledByUs]() {
+                emit bridge->verificationCancelInfo(flow, code, cancelledByUs);
+            }, Qt::QueuedConnection);
+    });
+}
+
 // Another user's cross-signing trust state changed (identity-updates stream).
 static void userTrustChangedTrampoline(
     const char *userId,
@@ -2696,6 +2714,10 @@ void ProtocolBridge::registerCallbacks() {
     tm_set_verification_request_closed_callback(
         _handle,
         verificationRequestClosedTrampoline,
+        guard);
+    tm_set_verification_cancel_info_callback(
+        _handle,
+        verificationCancelInfoTrampoline,
         guard);
     tm_set_sas_emojis_callback(
         _handle,

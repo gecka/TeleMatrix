@@ -924,6 +924,12 @@ signals:
     /// An incoming request can no longer be answered: another of our sessions
     /// took it, the requester withdrew it, or it expired.
     void verificationRequestClosed(const QString &flowId);
+    /// Why a verification flow was cancelled; emitted just before the
+    /// corresponding verificationStateChanged(Cancelled, ...).
+    void verificationCancelInfo(
+        const QString &flowId,
+        const QString &cancelCode,
+        bool cancelledByUs);
     void verificationCapabilitiesReady(bool success, bool canDevice, bool canRecovery, bool sasOk, bool qrSupported);
     /// A QR generation was initiated (or failed to be). `modules` is always
     /// empty — the grid arrives later on qrCodeDataReady.

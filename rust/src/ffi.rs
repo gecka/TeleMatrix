@@ -4559,6 +4559,14 @@ pub type TmIncomingUserVerificationRequestCallback = extern "C" fn(
 pub type TmVerificationRequestClosedCallback =
     extern "C" fn(flow_id: *const c_char, userdata: *mut libc::c_void);
 
+/// Why a verification flow was cancelled; fires just before the Cancelled state.
+pub type TmVerificationCancelInfoCallback = extern "C" fn(
+    flow_id: *const c_char,
+    cancel_code: *const c_char,
+    cancelled_by_us: bool,
+    userdata: *mut libc::c_void,
+);
+
 /// C-compatible verification capabilities.
 #[repr(C)]
 pub struct FfiVerificationCapabilities {
@@ -4837,6 +4845,29 @@ pub unsafe extern "C" fn tm_set_verification_request_closed_callback(
                 return;
             };
             callback(c_flow_id.as_ptr(), ud.as_ptr());
+        }));
+}
+
+/// Register the callback for why a verification flow was cancelled. Fires
+/// before the corresponding `Cancelled` state (see
+/// `tm_set_verification_state_callback`).
+///
+/// # Safety
+/// `h` must be a valid Handle pointer.
+#[no_mangle]
+pub unsafe extern "C" fn tm_set_verification_cancel_info_callback(
+    h: *mut Handle,
+    callback: TmVerificationCancelInfoCallback,
+    userdata: *mut libc::c_void,
+) {
+    let handle = unsafe { &*h };
+    let ud = Userdata::new(userdata);
+    handle
+        .matrix
+        .on_verification_cancel_info(Box::new(move |flow_id, code, by_us| {
+            let c_flow = CString::new(flow_id).unwrap_or_default();
+            let c_code = CString::new(code).unwrap_or_default();
+            callback(c_flow.as_ptr(), c_code.as_ptr(), by_us, ud.as_ptr());
         }));
 }
 

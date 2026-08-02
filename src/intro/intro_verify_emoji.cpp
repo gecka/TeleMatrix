@@ -207,6 +207,15 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
     });
     connect(_bridge, &ProtocolBridge::sasConfirmed,
             this, &IntroVerifyEmoji::onSasConfirmed);
+    connect(_bridge, &ProtocolBridge::verificationCancelInfo,
+            this, [this](const QString &flowId, const QString &code, bool) {
+        if (!isVisible()) {
+            return;
+        }
+        if (flowId.isEmpty() || _flowId.isEmpty() || flowId == _flowId) {
+            _lastCancelCode = code;
+        }
+    });
     connect(_bridge, &ProtocolBridge::verificationStateChanged,
             this, [this](int state, const QString &flowId) {
         constexpr int kDone = 8;
@@ -237,9 +246,14 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
             return;
         }
         setWaitingState(false);
-        showFailure(tr(
-            "The request was denied or timed out, "
-            "or there was a verification mismatch"));
+        const bool securityFailure = (_lastCancelCode == QLatin1String("m.key_mismatch"))
+            || (_lastCancelCode == QLatin1String("m.user_error"))
+            || (_lastCancelCode == QLatin1String("m.mismatched_sas"));
+        showFailure(securityFailure
+            ? tr("Verification failed: the keys did not match. "
+                 "Your messages may not be secure.")
+            : tr("The request was denied or timed out, "
+                 "or it was cancelled on the other device"));
     });
 }
 
@@ -281,6 +295,7 @@ void IntroVerifyEmoji::resetForAttempt() {
     _emojis.clear();
     _labels.clear();
     _flowId.clear();
+    _lastCancelCode.clear();
     _waiting = false;
     hideError();
     _retryLink->hide();

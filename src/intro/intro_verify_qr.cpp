@@ -86,6 +86,15 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         setDescriptionText(tr("Scan this code with another session to verify."));
         update();
     });
+    connect(_bridge, &ProtocolBridge::verificationCancelInfo,
+            this, [this](const QString &flowId, const QString &code, bool) {
+        if (!isVisible()) {
+            return;
+        }
+        if (flowId.isEmpty() || _flowId.isEmpty() || flowId == _flowId) {
+            _lastCancelCode = code;
+        }
+    });
     connect(_bridge, &ProtocolBridge::verificationStateChanged,
             this, [this](int state, const QString &flowId) {
         if (!isVisible()) {
@@ -129,9 +138,14 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
                 return;
             }
             setWaitingState(false);
-            showFailure(tr(
-                "The request was denied or timed out, "
-                "or there was a verification mismatch"));
+            const bool securityFailure = (_lastCancelCode == QLatin1String("m.key_mismatch"))
+                || (_lastCancelCode == QLatin1String("m.user_error"))
+                || (_lastCancelCode == QLatin1String("m.mismatched_sas"));
+            showFailure(securityFailure
+                ? tr("Verification failed: the keys did not match. "
+                     "Your messages may not be secure.")
+                : tr("The request was denied or timed out, "
+                     "or it was cancelled on the other device"));
         }
     });
 }
@@ -147,6 +161,7 @@ void IntroVerifyQr::startVerification() {
     _scanned = false;
     _waiting = false;
     _flowId.clear();
+    _lastCancelCode.clear();
     hideError();
     _retryLink->hide();
     nextButton()->setEnabled(false);

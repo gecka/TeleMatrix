@@ -36,6 +36,9 @@ type VerificationRequestClosedCallback = Box<dyn Fn(&str) + Send>;
 type SasEmojisCallback = Box<dyn Fn(&str, &[SasEmoji]) + Send>;
 /// Fires with the flow id when a QR code has been generated and rendered.
 type QrDataCallback = Box<dyn Fn(&str, &QrCodeImage) + Send>;
+/// Fires with (flow_id, cancel_code, cancelled_by_us) just before the
+/// corresponding `Cancelled` state, so the UI can pick a severity for it.
+type VerificationCancelInfoCallback = Box<dyn Fn(&str, &str, bool) + Send>;
 
 macro_rules! verification_debug {
     ($($arg:tt)*) => {{
@@ -131,6 +134,10 @@ pub(crate) struct VerificationService {
     sas_emojis_callback: Arc<Mutex<Option<SasEmojisCallback>>>,
     /// Fires when a QR code has been generated, for the same reason.
     qr_data_callback: Arc<Mutex<Option<QrDataCallback>>>,
+    /// Fires with the SDK cancel code just before the `Cancelled` state it
+    /// pertains to, so the UI can distinguish a security failure (key
+    /// mismatch) from an ordinary cancellation.
+    cancel_info_callback: Arc<Mutex<Option<VerificationCancelInfoCallback>>>,
     /// Serializes outgoing start attempts so two near-simultaneous starts
     /// (e.g. tapping "emoji" then "QR") cannot create two requests that clobber
     /// each other's `ctx.request` and strand one flow.
@@ -155,6 +162,7 @@ impl VerificationService {
             request_closed_callback: Arc::new(Mutex::new(None)),
             sas_emojis_callback: Arc::new(Mutex::new(None)),
             qr_data_callback: Arc::new(Mutex::new(None)),
+            cancel_info_callback: Arc::new(Mutex::new(None)),
             start_guard: Arc::new(tokio::sync::Mutex::new(())),
             current_flow_id: Arc::new(Mutex::new(String::new())),
         }
@@ -218,6 +226,13 @@ impl VerificationService {
         *cb = Some(callback);
     }
 
+    /// Register a callback that fires with a flow's SDK cancel code just
+    /// before its `Cancelled` state.
+    pub(crate) fn on_cancel_info(&self, callback: VerificationCancelInfoCallback) {
+        let mut cb = lock_verification_mutex(&self.cancel_info_callback, "cancel_info_callback");
+        *cb = Some(callback);
+    }
+
     pub(crate) fn clear_callbacks(&self) {
         {
             let mut cb =
@@ -260,6 +275,11 @@ impl VerificationService {
             let mut cb = lock_verification_mutex(&self.qr_data_callback, "qr_data_callback");
             *cb = None;
         }
+        {
+            let mut cb =
+                lock_verification_mutex(&self.cancel_info_callback, "cancel_info_callback");
+            *cb = None;
+        }
     }
 
     fn emit_sas_emojis(&self, flow_id: &str, emojis: &[SasEmoji]) {
@@ -273,6 +293,13 @@ impl VerificationService {
         let cb = lock_verification_mutex(&self.qr_data_callback, "qr_data_callback");
         if let Some(ref f) = *cb {
             f(flow_id, image);
+        }
+    }
+
+    fn emit_cancel_info(&self, flow_id: &str, cancel_code: &str, cancelled_by_us: bool) {
+        let cb = lock_verification_mutex(&self.cancel_info_callback, "cancel_info_callback");
+        if let Some(ref f) = *cb {
+            f(flow_id, cancel_code, cancelled_by_us);
         }
     }
 
@@ -1117,6 +1144,11 @@ impl VerificationService {
                                 info.cancel_code().as_str(),
                                 info.cancelled_by_us()
                             );
+                            service.emit_cancel_info(
+                                &flow_id,
+                                info.cancel_code().as_str(),
+                                info.cancelled_by_us(),
+                            );
                             service.emit_state_for(VerificationState::Cancelled, &flow_id);
                             service.reset_context_if_current(Some(&flow_id)).await;
                         }
@@ -1249,6 +1281,11 @@ impl VerificationService {
                             flow_id,
                             info.cancel_code().as_str(),
                             info.cancelled_by_us()
+                        );
+                        service.emit_cancel_info(
+                            &flow_id,
+                            info.cancel_code().as_str(),
+                            info.cancelled_by_us(),
                         );
                         service.emit_state_for(VerificationState::Cancelled, &flow_id);
                         service.reset_context_if_current(Some(&flow_id)).await;
@@ -1393,6 +1430,11 @@ impl VerificationService {
                             flow_id,
                             info.cancel_code().as_str(),
                             info.cancelled_by_us()
+                        );
+                        service.emit_cancel_info(
+                            &flow_id,
+                            info.cancel_code().as_str(),
+                            info.cancelled_by_us(),
                         );
                         service.emit_state_for(VerificationState::Cancelled, &flow_id);
                         service.reset_context_if_current(Some(&flow_id)).await;
@@ -2013,6 +2055,30 @@ mod tests {
             captured.lock().expect("captured not poisoned").is_empty(),
             "a flow this call no longer owns must not be cancelled or reported"
         );
+    }
+
+    // Cancel info must reach the UI before the Cancelled state so the page can
+    // choose the message severity, and must not survive clear_callbacks.
+    #[test]
+    fn cancel_info_callback_fires_and_clears() {
+        let service = VerificationService::new();
+        let captured = Arc::new(StdMutex::new(Vec::<(String, String, bool)>::new()));
+        let sink = captured.clone();
+        service.on_cancel_info(Box::new(move |flow_id, code, by_us| {
+            sink.lock().expect("sink not poisoned").push((
+                flow_id.to_string(),
+                code.to_string(),
+                by_us,
+            ));
+        }));
+        service.emit_cancel_info("$flow:example.org", "m.mismatched_sas", false);
+        assert_eq!(
+            captured.lock().expect("captured not poisoned").clone(),
+            vec![("$flow:example.org".into(), "m.mismatched_sas".into(), false)]
+        );
+        service.clear_callbacks();
+        service.emit_cancel_info("$flow:example.org", "m.user", true);
+        assert_eq!(captured.lock().expect("captured not poisoned").len(), 1);
     }
 
     // The flow id tagged onto an emitted state is the current flow id, so the UI
