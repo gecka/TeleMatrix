@@ -241,30 +241,21 @@ public:
         animation->start(QAbstractAnimation::DeleteWhenStopped);
     }
 
-    // Hold the frame exactly where it is. Called before the fade so the two
-    // animations cannot run against each other, which would keep softening the
-    // picture while it is on its way out.
-    void freeze() {
-        if (_animation) {
-            _animation->stop();
-        }
-    }
-
+    // Dissolve, revealing what is underneath. The softening is allowed to run
+    // to its end first: teardown can finish in a fraction of the transition,
+    // and cutting the run short there would dissolve a frame that is still
+    // legible — the guarantee only lands at kCurtainOpaqueFrom of the run.
     void fadeOut(int durationMs) {
-        freeze();
-        auto *animation = new QVariantAnimation(this);
-        animation->setDuration(durationMs);
-        animation->setEasingCurve(QEasingCurve::OutCubic);
-        animation->setStartValue(1.0);
-        animation->setEndValue(0.0);
-        connect(animation, &QVariantAnimation::valueChanged, this,
-            [this](const QVariant &value) {
-                _effect->setOpacity(value.toReal());
-            });
-        connect(animation, &QVariantAnimation::finished, this, [this] {
-            deleteLater();
-        });
-        animation->start(QAbstractAnimation::DeleteWhenStopped);
+        if (_fading) {
+            return;
+        }
+        _fading = true;
+        if (_animation && _animation->state() == QAbstractAnimation::Running) {
+            connect(_animation, &QVariantAnimation::finished, this,
+                [this, durationMs] { startFade(durationMs); });
+            return;
+        }
+        startFade(durationMs);
     }
 
 protected:
@@ -283,6 +274,22 @@ protected:
     }
 
 private:
+    void startFade(int durationMs) {
+        auto *animation = new QVariantAnimation(this);
+        animation->setDuration(durationMs);
+        animation->setEasingCurve(QEasingCurve::OutCubic);
+        animation->setStartValue(1.0);
+        animation->setEndValue(0.0);
+        connect(animation, &QVariantAnimation::valueChanged, this,
+            [this](const QVariant &value) {
+                _effect->setOpacity(value.toReal());
+            });
+        connect(animation, &QVariantAnimation::finished, this, [this] {
+            deleteLater();
+        });
+        animation->start(QAbstractAnimation::DeleteWhenStopped);
+    }
+
     [[nodiscard]] QRect contentRect() const {
         const auto r = rect();
         return QRect(
@@ -297,6 +304,7 @@ private:
     qreal _progress = 0.0;
     QGraphicsOpacityEffect *_effect = nullptr;
     QPointer<QVariantAnimation> _animation;
+    bool _fading = false;
 };
 
 // Key for one account's local-cache passphrase. Namespaced by data-directory name
@@ -2249,6 +2257,12 @@ void AppController::signOut(SignOutReason reason) {
         // Soften the window away: nothing identifiable may survive on screen
         // past the first fraction of a second of signing out.
         *curtain = raiseSignOutCurtain();
+        // The dialog goes back on top of it. It is the one thing on screen that
+        // has to stay readable — it carries what is happening — and it holds
+        // nothing of the session, so the curtain has no reason to cover it.
+        if (popup) {
+            popup->raise();
+        }
 
         const auto account = _domain.active();
         // Clear this account's persisted session and secrets immediately. Only
@@ -2291,13 +2305,13 @@ void AppController::signOut(SignOutReason reason) {
         auto done = std::make_shared<bool>(false);
         // Hand the popup back to the front after any path that replaces the
         // window's central widget: the dialog is a sibling of it, and a freshly
-        // shown central widget stacks above its siblings. Only matters on the
-        // remote path, where the popup outlives the rebuild.
-        auto restack = [popup, remote, curtain]() {
+        // shown central widget stacks above its siblings. The curtain goes over
+        // the rebuilt UI, and the dialog back over the curtain.
+        auto restack = [popup, curtain]() {
             if (*curtain) {
                 (*curtain)->raise();
             }
-            if (remote && popup) {
+            if (popup) {
                 popup->raise();
             }
         };
