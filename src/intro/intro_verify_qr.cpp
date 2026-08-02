@@ -92,10 +92,10 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        // Loose (vs. the emoji page's strict variant): safe here because the
-        // display guard on the Cancelled path below is what keeps an
-        // unlatched adoption from ever being read.
-        if (VerificationPageRules::adoptCancelCodeLoose(flowId, _flowId)) {
+        // Require a real match on both sides: the start reply latches this
+        // page's flow before any cancel info can plausibly arrive, so there is
+        // no window a looser rule would buy anything in.
+        if (VerificationPageRules::adoptCancelCodeStrict(flowId, _flowId)) {
             _lastCancelCode = code;
         }
     });
@@ -104,12 +104,10 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        // Latch from every state this flow emits, so an early Cancelled (e.g.
-        // the peer declining before the code renders) is attributable. NOT
-        // RequestingVerification=0: Rust emits it before tagging the new
-        // flow's id, so on a second-or-later flow in the session it still
-        // carries the previous (already-ended) flow's id.
-        if (VerificationPageRules::qrLatchesFromState(state, flowId)) {
+        // Fallback to the start reply's latch, for a flow this page adopted
+        // without starting it. Only fills an empty latch, and skips the two
+        // states that can carry a foreign or stale id (see the rule).
+        if (VerificationPageRules::qrLatchesFromState(state, flowId, _flowId)) {
             _flowId = flowId;
         }
         if (state == VerificationPageRules::kDone) {
@@ -165,6 +163,7 @@ void IntroVerifyQr::startVerification() {
 
     setDescriptionText(tr("Waiting for your other session to accept\xE2\x80\xA6"));
 
+    _startPending = true;
     _bridge->startQrVerification();
     updateLayout();
     update();
@@ -182,9 +181,18 @@ QString IntroVerifyQr::nextButtonText() const {
     return tr("Continue");
 }
 
-void IntroVerifyQr::onQrCodeReady(bool success, const QByteArray &, int) {
-    // success only means the flow started; the modules arrive on qrCodeDataReady.
+void IntroVerifyQr::onQrCodeReady(bool success, const QString &flowId) {
+    if (!_startPending) {
+        return; // another surface's start; not this page's reply
+    }
+    _startPending = false;
     if (success) {
+        // Early latch: our own flow, from our own call's acknowledgement. The
+        // modules themselves arrive later on qrCodeDataReady.
+        _flowId = flowId;
+        return;
+    }
+    if (!isVisible()) {
         return;
     }
     _modules.clear();

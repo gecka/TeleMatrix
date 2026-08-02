@@ -67,20 +67,20 @@ struct VerificationPageRules {
     [[nodiscard]] static bool emojisReviveIgnoredFlow(
         const QString &eventFlow, const QString &ignoredFlow);
 
-    // Cancel-code adoption for later severity classification. Strict requires
-    // a real match on both sides (emoji page + dialog); loose also adopts on
-    // either side empty (QR page's current behavior — its display guard is
-    // what keeps an unlatched adoption from ever being read).
+    // Cancel-code adoption for later severity classification: requires a real
+    // match on both sides, so a foreign flow's code can never mislabel this
+    // page's own later Cancelled. Every page latches early enough (from its
+    // own start call's reply) for this to be the only variant needed.
     [[nodiscard]] static bool adoptCancelCodeStrict(
         const QString &eventFlow, const QString &pageFlow);
-    [[nodiscard]] static bool adoptCancelCodeLoose(
-        const QString &eventFlow, const QString &pageFlow);
 
-    // QR page's latch from state broadcasts. Never kRequesting: Rust emits it
-    // before tagging the new flow's id, so from the second flow of a session
-    // onward it carries the previous flow's id.
+    // QR page's fallback latch from state broadcasts — the primary latch is
+    // the start call's own reply. Never overwrites an existing latch, and
+    // never adopts kWaitingForReady (the incoming-request handlers emit it
+    // tagged with any incoming request's id) or kRequesting (Rust emits it
+    // before tagging the new flow, so it carries the previous flow's id).
     [[nodiscard]] static bool qrLatchesFromState(
-        int state, const QString &eventFlow);
+        int state, const QString &eventFlow, const QString &pageFlow);
 
     // VerifyUserDialog's Done gate: only a flow whose emojis this dialog
     // actually showed may claim the user is verified.

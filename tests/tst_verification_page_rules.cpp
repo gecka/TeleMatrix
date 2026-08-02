@@ -25,18 +25,28 @@ private slots:
         QVERIFY(!R::isSecurityCancelCode(QString()));
     }
 
-    // The QR page never latches from RequestingVerification: Rust emits it
-    // before tagging the new flow, so on a 2nd+ flow it carries the previous
-    // flow's id. Latching it made the abandoned flow's Cancelled "match" and
-    // flash a failure over the new flow (element-alignment, Task 3 finding).
-    void staleRequestingNeverLatches() {
-        QVERIFY(!R::qrLatchesFromState(R::kRequesting, QStringLiteral("$a")));
-        QVERIFY(R::qrLatchesFromState(R::kWaitingForReady, QStringLiteral("$a")));
-        QVERIFY(R::qrLatchesFromState(R::kReady, QStringLiteral("$a")));
-        QVERIFY(R::qrLatchesFromState(R::kQrCodeReady, QStringLiteral("$a")));
-        QVERIFY(R::qrLatchesFromState(R::kQrCodeScanned, QStringLiteral("$a")));
-        QVERIFY(!R::qrLatchesFromState(R::kSasStarted, QStringLiteral("$a")));
-        QVERIFY(!R::qrLatchesFromState(R::kReady, QString()));
+    // With the primary latch now the start-call's own acknowledgement, the
+    // state latch is a fallback only: never overwrites an existing latch, and
+    // never adopts WaitingForReady — the incoming handlers emit that state
+    // tagged with ANY incoming request's id, so it is foreign-taggable.
+    // kRequesting stays excluded (stale id — see Task 1's history note).
+    void qrStateLatchIsAFallbackOnly() {
+        QVERIFY(!R::qrLatchesFromState(
+            R::kWaitingForReady, QStringLiteral("$a"), QString()));
+        QVERIFY(!R::qrLatchesFromState(
+            R::kRequesting, QStringLiteral("$a"), QString()));
+        QVERIFY(R::qrLatchesFromState(
+            R::kReady, QStringLiteral("$a"), QString()));
+        QVERIFY(R::qrLatchesFromState(
+            R::kQrCodeReady, QStringLiteral("$a"), QString()));
+        QVERIFY(R::qrLatchesFromState(
+            R::kQrCodeScanned, QStringLiteral("$a"), QString()));
+        QVERIFY(!R::qrLatchesFromState(
+            R::kSasStarted, QStringLiteral("$a"), QString()));
+        // Never overwrite an existing latch.
+        QVERIFY(!R::qrLatchesFromState(
+            R::kReady, QStringLiteral("$b"), QStringLiteral("$a")));
+        QVERIFY(!R::qrLatchesFromState(R::kReady, QString(), QString()));
     }
 
     // An unlatched page never owns a Done — firing verified() on any untagged
@@ -98,22 +108,17 @@ private slots:
 
     // A foreign code adopted while unlatched mislabels the next failure's
     // severity — the strict rule requires a real match on both sides
-    // (element-alignment, Task 4 fix round). The QR page's loose variant is
-    // pre-existing and shielded by its display guard.
+    // (element-alignment, Task 4 fix round). Both pages use it now: the QR
+    // page's loose variant is gone, since with an early latch on every page
+    // there is no window it bought anything in.
     void cancelCodeAdoption() {
         QVERIFY(!R::adoptCancelCodeStrict(QStringLiteral("$a"), QString()));
         QVERIFY(!R::adoptCancelCodeStrict(QString(), QStringLiteral("$a")));
         QVERIFY(!R::adoptCancelCodeStrict(
             QStringLiteral("$b"), QStringLiteral("$a")));
+        // The normal path: a flow adopting its own code, which drives the
+        // security-vs-routine split on its own later Cancelled.
         QVERIFY(R::adoptCancelCodeStrict(
-            QStringLiteral("$a"), QStringLiteral("$a")));
-        QVERIFY(R::adoptCancelCodeLoose(QStringLiteral("$a"), QString()));
-        QVERIFY(R::adoptCancelCodeLoose(QString(), QStringLiteral("$a")));
-        QVERIFY(!R::adoptCancelCodeLoose(
-            QStringLiteral("$b"), QStringLiteral("$a")));
-        // The QR page's normal path: a flow adopting its own code, which
-        // drives the security-vs-routine split on its own later Cancelled.
-        QVERIFY(R::adoptCancelCodeLoose(
             QStringLiteral("$a"), QStringLiteral("$a")));
     }
 

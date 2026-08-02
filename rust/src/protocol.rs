@@ -283,9 +283,9 @@ pub trait ProtocolClient: Send + Sync {
     /// Search messages in one room or across all rooms.
     async fn search_messages(&self, request: SearchRequest) -> Result<SearchPage>;
 
-    /// Start SAS emoji verification. Initiate-only: success means the flow was
-    /// started, and the emojis arrive through the SAS-emojis callback.
-    async fn start_sas_verification(&self) -> Result<()> {
+    /// Start SAS emoji verification. Initiate-only: success returns the started
+    /// flow's id, and the emojis arrive through the SAS-emojis callback.
+    async fn start_sas_verification(&self) -> Result<String> {
         Err(anyhow::anyhow!("SAS verification not supported"))
     }
 
@@ -294,9 +294,10 @@ pub trait ProtocolClient: Send + Sync {
         Err(anyhow::anyhow!("SAS verification not supported"))
     }
 
-    /// Show a QR code for device verification. Initiate-only: the module grid
-    /// arrives through the QR-data callback.
-    async fn start_qr_verification(&self) -> Result<()> {
+    /// Show a QR code for device verification. Initiate-only: success returns
+    /// the started flow's id and the module grid arrives through the QR-data
+    /// callback.
+    async fn start_qr_verification(&self) -> Result<String> {
         Err(anyhow::anyhow!("QR verification not supported"))
     }
 

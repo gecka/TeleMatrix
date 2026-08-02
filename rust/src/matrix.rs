@@ -2313,8 +2313,8 @@ impl MatrixProtocol {
     }
 
     /// Start an interactive SAS (emoji) verification of another user's identity.
-    /// Initiate-only; the emojis arrive via `on_sas_emojis`.
-    pub async fn start_user_verification(&self, user_id: &str) -> Result<()> {
+    /// Initiate-only; the emojis arrive via `on_sas_emojis`. Returns the flow id.
+    pub async fn start_user_verification(&self, user_id: &str) -> Result<String> {
         let client = self.require_client().await?;
         self.verification
             .start_user_verification(client, user_id)
@@ -2340,13 +2340,13 @@ impl MatrixProtocol {
             .await
     }
 
-    pub async fn start_sas_verification_for(&self, expected_flow_id: &str) -> Result<()> {
+    pub async fn start_sas_verification_for(&self, expected_flow_id: &str) -> Result<String> {
         self.verification
             .start_sas_verification_for(expected_flow_id)
             .await
     }
 
-    pub async fn start_qr_verification_for(&self, expected_flow_id: &str) -> Result<()> {
+    pub async fn start_qr_verification_for(&self, expected_flow_id: &str) -> Result<String> {
         self.verification
             .start_qr_verification_for(expected_flow_id)
             .await
@@ -3232,7 +3232,7 @@ impl ProtocolClient for MatrixProtocol {
 
     // ----- Verification trait methods -----
 
-    async fn start_sas_verification(&self) -> Result<()> {
+    async fn start_sas_verification(&self) -> Result<String> {
         let client = self.require_client().await?;
         self.verification
             .start_sas_verification_checked(client, None)
@@ -3244,7 +3244,7 @@ impl ProtocolClient for MatrixProtocol {
         Ok(())
     }
 
-    async fn start_qr_verification(&self) -> Result<()> {
+    async fn start_qr_verification(&self) -> Result<String> {
         let client = self.require_client().await?;
         self.verification
             .start_qr_verification_checked(client, None)

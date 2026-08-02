@@ -757,8 +757,12 @@ impl VerificationService {
     }
 
     /// Answer a specific request with SAS. Initiate-only: the emojis arrive
-    /// later through the SAS watcher's `sas_emojis_callback`.
-    pub(crate) async fn start_sas_verification_for(&self, expected_flow_id: &str) -> Result<()> {
+    /// later through the SAS watcher's `sas_emojis_callback`. Returns the
+    /// started flow's id so the caller can scope later events to it.
+    pub(crate) async fn start_sas_verification_for(
+        &self,
+        expected_flow_id: &str,
+    ) -> Result<String> {
         // Held for the same reason as the outgoing starts: an accept racing a
         // second start would answer the same request twice.
         let _start_guard = self.start_guard.lock().await;
@@ -766,7 +770,8 @@ impl VerificationService {
             .active_verification_request_for(expected_flow_id)
             .await
             .map_err(|e| anyhow!("No matching verification request: {e}"))?;
-        self.activate_flow(request, DesiredMethod::Sas).await
+        self.activate_flow(request, DesiredMethod::Sas).await?;
+        Ok(expected_flow_id.to_string())
     }
 
     pub(crate) async fn cancel_verification_for(&self, expected_flow_id: &str) -> Result<()> {
@@ -814,12 +819,13 @@ impl VerificationService {
     }
 
     /// Start (or adopt) a self-verification and drive it to SAS. Initiate-only:
-    /// the emojis arrive later through the SAS watcher.
+    /// the emojis arrive later through the SAS watcher. Returns the started
+    /// flow's id so the caller can scope later events to it.
     pub(crate) async fn start_sas_verification_checked(
         &self,
         client: Client,
         expected_flow_id: Option<&str>,
-    ) -> Result<()> {
+    ) -> Result<String> {
         debug_assert!(expected_flow_id.is_none());
         let _start_guard = self.start_guard.lock().await;
         let request = match self.ensure_verification_request(client).await {
@@ -831,19 +837,23 @@ impl VerificationService {
             }
         };
 
-        self.activate_flow(request, DesiredMethod::Sas).await
+        // Read before `activate_flow` consumes the request.
+        let flow_id = request.flow_id().to_string();
+        self.activate_flow(request, DesiredMethod::Sas).await?;
+        Ok(flow_id)
     }
 
     /// Start an interactive SAS (emoji) verification of ANOTHER user's identity.
     /// Sends an in-room verification request to the user (the SDK routes it
     /// through a shared DM, creating one if none exists) and drives it to SAS
     /// once the peer is ready. On a successful SAS the SDK signs the user's
-    /// master key with our user-signing key.
+    /// master key with our user-signing key. Returns the started flow's id so
+    /// the caller can scope later events to it.
     pub(crate) async fn start_user_verification(
         &self,
         client: Client,
         user_id: &str,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let _start_guard = self.start_guard.lock().await;
         // `ensure_user_verification_request` performs its own flow-scoped context
         // cleanup on failure, so the outer handler only surfaces the error state;
@@ -859,7 +869,10 @@ impl VerificationService {
                 return Err(e);
             }
         };
-        self.activate_flow(request, DesiredMethod::Sas).await
+        // Read before `activate_flow` consumes the request.
+        let flow_id = request.flow_id().to_string();
+        self.activate_flow(request, DesiredMethod::Sas).await?;
+        Ok(flow_id)
     }
 
     /// Create + send an outgoing verification request to another user. Fetches
@@ -948,23 +961,26 @@ impl VerificationService {
     }
 
     /// Answer a specific request with QR. Initiate-only: the module grid arrives
-    /// later through the request watcher's `qr_data_callback`.
-    pub(crate) async fn start_qr_verification_for(&self, expected_flow_id: &str) -> Result<()> {
+    /// later through the request watcher's `qr_data_callback`. Returns the
+    /// started flow's id so the caller can scope later events to it.
+    pub(crate) async fn start_qr_verification_for(&self, expected_flow_id: &str) -> Result<String> {
         let _start_guard = self.start_guard.lock().await;
         let request = self
             .active_verification_request_for(expected_flow_id)
             .await
             .map_err(|e| anyhow!("No matching verification request: {e}"))?;
-        self.activate_flow(request, DesiredMethod::Qr).await
+        self.activate_flow(request, DesiredMethod::Qr).await?;
+        Ok(expected_flow_id.to_string())
     }
 
     /// Start (or adopt) a self-verification and drive it to QR. Initiate-only:
-    /// the module grid arrives later through `qr_data_callback`.
+    /// the module grid arrives later through `qr_data_callback`. Returns the
+    /// started flow's id so the caller can scope later events to it.
     pub(crate) async fn start_qr_verification_checked(
         &self,
         client: Client,
         expected_flow_id: Option<&str>,
-    ) -> Result<()> {
+    ) -> Result<String> {
         debug_assert!(expected_flow_id.is_none());
         let _start_guard = self.start_guard.lock().await;
         let request = match self.ensure_verification_request(client).await {
@@ -975,7 +991,10 @@ impl VerificationService {
                 return Err(e);
             }
         };
-        self.activate_flow(request, DesiredMethod::Qr).await
+        // Read before `activate_flow` consumes the request.
+        let flow_id = request.flow_id().to_string();
+        self.activate_flow(request, DesiredMethod::Qr).await?;
+        Ok(flow_id)
     }
 
     pub(crate) async fn confirm_qr_scanned(&self) -> Result<()> {

@@ -2360,9 +2360,11 @@ pub struct FfiSasEmojiList {
     pub len: usize,
 }
 
-/// Callback for SAS emoji result.
+/// Result of a start-verification call. `flow_id` identifies the flow this
+/// call initiated (or attached to) so the caller can scope every later event
+/// to it; emojis arrive via `tm_set_sas_emojis_callback`. Null on failure.
 pub type TmSasCallback =
-    extern "C" fn(success: bool, list: FfiSasEmojiList, userdata: *mut libc::c_void);
+    extern "C" fn(success: bool, flow_id: *const c_char, userdata: *mut libc::c_void);
 
 /// Asynchronously log in to the protocol backend.
 ///
@@ -4296,10 +4298,10 @@ pub unsafe extern "C" fn tm_set_preview_fetching_callback(
 
 // --- Verification FFI functions ---
 
-/// Free an FfiSasEmojiList returned via TmSasCallback.
+/// Free an FfiSasEmojiList returned via TmSasEmojisAvailableCallback.
 ///
 /// # Safety
-/// `list` must have been returned by a TmSasCallback invocation.
+/// `list` must have been returned by a TmSasEmojisAvailableCallback invocation.
 #[no_mangle]
 pub unsafe extern "C" fn tm_free_sas_emojis(list: FfiSasEmojiList) {
     if list.emojis.is_null() || list.len == 0 {
@@ -4321,14 +4323,16 @@ pub struct FfiQrCode {
     pub size: usize,
 }
 
-/// Callback for a generated QR code.
+/// Result of a start-QR call; modules arrive via `tm_set_qr_data_callback`.
+/// `flow_id` scopes every later event to the flow this call started; null on
+/// failure.
 pub type TmQrCodeCallback =
-    extern "C" fn(success: bool, qr: FfiQrCode, userdata: *mut libc::c_void);
+    extern "C" fn(success: bool, flow_id: *const c_char, userdata: *mut libc::c_void);
 
-/// Free an FfiQrCode returned via TmQrCodeCallback.
+/// Free an FfiQrCode returned via TmQrDataCallback.
 ///
 /// # Safety
-/// `qr` must have been returned by a TmQrCodeCallback invocation.
+/// `qr` must have been returned by a TmQrDataCallback invocation.
 #[no_mangle]
 pub unsafe extern "C" fn tm_free_qr_code(qr: FfiQrCode) {
     if qr.modules.is_null() || qr.size == 0 {
@@ -4338,7 +4342,7 @@ pub unsafe extern "C" fn tm_free_qr_code(qr: FfiQrCode) {
 }
 
 /// Start SAS emoji verification asynchronously. `success` = the flow was
-/// initiated; the emoji list here is always empty — emojis arrive via
+/// initiated and `flow_id` names it; emojis arrive via
 /// `tm_set_sas_emojis_callback`.
 ///
 /// # Safety
@@ -4354,18 +4358,19 @@ pub unsafe extern "C" fn tm_start_sas_verification(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        let started = client.start_sas_verification().await.is_ok();
-        let empty = FfiSasEmojiList {
-            emojis: ptr::null_mut(),
-            len: 0,
-        };
-        callback(started, empty, ud.as_ptr());
+        match client.start_sas_verification().await {
+            Ok(flow_id) => {
+                let c_flow = CString::new(flow_id).unwrap_or_default();
+                callback(true, c_flow.as_ptr(), ud.as_ptr());
+            }
+            Err(_) => callback(false, ptr::null(), ud.as_ptr()),
+        }
     });
 }
 
 /// Start SAS emoji verification for a specific verification request.
-/// `success` = the flow was initiated; emojis arrive via
-/// `tm_set_sas_emojis_callback`.
+/// `success` = the flow was initiated and `flow_id` names it; emojis arrive
+/// via `tm_set_sas_emojis_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer and `transaction_id` must be a valid
@@ -4383,18 +4388,19 @@ pub unsafe extern "C" fn tm_start_sas_verification_for(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        let started = matrix.start_sas_verification_for(&tx).await.is_ok();
-        let empty = FfiSasEmojiList {
-            emojis: ptr::null_mut(),
-            len: 0,
-        };
-        callback(started, empty, ud.as_ptr());
+        match matrix.start_sas_verification_for(&tx).await {
+            Ok(flow_id) => {
+                let c_flow = CString::new(flow_id).unwrap_or_default();
+                callback(true, c_flow.as_ptr(), ud.as_ptr());
+            }
+            Err(_) => callback(false, ptr::null(), ud.as_ptr()),
+        }
     });
 }
 
 /// Show a QR code for device verification (no specific request). `success` =
-/// the flow was initiated; the module grid here is always empty — it arrives
-/// via `tm_set_qr_data_callback`.
+/// the flow was initiated and `flow_id` names it; the module grid arrives via
+/// `tm_set_qr_data_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer.
@@ -4409,17 +4415,19 @@ pub unsafe extern "C" fn tm_start_qr_verification(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        let started = client.start_qr_verification().await.is_ok();
-        let empty = FfiQrCode {
-            modules: ptr::null_mut(),
-            size: 0,
-        };
-        callback(started, empty, ud.as_ptr());
+        match client.start_qr_verification().await {
+            Ok(flow_id) => {
+                let c_flow = CString::new(flow_id).unwrap_or_default();
+                callback(true, c_flow.as_ptr(), ud.as_ptr());
+            }
+            Err(_) => callback(false, ptr::null(), ud.as_ptr()),
+        }
     });
 }
 
 /// Show a QR code for a specific verification request. `success` = the flow
-/// was initiated; the module grid arrives via `tm_set_qr_data_callback`.
+/// was initiated and `flow_id` names it; the module grid arrives via
+/// `tm_set_qr_data_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer and `transaction_id` a valid C string.
@@ -4436,12 +4444,13 @@ pub unsafe extern "C" fn tm_start_qr_verification_for(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        let started = matrix.start_qr_verification_for(&tx).await.is_ok();
-        let empty = FfiQrCode {
-            modules: ptr::null_mut(),
-            size: 0,
-        };
-        callback(started, empty, ud.as_ptr());
+        match matrix.start_qr_verification_for(&tx).await {
+            Ok(flow_id) => {
+                let c_flow = CString::new(flow_id).unwrap_or_default();
+                callback(true, c_flow.as_ptr(), ud.as_ptr());
+            }
+            Err(_) => callback(false, ptr::null(), ud.as_ptr()),
+        }
     });
 }
 
@@ -4932,8 +4941,8 @@ pub unsafe extern "C" fn tm_set_user_trust_changed_callback(
 }
 
 /// Start an interactive SAS (emoji) verification of another user's identity.
-/// `success` = the flow was initiated; emojis arrive via
-/// `tm_set_sas_emojis_callback`.
+/// `success` = the flow was initiated and `flow_id` names it; emojis arrive
+/// via `tm_set_sas_emojis_callback`.
 ///
 /// # Safety
 /// `h` must be a valid Handle pointer; `user_id` a valid C string.
@@ -4950,12 +4959,13 @@ pub unsafe extern "C" fn tm_start_user_verification(
     let ud = Userdata::new(userdata);
 
     handle.runtime.spawn(async move {
-        let started = matrix.start_user_verification(&uid).await.is_ok();
-        let empty = FfiSasEmojiList {
-            emojis: ptr::null_mut(),
-            len: 0,
-        };
-        callback(started, empty, ud.as_ptr());
+        match matrix.start_user_verification(&uid).await {
+            Ok(flow_id) => {
+                let c_flow = CString::new(flow_id).unwrap_or_default();
+                callback(true, c_flow.as_ptr(), ud.as_ptr());
+            }
+            Err(_) => callback(false, ptr::null(), ud.as_ptr()),
+        }
     });
 }
 

@@ -510,7 +510,8 @@ public:
     // --- Session verification ---
 
     /// Start SAS emoji verification. The start result arrives via
-    /// sasVerificationStarted (lists empty); the emojis via sasEmojisAvailable.
+    /// sasVerificationStarted (carrying the started flow's id); the emojis via
+    /// sasEmojisAvailable.
     void startSasVerification(const QString &transactionId = QString());
     /// Send the SAS match confirmation. sasConfirmed reports only whether the
     /// send succeeded; completion arrives as verificationStateChanged(Done).
@@ -525,7 +526,7 @@ public:
     /// Get verification capabilities. Result arrives via verificationCapabilitiesReady.
     void getVerificationCapabilities();
     /// Show a QR code for verification. The start result arrives via qrCodeReady
-    /// (modules empty); the module grid via qrCodeDataReady.
+    /// (carrying the started flow's id); the module grid via qrCodeDataReady.
     void startQrVerification(const QString &transactionId = QString());
     /// Send the QR scan confirmation. qrScanConfirmed reports only whether the
     /// send succeeded; completion arrives as verificationStateChanged(Done).
@@ -908,12 +909,13 @@ signals:
     void deactivateAccountResult(const AccountActionResult &result);
 
     // --- Session verification signals ---
-    /// A SAS start was initiated (or failed to be). The lists are always empty —
-    /// the emojis arrive later on sasEmojisAvailable.
-    void sasVerificationStarted(bool success, const QStringList &emojis, const QStringList &labels);
+    /// Reply to this client's own startSasVerification/startUserVerification
+    /// call; flowId names the flow it started, so a page can scope every later
+    /// event to it well before the emojis arrive. Empty when success is false.
+    void sasVerificationStarted(bool success, const QString &flowId);
     /// Emojis for a SAS flow — fires whenever they become available, including
     /// a SAS the other device started. Replaces the payload that used to ride
-    /// sasVerificationStarted (whose lists are now always empty).
+    /// sasVerificationStarted.
     void sasEmojisAvailable(
         const QString &flowId,
         const QStringList &emojis,
@@ -942,9 +944,10 @@ signals:
     /// Result of waitBackupKeysReady(): whether key backup became enabled
     /// before the timeout.
     void backupKeysReady(bool ready);
-    /// A QR generation was initiated (or failed to be). `modules` is always
-    /// empty — the grid arrives later on qrCodeDataReady.
-    void qrCodeReady(bool success, const QByteArray &modules, int size);
+    /// Reply to this client's own startQrVerification call; flowId names the
+    /// flow it started, so a page can scope every later event to it well
+    /// before the grid arrives on qrCodeDataReady. Empty when success is false.
+    void qrCodeReady(bool success, const QString &flowId);
     void qrScanConfirmed(bool success);
     void deviceVerifiedChanged(bool verified);
     /// Result of a userTrustState() query (state = UserTrustState discriminant).

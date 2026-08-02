@@ -44,7 +44,7 @@ protected:
 
 private:
     void startVerification();
-    void onQrCodeReady(bool success, const QByteArray &modules, int size);
+    void onQrCodeReady(bool success, const QString &flowId);
     void onQrScanConfirmed(bool success);
     void setScannedState();
     void setWaitingState(bool waiting);
@@ -62,6 +62,10 @@ private:
     int _qrSize = 0;
     bool _scanned = false;
     bool _waiting = false;
+    // A start call of ours is awaiting its reply — the reply that clears this
+    // is the one that belongs to this page (another surface's start reply
+    // arrives with this false and is ignored).
+    bool _startPending = false;
     QString _flowId;
     // SDK cancel code for the current attempt's flow, latched from
     // verificationCancelInfo just before the Cancelled it explains arrives.

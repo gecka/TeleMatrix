@@ -21,7 +21,7 @@ void tm_start_sas_verification_for(
     struct Handle *h,
     const char *transaction_id,
     void (*callback)(bool success,
-                     struct FfiSasEmojiList list,
+                     const char *flow_id,
                      void *userdata),
     void *userdata);
 
@@ -35,7 +35,7 @@ void tm_start_user_verification(
     struct Handle *h,
     const char *user_id,
     void (*callback)(bool success,
-                     struct FfiSasEmojiList list,
+                     const char *flow_id,
                      void *userdata),
     void *userdata);
 
@@ -1199,26 +1199,14 @@ static void mediaCallbackTrampoline(
 
 static void sasCallbackTrampoline(
     bool success,
-    FfiSasEmojiList list,
+    const char *flowId,
     void *userdata)
 {
-    QStringList emojis;
-    QStringList labels;
-    if (success && list.emojis && list.len > 0) {
-        emojis.reserve(static_cast<int>(list.len));
-        labels.reserve(static_cast<int>(list.len));
-        for (size_t i = 0; i < list.len; ++i) {
-            emojis.append(list.emojis[i].emoji
-                ? QString::fromUtf8(list.emojis[i].emoji) : QString());
-            labels.append(list.emojis[i].label
-                ? QString::fromUtf8(list.emojis[i].label) : QString());
-        }
-    }
-    tm_free_sas_emojis(list);
-    withGuardedBridge(userdata, [success, emojis, labels](ProtocolBridge *bridge) {
+    const QString flow = flowId ? QString::fromUtf8(flowId) : QString();
+    withGuardedBridge(userdata, [success, flow](ProtocolBridge *bridge) {
         QMetaObject::invokeMethod(bridge,
-            [bridge, success, emojis, labels]() {
-                emit bridge->sasVerificationStarted(success, emojis, labels);
+            [bridge, success, flow]() {
+                emit bridge->sasVerificationStarted(success, flow);
             }, Qt::QueuedConnection);
     });
 }
@@ -1270,20 +1258,14 @@ static void qrDataTrampoline(const char *flowId, FfiQrCode qr, void *userdata)
 
 static void qrCodeCallbackTrampoline(
     bool success,
-    FfiQrCode qr,
+    const char *flowId,
     void *userdata)
 {
-    const int size = static_cast<int>(qr.size);
-    QByteArray modules;
-    if (success && qr.modules && size > 0) {
-        modules = QByteArray(
-            reinterpret_cast<const char *>(qr.modules), size * size);
-    }
-    tm_free_qr_code(qr);
-    withGuardedBridge(userdata, [success, modules, size](ProtocolBridge *bridge) {
+    const QString flow = flowId ? QString::fromUtf8(flowId) : QString();
+    withGuardedBridge(userdata, [success, flow](ProtocolBridge *bridge) {
         QMetaObject::invokeMethod(bridge,
-            [bridge, success, modules, size]() {
-                emit bridge->qrCodeReady(success, modules, size);
+            [bridge, success, flow]() {
+                emit bridge->qrCodeReady(success, flow);
             }, Qt::QueuedConnection);
     });
 }
@@ -4800,7 +4782,7 @@ void ProtocolBridge::setE2eeSearchEnabled(bool enabled) {
 
 void ProtocolBridge::startSasVerification(const QString &transactionId) {
     if (!_handle) {
-        emit sasVerificationStarted(false, QStringList(), QStringList());
+        emit sasVerificationStarted(false, QString());
         return;
     }
     if (transactionId.isEmpty()) {
@@ -4820,7 +4802,7 @@ void ProtocolBridge::startSasVerification(const QString &transactionId) {
 
 void ProtocolBridge::startUserVerification(const QString &userId) {
     if (!_handle) {
-        emit sasVerificationStarted(false, QStringList(), QStringList());
+        emit sasVerificationStarted(false, QString());
         return;
     }
     const QByteArray uid = userId.toUtf8();
@@ -4915,7 +4897,7 @@ void ProtocolBridge::skipVerification() {
 
 void ProtocolBridge::startQrVerification(const QString &transactionId) {
     if (!_handle) {
-        emit qrCodeReady(false, QByteArray(), 0);
+        emit qrCodeReady(false, QString());
         return;
     }
     if (transactionId.isEmpty()) {

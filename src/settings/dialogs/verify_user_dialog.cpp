@@ -288,30 +288,6 @@ VerifyUserDialog::VerifyUserDialog(
     _stack = new QStackedWidget(_panel);
     panelLayout->addWidget(_stack);
 
-    // Latch our flow id from the first state that carries a trustworthy one.
-    // The outgoing path has no flow id up front — startUserVerification returns
-    // only emojis — so without this the page guard below (which ignores
-    // Cancelled from a *different* flow) stays disabled and any unrelated flow's
-    // Cancelled would fail this dialog. Connected before the page builders so it
-    // runs first for each state.
-    if (_bridge) {
-        connect(_bridge, &ProtocolBridge::verificationStateChanged, this,
-                [this](int state, const QString &flowId) {
-            // NOT RequestingVerification: Rust emits it before tagging the new
-            // flow's id, so from the second flow in a session onward it still
-            // carries the previous (already-ended) flow's id. Latching that
-            // strands the dialog for good — every later guard, including the one
-            // gating the emojis, then rejects its own flow.
-            constexpr int kRequestingVerification = 0;
-            if (state == kRequestingVerification) {
-                return;
-            }
-            if (_transactionId.isEmpty() && !flowId.isEmpty()) {
-                _transactionId = flowId;
-            }
-        });
-    }
-
     buildEmojiPage();
     buildSuccessPage();
 
@@ -320,6 +296,9 @@ VerifyUserDialog::VerifyUserDialog(
         if (!_bridge) {
             return;
         }
+        // The reply to this call is what latches _transactionId on the
+        // outgoing path — see buildEmojiPage's sasVerificationStarted handler.
+        _startPending = true;
         if (!_targetUserId.isEmpty()) {
             _bridge->startUserVerification(_targetUserId);
         } else {
@@ -529,9 +508,19 @@ void VerifyUserDialog::buildEmojiPage() {
 
     // Connect bridge signals.
     connect(_bridge, &ProtocolBridge::sasVerificationStarted,
-            this, [showEmojiFailure](bool success, const QStringList &, const QStringList &) {
+            this, [this, showEmojiFailure](bool success, const QString &flowId) {
+        if (!_startPending) {
+            return; // another surface's start; not this dialog's reply
+        }
+        _startPending = false;
         if (success) {
-            return; // emojis arrive via sasEmojisAvailable; only failures matter
+            // Early latch: our own flow, from our own call's acknowledgement.
+            // The outgoing path has no flow id up front, and this is what
+            // scopes every later event to the flow this dialog actually runs.
+            if (_transactionId.isEmpty()) {
+                _transactionId = flowId;
+            }
+            return;
         }
         showEmojiFailure();
     });

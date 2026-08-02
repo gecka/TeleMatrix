@@ -65,28 +65,22 @@ bool VerificationPageRules::emojisReviveIgnoredFlow(
 
 bool VerificationPageRules::adoptCancelCodeStrict(
         const QString &eventFlow, const QString &pageFlow) {
-    // intro_verify_emoji.cpp: require a real match on both sides so a foreign
-    // flow's code can't mislabel this page's own later Cancelled.
+    // intro_verify_emoji.cpp / intro_verify_qr.cpp: require a real match on
+    // both sides so a foreign flow's code can't mislabel this page's own
+    // later Cancelled.
     return !eventFlow.isEmpty() && !pageFlow.isEmpty() && eventFlow == pageFlow;
 }
 
-bool VerificationPageRules::adoptCancelCodeLoose(
-        const QString &eventFlow, const QString &pageFlow) {
-    // intro_verify_qr.cpp: pre-existing loose variant, shielded by the
-    // display guard above.
-    return eventFlow.isEmpty() || pageFlow.isEmpty() || eventFlow == pageFlow;
-}
-
 bool VerificationPageRules::qrLatchesFromState(
-        int state, const QString &eventFlow) {
-    // intro_verify_qr.cpp: never kRequesting — Rust emits it before tagging
-    // the new flow's id, so from the 2nd+ flow of a session it carries the
-    // previous flow's id.
-    if (eventFlow.isEmpty()) {
+        int state, const QString &eventFlow, const QString &pageFlow) {
+    // intro_verify_qr.cpp: fallback only. Never overwrites the latch the
+    // start-call reply set, and excludes the two foreign-taggable states —
+    // kWaitingForReady (any incoming request's id) and kRequesting (the
+    // previous flow's id, since Rust emits it before tagging the new one).
+    if (!pageFlow.isEmpty() || eventFlow.isEmpty()) {
         return false;
     }
-    return state == kWaitingForReady || state == kReady
-        || state == kQrCodeReady || state == kQrCodeScanned;
+    return state == kReady || state == kQrCodeReady || state == kQrCodeScanned;
 }
 
 bool VerificationPageRules::dialogAcceptsDone(

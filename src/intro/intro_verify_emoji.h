@@ -90,7 +90,12 @@ private:
     bool _waiting = false;
     QString _ignoredFlowId;
     QString _requestFlowId;
-    // The flow this page currently renders, latched from the emojis it received.
+    // A start call of ours is awaiting its reply — the reply that clears this
+    // is the one that belongs to this page (another surface's start reply
+    // arrives with this false and is ignored).
+    bool _startPending = false;
+    // The flow this page currently renders, latched from our own start call's
+    // reply and re-confirmed by the emojis that follow.
     QString _flowId;
     // SDK cancel code for the current attempt's flow, latched from
     // verificationCancelInfo just before the Cancelled it explains arrives.
