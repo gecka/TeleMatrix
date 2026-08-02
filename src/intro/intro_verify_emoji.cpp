@@ -212,7 +212,11 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        if (flowId.isEmpty() || _flowId.isEmpty() || flowId == _flowId) {
+        // Require a real match on both sides: while this page hasn't latched a
+        // flow yet (still "Waiting for the other device…"), a foreign flow's
+        // code must not be adopted — it would otherwise mislabel this page's
+        // own later Cancelled with the wrong severity.
+        if (!flowId.isEmpty() && !_flowId.isEmpty() && flowId == _flowId) {
             _lastCancelCode = code;
         }
     });
