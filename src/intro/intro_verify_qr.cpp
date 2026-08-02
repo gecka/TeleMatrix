@@ -8,6 +8,7 @@
 #include "intro_widget.h"
 
 #include "../protocol/protocol_bridge.h"
+#include "../protocol/verification_page_rules.h"
 #include "../styles/style_constants.h"
 #include "intro_colors.h"
 #include "intro_widgets.h"
@@ -91,7 +92,7 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        if (flowId.isEmpty() || _flowId.isEmpty() || flowId == _flowId) {
+        if (VerificationPageRules::adoptCancelCodeLoose(flowId, _flowId)) {
             _lastCancelCode = code;
         }
     });
@@ -100,47 +101,36 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        constexpr int kWaitingForReady = 1;
-        constexpr int kReady = 2;
-        constexpr int kQrCodeReady = 6;
-        constexpr int kQrCodeScanned = 7;
-        constexpr int kDone = 8;
-        constexpr int kCancelled = 9;
         // Latch from every state this flow emits, so an early Cancelled (e.g.
         // the peer declining before the code renders) is attributable. NOT
         // RequestingVerification=0: Rust emits it before tagging the new
         // flow's id, so on a second-or-later flow in the session it still
         // carries the previous (already-ended) flow's id.
-        if (!flowId.isEmpty()
-            && (state == kWaitingForReady || state == kReady
-                || state == kQrCodeReady || state == kQrCodeScanned)) {
+        if (VerificationPageRules::qrLatchesFromState(state, flowId)) {
             _flowId = flowId;
         }
-        if (state == kDone) {
+        if (state == VerificationPageRules::kDone) {
             // Mirror the Cancelled guard below: don't fire verified() before
             // this page has latched a flow, or for a different flow's Done.
-            if (_flowId.isEmpty()
-                || (!flowId.isEmpty() && flowId != _flowId)) {
+            if (!VerificationPageRules::acceptDone(flowId, _flowId)) {
                 return;
             }
             Q_EMIT verified();
             return;
         }
-        if (state == kQrCodeScanned) {
+        if (state == VerificationPageRules::kQrCodeScanned) {
             setScannedState();
-        } else if (state == kCancelled) {
+        } else if (state == VerificationPageRules::kCancelled) {
             // Ignore a Cancelled when this page does not yet own a flow (the QR
             // code isn't shown / latched): it belongs to a previously-cancelled
             // flow, e.g. when arriving here from the emoji page which tore its SAS
             // down. Also ignore one that belongs to a different flow.
-            if (_flowId.isEmpty()
-                || (!flowId.isEmpty() && flowId != _flowId)) {
+            if (!VerificationPageRules::showCancelledOnQrPage(flowId, _flowId)) {
                 return;
             }
             setWaitingState(false);
-            const bool securityFailure = (_lastCancelCode == QLatin1String("m.key_mismatch"))
-                || (_lastCancelCode == QLatin1String("m.user_error"))
-                || (_lastCancelCode == QLatin1String("m.mismatched_sas"));
+            const bool securityFailure =
+                VerificationPageRules::isSecurityCancelCode(_lastCancelCode);
             showFailure(securityFailure
                 ? tr("Verification failed: the keys did not match. "
                      "Your messages may not be secure.")

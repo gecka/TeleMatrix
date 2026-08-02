@@ -23,6 +23,7 @@
 #include <QVBoxLayout>
 
 #include "protocol/protocol_bridge.h"
+#include "protocol/verification_page_rules.h"
 #include "settings/settings_common_widgets.h"
 #include "styles/style_constants.h"
 #include "ui/focus_restore.h"
@@ -564,25 +565,24 @@ void VerifyUserDialog::buildEmojiPage() {
     // Terminal states come from the Rust verification state machine.
     connect(_bridge, &ProtocolBridge::verificationStateChanged,
             this, [this, showEmojiFailure](int state, const QString &flowId) {
-        constexpr int kDone = 8;
-        constexpr int kCancelled = 9;
         if (_stack->currentIndex() != kPageEmoji) {
             return;
         }
         // Ignore a terminal state belonging to a different flow.
-        if (!flowId.isEmpty() && !_transactionId.isEmpty() && flowId != _transactionId) {
+        if (!VerificationPageRules::flowMatches(flowId, _transactionId)) {
             return;
         }
-        if (state == kDone) {
+        if (state == VerificationPageRules::kDone) {
             // Only a flow whose emojis we actually showed can have been
             // confirmed here; a Done for anything else (a foreign id latched
             // above) must not claim this user is verified. A cross-user SAS
             // cannot complete without its emojis, so this cannot strand us.
-            if (!_emojisShown) {
+            if (!VerificationPageRules::dialogAcceptsDone(
+                    flowId, _transactionId, _emojisShown)) {
                 return;
             }
             showPage(kPageSuccess);
-        } else if (state == kCancelled) {
+        } else if (state == VerificationPageRules::kCancelled) {
             showEmojiFailure();
         }
     });

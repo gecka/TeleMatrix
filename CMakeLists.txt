@@ -292,6 +292,8 @@ add_library(telematrix_core OBJECT
     src/dialogs/saved_messages.cpp
     src/protocol/media_retry_policy.h
     src/protocol/media_retry_policy.cpp
+    src/protocol/verification_page_rules.h
+    src/protocol/verification_page_rules.cpp
     src/core/core_settings.h
     src/core/core_settings.cpp
     src/core/localization.h

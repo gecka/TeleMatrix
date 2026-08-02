@@ -8,6 +8,7 @@
 #include "intro_widget.h"
 
 #include "../protocol/protocol_bridge.h"
+#include "../protocol/verification_page_rules.h"
 #include "../styles/style_constants.h"
 #include "intro_colors.h"
 #include "intro_widgets.h"
@@ -199,7 +200,7 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
         // Accept it and stop ignoring it, so its own Cancelled later is
         // reported instead of silently swallowed; ignoreFlow() only ever
         // means "swallow a Cancelled for this id", not "reject its emojis".
-        if (!flowId.isEmpty() && flowId == _ignoredFlowId) {
+        if (VerificationPageRules::emojisReviveIgnoredFlow(flowId, _ignoredFlowId)) {
             _ignoredFlowId.clear();
         }
         _flowId = flowId;
@@ -216,43 +217,39 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
         // flow yet (still "Waiting for the other device…"), a foreign flow's
         // code must not be adopted — it would otherwise mislabel this page's
         // own later Cancelled with the wrong severity.
-        if (!flowId.isEmpty() && !_flowId.isEmpty() && flowId == _flowId) {
+        if (VerificationPageRules::adoptCancelCodeStrict(flowId, _flowId)) {
             _lastCancelCode = code;
         }
     });
     connect(_bridge, &ProtocolBridge::verificationStateChanged,
             this, [this](int state, const QString &flowId) {
-        constexpr int kDone = 8;
-        constexpr int kCancelled = 9;
         if (!isVisible()) {
             return;
         }
-        if (state == kDone) {
+        if (state == VerificationPageRules::kDone) {
             // Mirror the Cancelled guard below: a page that has not yet
             // latched a flow (no emojis shown) does not own this completion.
-            if (_flowId.isEmpty()
-                || (!flowId.isEmpty() && flowId != _flowId)) {
+            if (!VerificationPageRules::acceptDone(flowId, _flowId)) {
                 return;
             }
             Q_EMIT verified();
             return;
         }
-        if (state != kCancelled) {
+        if (state != VerificationPageRules::kCancelled) {
             return;
         }
         // Ignore a Cancelled emitted while tearing down a flow we deliberately
         // left (e.g. the QR flow when the user chose "compare emoji instead").
-        if (!flowId.isEmpty() && flowId == _ignoredFlowId) {
-            return;
-        }
-        // A different flow's cancellation is not ours to display.
-        if (!flowId.isEmpty() && !_flowId.isEmpty() && flowId != _flowId) {
+        // An UNLATCHED page must still show a foreign Cancelled though: with
+        // no app-level timeouts anywhere, a peer declining before emojis
+        // arrive is the only terminal state this page will ever get.
+        if (!VerificationPageRules::showCancelledOnEmojiPage(
+                flowId, _flowId, _ignoredFlowId)) {
             return;
         }
         setWaitingState(false);
-        const bool securityFailure = (_lastCancelCode == QLatin1String("m.key_mismatch"))
-            || (_lastCancelCode == QLatin1String("m.user_error"))
-            || (_lastCancelCode == QLatin1String("m.mismatched_sas"));
+        const bool securityFailure =
+            VerificationPageRules::isSecurityCancelCode(_lastCancelCode);
         showFailure(securityFailure
             ? tr("Verification failed: the keys did not match. "
                  "Your messages may not be secure.")
