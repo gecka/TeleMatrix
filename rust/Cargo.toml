@@ -62,7 +62,7 @@ argon2 = "0.5"
 # links the universal FFmpeg 7.1 that Qt ships rather than a system one — see
 # third_party/ffmpeg-7.1/README.md. Bumping this without re-vendoring those
 # headers (and vice versa) is an ABI mismatch, which CMake asserts against.
-ffmpeg-next = { version = "7.1.0", default-features = false, features = ["codec", "format", "software-scaling"] }
+ffmpeg-next = { version = "8.1.0", default-features = false, features = ["codec", "format", "software-scaling"] }
 # AES-256-CTR seekable range decryption for encrypted media streaming (Task 1).
 # All three crates are already transitive via matrix-sdk-crypto; pinning to the
 # same versions avoids a second copy in the artifact.
