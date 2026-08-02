@@ -307,6 +307,12 @@ void IntroVerifyEmoji::resetForAttempt() {
     _emojis.clear();
     _labels.clear();
     _flowId.clear();
+    // Abandon any in-flight start's reply. activate()'s adopted-SAS branch
+    // resets and then restores the adopted flow id without starting anything,
+    // so a stale reply landing afterwards would overwrite it with the old
+    // flow's id and get the adopted flow's own Cancelled swallowed.
+    // startVerification() sets this true again immediately after resetting.
+    _startPending = false;
     _lastCancelCode.clear();
     _waiting = false;
     hideError();

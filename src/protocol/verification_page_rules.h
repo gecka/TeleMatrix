@@ -69,8 +69,9 @@ struct VerificationPageRules {
 
     // Cancel-code adoption for later severity classification: requires a real
     // match on both sides, so a foreign flow's code can never mislabel this
-    // page's own later Cancelled. Every page latches early enough (from its
-    // own start call's reply) for this to be the only variant needed.
+    // page's own later Cancelled. Safe as the only variant because adoption
+    // picks the wording of a failure the page shows regardless — declining to
+    // adopt costs the routine wording, never the failure itself.
     [[nodiscard]] static bool adoptCancelCodeStrict(
         const QString &eventFlow, const QString &pageFlow);
 

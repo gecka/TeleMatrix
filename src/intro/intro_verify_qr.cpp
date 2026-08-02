@@ -92,9 +92,10 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        // Require a real match on both sides: the start reply latches this
-        // page's flow before any cancel info can plausibly arrive, so there is
-        // no window a looser rule would buy anything in.
+        // Require a real match on both sides. Adoption only selects the
+        // wording of a failure this page shows anyway, so a code we decline to
+        // adopt costs at most the routine wording — while a foreign flow's
+        // code adopted here would mislabel this page's own later Cancelled.
         if (VerificationPageRules::adoptCancelCodeStrict(flowId, _flowId)) {
             _lastCancelCode = code;
         }
