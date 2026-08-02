@@ -81,7 +81,12 @@ private:
     /// after it.
     void showAccountStep(int index);
     /// Show the emoji-compare step — the same index onEmojiChosen uses.
-    void showVerifyEmojiStep();
+    /// Centralizes what every entry into the step must do: deactivate the
+    /// recovery-key step (harmless no-op unless it's the one being left; see
+    /// Fix #15) so a late result there cannot force navigation back out, and
+    /// set whether the alternative-method links show, since that flag sticks
+    /// for the step's whole life and must not leak between entries.
+    void showVerifyEmojiStep(bool showsAlternatives);
     /// Whether a verification step (choice, emoji, QR, recovery key) is the
     /// one currently showing. Used to decide whether an incoming request
     /// arriving mid-intro should be auto-routed here; sign-in steps

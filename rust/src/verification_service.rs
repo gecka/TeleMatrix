@@ -701,6 +701,12 @@ impl VerificationService {
     /// Re-fire the pending incoming request to a freshly-attached consumer.
     /// Consumers attach at different lifetimes (main window, intro); a request
     /// that arrived before any consumer existed would otherwise vanish.
+    ///
+    /// Deliberately does not also re-emit `WaitingForReady` the way the
+    /// incoming handlers do: the request was already answerable when it was
+    /// first stored, so nothing about its readiness state has changed here —
+    /// only that a new consumer is now listening. A future consumer that
+    /// gates on that state would otherwise be silently skipped on replay.
     pub(crate) async fn replay_pending_incoming_request(&self) {
         let pending = lock_verification_mutex(&self.pending_incoming, "pending_incoming").clone();
         let Some(pending) = pending else {
@@ -2255,6 +2261,23 @@ mod tests {
             });
         service.replay_pending_incoming_request().await;
         assert_eq!(*fired.lock().expect("fired not poisoned"), 0);
+        assert!(lock_verification_mutex(&service.pending_incoming, "pending_incoming").is_none());
+    }
+
+    // `clear_callbacks()` (called on logout) must drop `pending_incoming` too:
+    // this service outlives one login, so a request remembered under the
+    // departing session must not replay into the next one it gets reused for.
+    #[test]
+    fn clear_callbacks_drops_pending_incoming() {
+        let service = VerificationService::new();
+        *lock_verification_mutex(&service.pending_incoming, "pending_incoming") =
+            Some(PendingIncomingRequest {
+                flow_id: "$flow:example.org".into(),
+                is_user: false,
+                counterpart_id: "DEVICEID".into(),
+                display_label: "Laptop".into(),
+            });
+        service.clear_callbacks();
         assert!(lock_verification_mutex(&service.pending_incoming, "pending_incoming").is_none());
     }
 }

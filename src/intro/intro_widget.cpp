@@ -191,7 +191,7 @@ IntroWidget::IntroWidget(
         // Peer picked emoji while our QR was up — follow them rather than
         // leaving a QR code nobody will scan.
         _verifyEmojiStep->presentAdoptedSas(flowId, emojis, labels);
-        showStep(4); // QR -> Emoji.
+        showVerifyEmojiStep(true); // QR -> Emoji.
     });
 
     // Wire recovery key verification.
@@ -230,8 +230,7 @@ IntroWidget::IntroWidget(
             return;
         }
         _verifyEmojiStep->setRequestFlowId(transactionId);
-        _verifyEmojiStep->setShowsAlternativeMethods(false);
-        showVerifyEmojiStep();
+        showVerifyEmojiStep(false);
     });
 
     if (initialStep == InitialStep::Login) {
@@ -274,7 +273,16 @@ void IntroWidget::showAccountStep(int index) {
     showStep(10);
 }
 
-void IntroWidget::showVerifyEmojiStep() {
+void IntroWidget::showVerifyEmojiStep(bool showsAlternatives) {
+    // Fix #15: a recovery-key submit in flight when we navigate away must not
+    // land later and force navigation out of the emoji step. Unconditional and
+    // harmless when recovery-key isn't the step being left — deactivate() is
+    // just an idempotent flag clear.
+    _verifyRecoveryKeyStep->deactivate();
+    // Explicit on every entry, not only the one that hides them: the flag is
+    // sticky for the emoji step's whole life, so a routed request must not
+    // leave the links permanently hidden for a later, manually-chosen entry.
+    _verifyEmojiStep->setShowsAlternativeMethods(showsAlternatives);
     showStep(4); // -> Emoji (same index as onEmojiChosen).
 }
 
@@ -392,7 +400,7 @@ void IntroWidget::onEmojiChosen() {
     // A stale incoming request from an earlier entry must not be re-answered
     // when the user explicitly picked emoji from the choice screen.
     _verifyEmojiStep->setRequestFlowId(QString());
-    showStep(4); // Verify choice -> Emoji.
+    showVerifyEmojiStep(true); // Verify choice -> Emoji.
 }
 
 void IntroWidget::onRecoveryKeyChosen() {
@@ -400,8 +408,7 @@ void IntroWidget::onRecoveryKeyChosen() {
 }
 
 void IntroWidget::onRecoveryKeyUseEmoji() {
-    _verifyRecoveryKeyStep->deactivate();
-    showStep(4); // Recovery key -> Emoji.
+    showVerifyEmojiStep(true); // Recovery key -> Emoji.
 }
 
 void IntroWidget::onRecoveryKeyUseQr() {
@@ -468,7 +475,7 @@ void IntroWidget::onQrUseEmoji() {
     // emoji page.
     _verifyEmojiStep->ignoreFlow(_verifyQrStep->currentFlowId());
     _bridge->cancelVerification();
-    showStep(4); // QR -> Emoji.
+    showVerifyEmojiStep(true); // QR -> Emoji.
 }
 
 void IntroWidget::onQrUseRecoveryKey() {
