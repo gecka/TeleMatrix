@@ -91,7 +91,6 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        constexpr int kRequesting = 0;
         constexpr int kWaitingForReady = 1;
         constexpr int kReady = 2;
         constexpr int kQrCodeReady = 6;
@@ -99,9 +98,12 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         constexpr int kDone = 8;
         constexpr int kCancelled = 9;
         // Latch from every state this flow emits, so an early Cancelled (e.g.
-        // the peer declining before the code renders) is attributable.
+        // the peer declining before the code renders) is attributable. NOT
+        // RequestingVerification=0: Rust emits it before tagging the new
+        // flow's id, so on a second-or-later flow in the session it still
+        // carries the previous (already-ended) flow's id.
         if (!flowId.isEmpty()
-            && (state == kRequesting || state == kWaitingForReady || state == kReady
+            && (state == kWaitingForReady || state == kReady
                 || state == kQrCodeReady || state == kQrCodeScanned)) {
             _flowId = flowId;
         }

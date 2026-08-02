@@ -177,9 +177,10 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
             return; // emojis arrive via sasEmojisAvailable; only failures matter
         }
         if (!_requestFlowId.isEmpty()) {
-            // The incoming request we tried to answer is gone (expired,
-            // cancelled, or superseded) — a further Retry should start a fresh
-            // outgoing flow instead of re-attaching to a dead one.
+            // The start against this incoming request failed — the signal is
+            // only a bool, so this covers a dead request as much as a
+            // transient send error. Either way, don't retry it blindly: clear
+            // it so the next attempt falls back to a fresh outgoing flow.
             _requestFlowId.clear();
         }
         showFailure(tr("Failed to start emoji verification"));
@@ -192,11 +193,14 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        // A flow we deliberately abandoned (e.g. the QR flow torn down for
-        // "compare emoji instead") may still deliver emojis in flight; don't
-        // latch onto it.
+        // Emojis for a flow we marked ignored (e.g. the QR flow left behind
+        // for "compare emoji instead") prove the cancel raced the peer's SAS
+        // start and lost — that flow is alive and now serving this page.
+        // Accept it and stop ignoring it, so its own Cancelled later is
+        // reported instead of silently swallowed; ignoreFlow() only ever
+        // means "swallow a Cancelled for this id", not "reject its emojis".
         if (!flowId.isEmpty() && flowId == _ignoredFlowId) {
-            return;
+            _ignoredFlowId.clear();
         }
         _flowId = flowId;
         presentEmojis(emojis, labels);
@@ -295,8 +299,10 @@ void IntroVerifyEmoji::startVerification() {
     // Show waiting state until emojis arrive.
     setDescriptionText(tr("Waiting for the other device\xE2\x80\xA6"));
 
-    // Keep _requestFlowId: Retry must re-answer the same incoming request. The
-    // flow controller owns setting and clearing it.
+    // _requestFlowId: set by the flow controller for an incoming request. Kept
+    // across Retry so the same request keeps being re-answered — until a start
+    // against it fails (see the sasVerificationStarted handler above), which
+    // clears it so the next attempt falls back to a fresh outgoing flow.
     _bridge->startSasVerification(_requestFlowId);
     updateEmojiLayout();
     update();
