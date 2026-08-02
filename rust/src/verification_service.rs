@@ -1015,7 +1015,10 @@ impl VerificationService {
         ctx.reset();
     }
 
-    async fn reset_context_if_current(&self, expected_flow_id: Option<&str>) {
+    /// Returns whether this call performed the reset, so a caller that owes the
+    /// UI exactly one terminal state can tell whether it was the one to tear the
+    /// flow down.
+    async fn reset_context_if_current(&self, expected_flow_id: Option<&str>) -> bool {
         let mut ctx = self.ctx.lock().await;
         if let Some(expected) = expected_flow_id {
             let still_current = ctx
@@ -1024,10 +1027,11 @@ impl VerificationService {
                 .map(|request| request.flow_id() == expected)
                 .unwrap_or(false);
             if !still_current {
-                return;
+                return false;
             }
         }
         ctx.reset();
+        true
     }
 
     /// Store the request and attach its watcher. The watcher is the single
@@ -1420,10 +1424,19 @@ impl VerificationService {
         ctx.generation == generation && ctx.qr_token == token
     }
 
+    /// Tear a failed flow down and report it — but only if this call is the one
+    /// that tore it down. Two tasks can decide to fail the same flow at once (the
+    /// accept send and the watcher's own start failing together), and
+    /// `emit_state_for` shares no lock with ctx, so emitting first would let both
+    /// through and send the UI two `Cancelled` for one flow.
     async fn fail_flow(&self, flow_id: &str, reason: &str) {
         verification_debug!("verification flow failed flow_id={flow_id} reason={reason}");
-        self.emit_state_for(VerificationState::Cancelled, flow_id);
-        self.reset_context_if_current(Some(flow_id)).await;
+        if self.reset_context_if_current(Some(flow_id)).await {
+            self.emit_state_for(VerificationState::Cancelled, flow_id);
+        } else {
+            // Someone else ended this flow and owes the terminal state.
+            verification_debug!("flow failure not emitted, flow already ended flow_id={flow_id}");
+        }
     }
 
     /// Fail a flow only while nothing else owns it: same generation, same
@@ -1884,20 +1897,24 @@ mod tests {
     // `reset_context_if_current` must only wipe the context when it still owns
     // the active flow. The outgoing user-verification error path relies on this:
     // an incoming request may have replaced `ctx` while we waited for readiness,
-    // and a blanket reset there would strand that other flow.
+    // and a blanket reset there would strand that other flow. Its return value is
+    // load-bearing too: `fail_flow` emits `Cancelled` only when it is true, which
+    // is what keeps two concurrent failers from both reporting one flow.
     #[tokio::test]
     async fn reset_context_if_current_is_flow_scoped() {
         let service = VerificationService::new();
         let gen_before = service.ctx.lock().await.generation;
 
         // No request stored: a flow-scoped reset for some other flow is a no-op.
-        service
-            .reset_context_if_current(Some("$other:example.org"))
-            .await;
+        assert!(
+            !service
+                .reset_context_if_current(Some("$other:example.org"))
+                .await
+        );
         assert_eq!(service.ctx.lock().await.generation, gen_before);
 
         // An unconditional reset always advances the generation.
-        service.reset_context_if_current(None).await;
+        assert!(service.reset_context_if_current(None).await);
         assert_eq!(service.ctx.lock().await.generation, gen_before + 1);
     }
 
@@ -1933,11 +1950,13 @@ mod tests {
         assert!(service.ctx.lock().await.qr_token > before);
     }
 
-    // Every failure path that has already installed a flow routes through
-    // `fail_flow` (notably a failed `accept_with_methods`, whose flow would
-    // otherwise sit in ctx with no terminal state and no watcher emission).
+    // `fail_flow` reports a failure only when it is the call that ended the flow.
+    // Both directions matter: two tasks failing one flow at once must produce one
+    // `Cancelled` (the emission shares no lock with ctx, so emitting first let
+    // both through), and a watcher must not announce a terminal state for a flow
+    // someone else already tore down.
     #[tokio::test]
-    async fn fail_flow_emits_flow_tagged_cancelled_and_resets() {
+    async fn fail_flow_is_silent_when_it_did_not_end_the_flow() {
         let service = VerificationService::new();
         let captured = Arc::new(StdMutex::new(Vec::<(u32, String)>::new()));
         let sink = captured.clone();
@@ -1947,28 +1966,26 @@ mod tests {
                 .push((state, flow_id.to_string()));
         }));
 
+        // ctx does not hold this flow, so this call did not end it.
         let gen_before = service.ctx.lock().await.generation;
         service
             .fail_flow("$flow:example.org", "accept failed")
             .await;
 
-        assert_eq!(
-            captured.lock().expect("captured not poisoned").clone(),
-            vec![(
-                VerificationState::Cancelled as u32,
-                "$flow:example.org".to_string()
-            )]
+        assert!(
+            captured.lock().expect("captured not poisoned").is_empty(),
+            "a flow this call did not end must not be reported cancelled"
         );
-        // No request stored, so the flow-scoped reset is a no-op — the emission
-        // is the part the UI depends on.
         assert_eq!(service.ctx.lock().await.generation, gen_before);
     }
 
     // `accept_with_methods` commits local state to Ready *before* the send that
     // can fail, so by the time an accept failure surfaces the watcher may already
-    // own the flow. The gated variant must then stay silent — unlike `fail_flow`
-    // above, which emits unconditionally. Both cases below are the shapes ctx is
-    // left in once someone else owns or has already ended the flow.
+    // own the flow, and this call must not tear it down. What the two cases below
+    // pin is the after-the-fact half: once ctx no longer holds the flow under the
+    // generation the caller began it with, nothing is emitted or reset. The
+    // genuinely concurrent interleaving needs an SDK-backed request and cannot be
+    // modelled here.
     #[tokio::test]
     async fn fail_flow_if_unstarted_leaves_a_flow_it_no_longer_owns_alone() {
         let service = VerificationService::new();
@@ -1978,8 +1995,8 @@ mod tests {
             sink.lock().expect("sink not poisoned").push(state);
         }));
 
-        // The watcher already failed the flow and reset ctx: no request, and the
-        // generation has moved on. An ungated fail here is the double-Cancelled.
+        // The state a watcher's own failure leaves behind once its reset has
+        // landed: no request, and the generation moved on.
         let generation = service.ctx.lock().await.generation;
         service.reset_context().await;
         service
