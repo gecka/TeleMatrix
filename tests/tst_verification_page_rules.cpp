@@ -111,6 +111,10 @@ private slots:
         QVERIFY(R::adoptCancelCodeLoose(QString(), QStringLiteral("$a")));
         QVERIFY(!R::adoptCancelCodeLoose(
             QStringLiteral("$b"), QStringLiteral("$a")));
+        // The QR page's normal path: a flow adopting its own code, which
+        // drives the security-vs-routine split on its own later Cancelled.
+        QVERIFY(R::adoptCancelCodeLoose(
+            QStringLiteral("$a"), QStringLiteral("$a")));
     }
 
     // Only a flow whose emojis this dialog actually showed may claim the user
@@ -124,6 +128,10 @@ private slots:
         QVERIFY(!R::dialogAcceptsDone(
             QStringLiteral("$b"), QStringLiteral("$a"), true));
         QVERIFY(R::dialogAcceptsDone(QString(), QStringLiteral("$a"), true));
+        // An unlatched dialog (no flow id yet — the outgoing path has none up
+        // front) still accepts Done once its emojis were shown: this is the
+        // dialog's own anti-strand path through the terminal-state guard.
+        QVERIFY(R::dialogAcceptsDone(QStringLiteral("$a"), QString(), true));
     }
 };
 

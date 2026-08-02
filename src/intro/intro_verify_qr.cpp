@@ -92,6 +92,9 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
+        // Loose (vs. the emoji page's strict variant): safe here because the
+        // display guard on the Cancelled path below is what keeps an
+        // unlatched adoption from ever being read.
         if (VerificationPageRules::adoptCancelCodeLoose(flowId, _flowId)) {
             _lastCancelCode = code;
         }

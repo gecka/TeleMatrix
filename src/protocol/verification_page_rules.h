@@ -40,6 +40,9 @@ struct VerificationPageRules {
 
     // Terminal Done on the intro pages: fires verified() only for a latched,
     // matching (or untagged) flow. An unlatched page never owns a completion.
+    // Byte-identical to showCancelledOnQrPage below on purpose, not a dedupe
+    // target: FU-2/FU-3 change the two pages' latch/severity rules on
+    // different schedules, and this pair is expected to diverge then.
     [[nodiscard]] static bool acceptDone(
         const QString &eventFlow, const QString &pageFlow);
 
