@@ -407,7 +407,7 @@ void VerifyUserDialog::buildEmojiPage() {
 
     layout->addWidget(buttonsContainer);
 
-    const auto showEmojiFailure = [this] {
+    const auto showEmojiFailure = [this](const QString &message) {
         // Replace emoji grid content with failure message inside
         // the highlighted container area.
         _emojiWaitLabel->hide();
@@ -420,13 +420,7 @@ void VerifyUserDialog::buildEmojiPage() {
         }
         auto *errorLayout = new QVBoxLayout(_emojiContainer);
         errorLayout->setContentsMargins(16, 16, 16, 16);
-        const bool security =
-            VerificationPageRules::isSecurityCancelCode(_lastCancelCode);
-        auto *errorText = new QLabel(security
-            ? tr("Verification failed: the keys did not match. "
-                 "Your messages may not be secure.")
-            : tr("The request was denied or timed out, "
-                 "or there was a verification mismatch"), _emojiContainer);
+        auto *errorText = new QLabel(message, _emojiContainer);
         errorText->setFont(st::baseFont(15));
         errorText->setWordWrap(true);
         errorText->setAlignment(Qt::AlignCenter);
@@ -539,7 +533,11 @@ void VerifyUserDialog::buildEmojiPage() {
             }
             return;
         }
-        showEmojiFailure();
+        // Never security wording here: a cancel code may already be latched
+        // for this flow (incoming path: _transactionId is set from the ctor,
+        // before this handler can even run) but it describes a mismatch, not
+        // a failure to start.
+        showEmojiFailure(tr("Failed to start emoji verification"));
     });
 
     connect(_bridge, &ProtocolBridge::sasEmojisAvailable,
@@ -571,7 +569,12 @@ void VerifyUserDialog::buildEmojiPage() {
         if (success) {
             return;
         }
-        showEmojiFailure();
+        // Generic wording unconditionally, matching the intro page's
+        // onSasConfirmed: any cancel code latched by now describes a
+        // different failure than "our own confirm didn't go through".
+        showEmojiFailure(tr(
+            "The request was denied or timed out, "
+            "or there was a verification mismatch"));
     });
 
     // Terminal states come from the Rust verification state machine.
@@ -595,7 +598,15 @@ void VerifyUserDialog::buildEmojiPage() {
             }
             showPage(kPageSuccess);
         } else if (state == VerificationPageRules::kCancelled) {
-            showEmojiFailure();
+            // Only the terminal Cancelled gets the security split — it is the
+            // one call site a cancel code actually explains.
+            const bool security =
+                VerificationPageRules::isSecurityCancelCode(_lastCancelCode);
+            showEmojiFailure(security
+                ? tr("Verification failed: the keys did not match. "
+                     "Your messages may not be secure.")
+                : tr("The request was denied or timed out, "
+                     "or there was a verification mismatch"));
         }
     });
 
