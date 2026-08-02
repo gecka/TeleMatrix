@@ -535,6 +535,9 @@ public:
     /// results arrive through the normal incoming-request signals. Call after
     /// attaching a consumer that may have missed the original signal.
     void replayPendingVerificationRequest();
+    /// Poll for key backup becoming enabled (post-verification secret gossip
+    /// landing) for up to timeoutSecs. Result arrives via backupKeysReady.
+    void waitBackupKeysReady(int timeoutSecs);
 
     // --- Cross-user verification ---
 
@@ -936,6 +939,9 @@ signals:
         const QString &cancelCode,
         bool cancelledByUs);
     void verificationCapabilitiesReady(bool success, bool canDevice, bool canRecovery, bool sasOk, bool qrSupported);
+    /// Result of waitBackupKeysReady(): whether key backup became enabled
+    /// before the timeout.
+    void backupKeysReady(bool ready);
     /// A QR generation was initiated (or failed to be). `modules` is always
     /// empty — the grid arrives later on qrCodeDataReady.
     void qrCodeReady(bool success, const QByteArray &modules, int size);

@@ -7,6 +7,7 @@
 #include "intro_verify_success.h"
 #include "intro_widget.h"
 
+#include "../protocol/protocol_bridge.h"
 #include "../styles/style_constants.h"
 #include "intro_colors.h"
 
@@ -17,8 +18,9 @@
 
 namespace TeleMatrix {
 
-IntroVerifySuccess::IntroVerifySuccess(QWidget *parent)
+IntroVerifySuccess::IntroVerifySuccess(QWidget *parent, ProtocolBridge *bridge)
     : IntroStep(parent, false /* hasCover */)
+    , _bridge(bridge)
 {
     setTitleText(tr("Session Verified"));
     setDescriptionText(tr("This session is now verified. Your encrypted messages are secure."));
@@ -26,11 +28,31 @@ IntroVerifySuccess::IntroVerifySuccess(QWidget *parent)
     // Center-align title and description (override the default left-align).
     titleLabel()->setAlignment(Qt::AlignHCenter);
     descriptionLabel()->setAlignment(Qt::AlignHCenter);
+
+    connect(_bridge, &ProtocolBridge::backupKeysReady,
+            this, [this](bool ready) {
+        if (!isVisible()) {
+            return;
+        }
+        setDescriptionText(ready
+            ? tr("Message history is being decrypted.")
+            : tr("Verified. Older messages will decrypt when your other "
+                 "device comes online."));
+        // The line length changes with the text; re-run the layout so
+        // nextButton() stays below it instead of where the old text left it.
+        updateSuccessLayout();
+    });
 }
 
 void IntroVerifySuccess::activate() {
     IntroStep::activate();
     nextButton()->setFocus();
+    if (!_bridge) {
+        return;
+    }
+    setDescriptionText(tr("Waiting for encryption keys from your other device\xE2\x80\xA6"));
+    updateSuccessLayout();
+    _bridge->waitBackupKeysReady(120);
 }
 
 void IntroVerifySuccess::submit() {

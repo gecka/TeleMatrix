@@ -4983,6 +4983,27 @@ pub unsafe extern "C" fn tm_withdraw_user_verification(
     });
 }
 
+/// Wait until key backup becomes enabled (post-verification secret gossip
+/// landed) or `timeout_secs` elapses; reports the outcome.
+///
+/// # Safety
+/// `h` must be a valid Handle pointer.
+#[no_mangle]
+pub unsafe extern "C" fn tm_wait_backup_keys_ready(
+    h: *mut Handle,
+    timeout_secs: u32,
+    callback: TmSimpleCallback,
+    userdata: *mut libc::c_void,
+) {
+    let handle = unsafe { &*h };
+    let matrix = handle.matrix.clone();
+    let ud = Userdata::new(userdata);
+    handle.runtime.spawn(async move {
+        let ready = matrix.wait_backup_keys_ready(u64::from(timeout_secs)).await;
+        callback(ready, ud.as_ptr());
+    });
+}
+
 /// Register a callback for incoming in-room verification requests from other users.
 ///
 /// # Safety

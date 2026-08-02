@@ -4956,6 +4956,23 @@ void ProtocolBridge::replayPendingVerificationRequest() {
     tm_replay_pending_verification_request(_handle);
 }
 
+void ProtocolBridge::waitBackupKeysReady(int timeoutSecs) {
+    if (!_handle) {
+        emit backupKeysReady(false);
+        return;
+    }
+    auto *data = new SimpleCallbackData{
+        this,
+        [this](bool ready) { emit backupKeysReady(ready); },
+    };
+    data->guard = _callbackGuard.get();
+    tm_wait_backup_keys_ready(
+        _handle,
+        static_cast<uint32_t>(timeoutSecs),
+        simpleCallbackTrampoline,
+        static_cast<void *>(data));
+}
+
 // --- Account settings ---
 
 void ProtocolBridge::fetchAccountSummary() {

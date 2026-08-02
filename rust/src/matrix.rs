@@ -2322,6 +2322,17 @@ impl MatrixProtocol {
             .await
     }
 
+    /// Wait for key backup to become enabled after verification (post-flow
+    /// secret gossip landing). `false` if not logged in or the timeout lapses.
+    pub async fn wait_backup_keys_ready(&self, timeout_secs: u64) -> bool {
+        let Ok(client) = self.require_client().await else {
+            return false;
+        };
+        self.verification
+            .wait_backup_keys_ready(client, Duration::from_secs(timeout_secs))
+            .await
+    }
+
     pub async fn start_sas_verification_for(&self, expected_flow_id: &str) -> Result<()> {
         self.verification
             .start_sas_verification_for(expected_flow_id)

@@ -10,11 +10,13 @@
 
 namespace TeleMatrix {
 
+class ProtocolBridge;
+
 class IntroVerifySuccess : public IntroStep {
     Q_OBJECT
 
 public:
-    explicit IntroVerifySuccess(QWidget *parent);
+    explicit IntroVerifySuccess(QWidget *parent, ProtocolBridge *bridge);
 
     void activate() override;
     void submit() override;
@@ -26,6 +28,8 @@ protected:
 
 private:
     void updateSuccessLayout();
+
+    ProtocolBridge *_bridge = nullptr;
 };
 
 } // namespace TeleMatrix

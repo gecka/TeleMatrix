@@ -50,7 +50,7 @@ VerificationFlow::VerificationFlow(ProtocolBridge *bridge, QWidget *parent)
     _emojiStep = new IntroVerifyEmoji(this, _bridge);
     _qrStep = new IntroVerifyQr(this, _bridge);
     _recoveryKeyStep = new IntroVerifyRecoveryKey(this, _bridge);
-    _successStep = new IntroVerifySuccess(this);
+    _successStep = new IntroVerifySuccess(this, _bridge);
     _setupEncryptionStep = new IntroSetupEncryption(this, _bridge);
 
     _stack->addWidget(_choiceStep);           // 0

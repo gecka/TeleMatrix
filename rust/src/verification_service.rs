@@ -5,7 +5,7 @@
 // files in the project root for full terms.
 
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use futures_util::StreamExt;
@@ -1020,6 +1020,23 @@ impl VerificationService {
         self.reset_context().await;
 
         Ok(())
+    }
+
+    /// Poll until key backup is enabled (the gossiped backup key arrived and
+    /// the SDK activated it) or the timeout lapses. Recovery-key verification
+    /// enables backups inline, so it returns true immediately there.
+    pub(crate) async fn wait_backup_keys_ready(&self, client: Client, timeout: Duration) -> bool {
+        let backups = client.encryption().backups();
+        let started = Instant::now();
+        loop {
+            if backups.are_enabled().await {
+                return true;
+            }
+            if started.elapsed() >= timeout {
+                return false;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
     }
 
     pub(crate) async fn cancel_verification(&self) -> Result<()> {

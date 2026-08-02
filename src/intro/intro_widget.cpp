@@ -56,7 +56,7 @@ IntroWidget::IntroWidget(
     _verifyChoiceStep = new IntroVerifyChoice(this, _bridge);
     _verifyEmojiStep = new IntroVerifyEmoji(this, _bridge);
     _verifyRecoveryKeyStep = new IntroVerifyRecoveryKey(this, _bridge);
-    _verifySuccessStep = new IntroVerifySuccess(this);
+    _verifySuccessStep = new IntroVerifySuccess(this, _bridge);
     _forgotPasswordStep = new IntroForgotPassword(this, _bridge);
     _verifyQrStep = new IntroVerifyQr(this, _bridge);
     _setupEncryptionStep = new IntroSetupEncryption(this, _bridge);
