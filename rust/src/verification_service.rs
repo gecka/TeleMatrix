@@ -1243,6 +1243,13 @@ impl VerificationService {
         ctx.reset();
     }
 
+    /// Test-only: install a watcher handle in ctx, so a teardown test can prove
+    /// logout aborts — and thereby releases — whatever a live flow pinned.
+    #[cfg(test)]
+    pub(crate) async fn seed_watcher_for_test(&self, handle: tokio::task::JoinHandle<()>) {
+        self.ctx.lock().await.watchers.push(handle);
+    }
+
     /// Returns whether this call performed the reset, so a caller that owes the
     /// UI exactly one terminal state can tell whether it was the one to tear the
     /// flow down.
@@ -2368,6 +2375,31 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
         panic!("banner watcher was not aborted");
+    }
+
+    // Without the sweep in `track_banner_watcher_in` the vec only grows: one dead
+    // handle per incoming request, for the life of the session.
+    #[tokio::test]
+    async fn tracking_a_banner_watcher_sweeps_finished_ones() {
+        let service = VerificationService::new();
+        let done = tokio::spawn(async {});
+        for _ in 0..50 {
+            if done.is_finished() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(done.is_finished(), "the seeded task never ran");
+
+        service.track_banner_watcher(done);
+        service.track_banner_watcher(tokio::spawn(std::future::pending::<()>()));
+
+        let watchers = lock_verification_mutex(&service.banner_watchers, "banner_watchers");
+        assert_eq!(watchers.len(), 1, "finished handles must not accumulate");
+        assert!(
+            !watchers[0].is_finished(),
+            "the live watcher was swept instead"
+        );
     }
 
     // `clear_callbacks()` (called on logout) must drop `pending_incoming` too:

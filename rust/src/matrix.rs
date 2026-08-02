@@ -2120,6 +2120,23 @@ impl MatrixProtocol {
         Ok(())
     }
 
+    /// Test-only seams for `integration_tests::session_teardown`, which drives a
+    /// real `logout()` against a mock homeserver. The fields stay private.
+    #[cfg(test)]
+    pub(crate) async fn set_client_for_test(&self, client: Client) {
+        *self.client.write().await = Some(client);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn verification_for_test(&self) -> &VerificationService {
+        &self.verification
+    }
+
+    #[cfg(test)]
+    pub(crate) fn auth_generation_for_test(&self) -> Arc<AtomicU64> {
+        self.auth_generation.clone()
+    }
+
     /// Return cache size statistics for the data directory.
     pub async fn get_cache_stats(&self) -> crate::cache_manager::CacheStats {
         self.local_cache.cache_stats().await
@@ -2725,6 +2742,12 @@ impl ProtocolClient for MatrixProtocol {
         // its own, so a stale claim would silently disable retries for that room.
         self.backup_retry_rooms.clear();
         self.backup_prefetched_rooms.clear();
+        // Defence in depth: a flow left over from a previous session pins its
+        // Client, and the wipe below would then run against open sqlite handles
+        // — the same Windows failure logout's reset closes. Unreachable today
+        // (logout already resets), cheap to keep impossible.
+        self.verification.reset_context().await;
+        self.verification.abort_banner_watchers();
         let previous_owner = self.current_profile_owner().await;
         self.session_lifecycle
             .prepare_fresh_login(&previous_owner)
@@ -3621,6 +3644,9 @@ impl ProtocolClient for MatrixProtocol {
         // its own, so a stale claim would silently disable retries for that room.
         self.backup_retry_rooms.clear();
         self.backup_prefetched_rooms.clear();
+        // Same defence in depth as `login` above.
+        self.verification.reset_context().await;
+        self.verification.abort_banner_watchers();
         let previous_owner = self.current_profile_owner().await;
         self.session_lifecycle
             .prepare_fresh_login(&previous_owner)
