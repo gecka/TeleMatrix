@@ -73,6 +73,9 @@ struct VerificationContext {
     /// Bumped when `sas` is replaced so a superseded SAS watcher (lost
     /// start-race tie-break) can tell it must stay silent.
     sas_token: u64,
+    /// Same for `qr`: a QR can be displaced inside one flow+generation (peer
+    /// started SAS, or a duplicated `Ready`), which flow id alone cannot detect.
+    qr_token: u64,
     /// Watcher tasks for this flow; aborted on reset.
     watchers: Vec<tokio::task::JoinHandle<()>>,
 }
@@ -86,6 +89,7 @@ impl VerificationContext {
             generation: 0,
             desired: None,
             sas_token: 0,
+            qr_token: 0,
             watchers: Vec::new(),
         }
     }
@@ -100,6 +104,7 @@ impl VerificationContext {
         self.desired = None;
         self.generation += 1;
         self.sas_token += 1;
+        self.qr_token += 1;
     }
 }
 
@@ -1041,7 +1046,13 @@ impl VerificationService {
             ctx.sas = None;
             ctx.qr = None;
             ctx.sas_token += 1;
+            ctx.qr_token += 1;
             ctx.request = Some(request.clone());
+        }
+        // The watcher belongs to the stored request, not to this store: an
+        // incoming handler stores the request itself, so answering one would
+        // otherwise install a flow nothing is subscribed to and hang forever.
+        if ctx.watchers.is_empty() {
             let generation = ctx.generation;
             let handle = self.spawn_request_watcher(request, generation);
             ctx.watchers.push(handle);
@@ -1171,6 +1182,11 @@ impl VerificationService {
                 // Our own start echoed back through the request stream.
                 return;
             }
+            // SAS displaces any QR we were showing (matrix-sdk-crypto replaces
+            // the cache entry without cancelling it, so only the token stops
+            // that watcher from tearing this SAS down later).
+            ctx.qr = None;
+            ctx.qr_token += 1;
             ctx.sas_token += 1;
             let token = ctx.sas_token;
             ctx.sas = Some(sas.clone());
@@ -1255,6 +1271,21 @@ impl VerificationService {
 
     async fn generate_qr_on_ready(&self, request: &VerificationRequest, generation: u64) {
         let flow_id = request.flow_id().to_string();
+        {
+            let ctx = self.ctx.lock().await;
+            let stale = ctx.generation != generation
+                || ctx
+                    .request
+                    .as_ref()
+                    .map(|r| r.flow_id() != flow_id)
+                    .unwrap_or(true);
+            // A duplicated `Ready` (the seed/stream race) would otherwise mint a
+            // second, *different* code — matrix-sdk-crypto transitions here
+            // instead of returning None — over one the peer may have scanned.
+            if stale || ctx.qr.is_some() {
+                return;
+            }
+        }
         let qr = match request.generate_qr_code().await {
             Ok(Some(qr)) => qr,
             Ok(None) => {
@@ -1289,8 +1320,10 @@ impl VerificationService {
             {
                 return;
             }
+            ctx.qr_token += 1;
+            let token = ctx.qr_token;
             ctx.qr = Some(qr.clone());
-            let handle = self.spawn_qr_watcher(qr, flow_id.clone(), generation);
+            let handle = self.spawn_qr_watcher(qr, flow_id.clone(), generation, token);
             ctx.watchers.push(handle);
         }
         self.emit_qr_data(&flow_id, &image);
@@ -1315,6 +1348,7 @@ impl VerificationService {
         qr: QrVerification,
         flow_id: String,
         generation: u64,
+        token: u64,
     ) -> tokio::task::JoinHandle<()> {
         let service = self.clone();
         tokio::spawn(async move {
@@ -1328,7 +1362,9 @@ impl VerificationService {
                         None => break,
                     },
                 };
-                if !service.flow_is_current(&flow_id, generation).await {
+                // A displaced QR must stay silent, exactly like a replaced SAS:
+                // flow id and generation still match after a QR→SAS adoption.
+                if !service.qr_token_is_current(generation, token).await {
                     break;
                 }
                 match state {
@@ -1372,6 +1408,11 @@ impl VerificationService {
         ctx.generation == generation && ctx.sas_token == token
     }
 
+    async fn qr_token_is_current(&self, generation: u64, token: u64) -> bool {
+        let ctx = self.ctx.lock().await;
+        ctx.generation == generation && ctx.qr_token == token
+    }
+
     async fn fail_flow(&self, flow_id: &str, reason: &str) {
         verification_debug!("verification flow failed flow_id={flow_id} reason={reason}");
         self.emit_state_for(VerificationState::Cancelled, flow_id);
@@ -1398,9 +1439,17 @@ impl VerificationService {
             VerificationRequestState::Requested { .. } => {
                 // Sends m.key.verification.ready; local state flips to Ready
                 // synchronously and the watcher acts on it.
-                request
+                if let Err(e) = request
                     .accept_with_methods(Self::accepted_verification_methods())
-                    .await?;
+                    .await
+                {
+                    // `begin_flow` already installed the flow, and a failed
+                    // accept produces no SDK state change — without this the
+                    // context would sit there with no terminal state.
+                    let reason = format!("Failed to accept verification request: {e}");
+                    self.fail_flow(&flow_id, &reason).await;
+                    return Err(anyhow!("{reason}"));
+                }
             }
             VerificationRequestState::Created { .. } => {
                 self.emit_state_for(VerificationState::WaitingForReady, &flow_id);
@@ -1811,6 +1860,69 @@ mod tests {
         // An unconditional reset always advances the generation.
         service.reset_context_if_current(None).await;
         assert_eq!(service.ctx.lock().await.generation, gen_before + 1);
+    }
+
+    // A QR can be displaced inside one flow+generation — the peer starts SAS, or
+    // a duplicated `Ready` mints a second code — and its watcher would still pass
+    // a flow-id/generation check. Only the token tells it to stay silent, which
+    // matters because a displaced QR reaching `Cancelled` would otherwise tear
+    // down the SAS that replaced it.
+    #[tokio::test]
+    async fn qr_token_supersedes_a_displaced_qr_watcher() {
+        let service = VerificationService::new();
+        let (generation, token) = {
+            let mut ctx = service.ctx.lock().await;
+            ctx.qr_token += 1;
+            (ctx.generation, ctx.qr_token)
+        };
+        assert!(service.qr_token_is_current(generation, token).await);
+
+        // What `adopt_sas` now does when SAS displaces the QR.
+        {
+            let mut ctx = service.ctx.lock().await;
+            ctx.qr = None;
+            ctx.qr_token += 1;
+        }
+        assert!(
+            !service.qr_token_is_current(generation, token).await,
+            "a displaced QR watcher must not pass its ownership check"
+        );
+
+        // And a reset invalidates it too, like sas_token.
+        let before = service.ctx.lock().await.qr_token;
+        service.reset_context().await;
+        assert!(service.ctx.lock().await.qr_token > before);
+    }
+
+    // Every failure path that has already installed a flow routes through
+    // `fail_flow` (notably a failed `accept_with_methods`, whose flow would
+    // otherwise sit in ctx with no terminal state and no watcher emission).
+    #[tokio::test]
+    async fn fail_flow_emits_flow_tagged_cancelled_and_resets() {
+        let service = VerificationService::new();
+        let captured = Arc::new(StdMutex::new(Vec::<(u32, String)>::new()));
+        let sink = captured.clone();
+        service.on_state_changed(Box::new(move |state, flow_id| {
+            sink.lock()
+                .expect("sink not poisoned")
+                .push((state, flow_id.to_string()));
+        }));
+
+        let gen_before = service.ctx.lock().await.generation;
+        service
+            .fail_flow("$flow:example.org", "accept failed")
+            .await;
+
+        assert_eq!(
+            captured.lock().expect("captured not poisoned").clone(),
+            vec![(
+                VerificationState::Cancelled as u32,
+                "$flow:example.org".to_string()
+            )]
+        );
+        // No request stored, so the flow-scoped reset is a no-op — the emission
+        // is the part the UI depends on.
+        assert_eq!(service.ctx.lock().await.generation, gen_before);
     }
 
     // The flow id tagged onto an emitted state is the current flow id, so the UI
