@@ -78,7 +78,12 @@ VerificationFlow::VerificationFlow(ProtocolBridge *bridge, QWidget *parent)
     connect(_choiceStep, &IntroVerifyChoice::qrChosen,
             this, [this] { showStep(kStepQr); });
     connect(_choiceStep, &IntroVerifyChoice::emojiChosen,
-            this, [this] { showStep(kStepEmoji); });
+            this, [this] {
+        // A stale incoming request from an earlier entry must not be re-answered
+        // when the user explicitly picked emoji from the choice screen.
+        _emojiStep->setRequestFlowId(QString());
+        showStep(kStepEmoji);
+    });
     connect(_choiceStep, &IntroVerifyChoice::recoveryKeyChosen,
             this, [this] { showStep(kStepRecoveryKey); });
     connect(_choiceStep, &IntroVerifyChoice::skipVerification,
@@ -94,18 +99,20 @@ VerificationFlow::VerificationFlow(ProtocolBridge *bridge, QWidget *parent)
     });
     connect(_emojiStep, &IntroVerifyEmoji::useRecoveryKeyVerification,
             this, [this] {
+        // Cancel BEFORE switching: activeFlowId() reads the current page, and
+        // must still see the emoji page here to name the flow being left.
+        _bridge->cancelVerification(activeFlowId());
         showStep(kStepRecoveryKey);
-        _bridge->cancelVerification();
     });
     connect(_emojiStep, &IntroVerifyEmoji::useQrVerification, this, [this] {
         // Cancel BEFORE switching: showStep activates the QR page, which starts
         // a fresh flow — cancelling after would tear down the new QR instead of
-        // the SAS being left.
-        _bridge->cancelVerification();
+        // the SAS being left. activeFlowId() still reads the emoji page here.
+        _bridge->cancelVerification(activeFlowId());
         showStep(kStepQr);
     });
     connect(_emojiStep, &IntroVerifyEmoji::skipVerification, this, [this] {
-        _bridge->cancelVerification();
+        _bridge->cancelVerification(activeFlowId());
         onSkipped();
     });
 
@@ -115,15 +122,17 @@ VerificationFlow::VerificationFlow(ProtocolBridge *bridge, QWidget *parent)
         // Tell the emoji page to ignore the QR flow's Cancelled (emitted by the
         // cancel below) so it doesn't surface as a failure there.
         _emojiStep->ignoreFlow(_qrStep->currentFlowId());
-        _bridge->cancelVerification();
+        _bridge->cancelVerification(activeFlowId());
         showStep(kStepEmoji);
     });
     connect(_qrStep, &IntroVerifyQr::useRecoveryKeyVerification, this, [this] {
+        // Cancel BEFORE switching: activeFlowId() reads the current page, and
+        // must still see the QR page here to name the flow being left.
+        _bridge->cancelVerification(activeFlowId());
         showStep(kStepRecoveryKey);
-        _bridge->cancelVerification();
     });
     connect(_qrStep, &IntroVerifyQr::skipVerification, this, [this] {
-        _bridge->cancelVerification();
+        _bridge->cancelVerification(activeFlowId());
         onSkipped();
     });
 
@@ -200,7 +209,15 @@ void VerificationFlow::cancel() {
     _finished = true;
     _recoveryKeyStep->deactivate();
     _setupEncryptionStep->deactivate();
-    _bridge->cancelVerification();
+    _bridge->cancelVerification(activeFlowId());
+}
+
+QString VerificationFlow::activeFlowId() const {
+    switch (_stack->currentIndex()) {
+    case kStepEmoji: return _emojiStep->currentFlowId();
+    case kStepQr: return _qrStep->currentFlowId();
+    default: return QString();
+    }
 }
 
 void VerificationFlow::showStep(int index) {

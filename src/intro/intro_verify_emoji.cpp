@@ -176,6 +176,12 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible() || success) {
             return; // emojis arrive via sasEmojisAvailable; only failures matter
         }
+        if (!_requestFlowId.isEmpty()) {
+            // The incoming request we tried to answer is gone (expired,
+            // cancelled, or superseded) — a further Retry should start a fresh
+            // outgoing flow instead of re-attaching to a dead one.
+            _requestFlowId.clear();
+        }
         showFailure(tr("Failed to start emoji verification"));
     });
     connect(_bridge, &ProtocolBridge::sasEmojisAvailable,
@@ -184,6 +190,12 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
                 const QStringList &emojis,
                 const QStringList &labels) {
         if (!isVisible()) {
+            return;
+        }
+        // A flow we deliberately abandoned (e.g. the QR flow torn down for
+        // "compare emoji instead") may still deliver emojis in flight; don't
+        // latch onto it.
+        if (!flowId.isEmpty() && flowId == _ignoredFlowId) {
             return;
         }
         _flowId = flowId;
@@ -198,8 +210,13 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
-        if (state == kDone
-            && (flowId.isEmpty() || _flowId.isEmpty() || flowId == _flowId)) {
+        if (state == kDone) {
+            // Mirror the Cancelled guard below: a page that has not yet
+            // latched a flow (no emojis shown) does not own this completion.
+            if (_flowId.isEmpty()
+                || (!flowId.isEmpty() && flowId != _flowId)) {
+                return;
+            }
             Q_EMIT verified();
             return;
         }

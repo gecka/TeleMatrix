@@ -51,6 +51,11 @@ public:
     /// dismissed without finishing; a no-op once a method has succeeded.
     void cancel();
 
+    /// Flow id owned by whichever method page is currently shown (Emoji or
+    /// QR), or empty for any other page. Used to scope a cancel to the flow
+    /// the user is actually leaving instead of cancelling everything.
+    QString activeFlowId() const;
+
     /// Whether a method has succeeded, whether or not the success screen has
     /// been dismissed. Lets a host that is closed early still report success.
     [[nodiscard]] bool isVerified() const { return _verified; }

@@ -91,18 +91,29 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
+        constexpr int kRequesting = 0;
+        constexpr int kWaitingForReady = 1;
+        constexpr int kReady = 2;
         constexpr int kQrCodeReady = 6;
         constexpr int kQrCodeScanned = 7;
         constexpr int kDone = 8;
         constexpr int kCancelled = 9;
-        if (state == kDone
-            && (flowId.isEmpty() || _flowId.isEmpty() || flowId == _flowId)) {
+        // Latch from every state this flow emits, so an early Cancelled (e.g.
+        // the peer declining before the code renders) is attributable.
+        if (!flowId.isEmpty()
+            && (state == kRequesting || state == kWaitingForReady || state == kReady
+                || state == kQrCodeReady || state == kQrCodeScanned)) {
+            _flowId = flowId;
+        }
+        if (state == kDone) {
+            // Mirror the Cancelled guard below: don't fire verified() before
+            // this page has latched a flow, or for a different flow's Done.
+            if (_flowId.isEmpty()
+                || (!flowId.isEmpty() && flowId != _flowId)) {
+                return;
+            }
             Q_EMIT verified();
             return;
-        }
-        // Latch the flow id this page owns from its own positive states.
-        if (state == kQrCodeReady || state == kQrCodeScanned) {
-            _flowId = flowId;
         }
         if (state == kQrCodeScanned) {
             setScannedState();

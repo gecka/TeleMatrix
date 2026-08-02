@@ -26,6 +26,12 @@ public:
     void submit() override;
     QString nextButtonText() const override;
 
+    // Flow id of the verification request this page is showing: the latched SAS
+    // flow if emojis have arrived, else the incoming request being answered —
+    // so a caller can identify what to cancel/ignore even before emojis land.
+    // Empty when neither is known.
+    QString currentFlowId() const { return _flowId.isEmpty() ? _requestFlowId : _flowId; }
+
     // Ignore a Cancelled state belonging to this flow id — used when switching
     // here from a QR flow we deliberately tore down ("compare emoji instead"),
     // so that flow's cancellation does not surface as a failure on this page.

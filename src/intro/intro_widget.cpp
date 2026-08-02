@@ -359,6 +359,9 @@ void IntroWidget::onVerifyChoiceBack() {
 }
 
 void IntroWidget::onEmojiChosen() {
+    // A stale incoming request from an earlier entry must not be re-answered
+    // when the user explicitly picked emoji from the choice screen.
+    _verifyEmojiStep->setRequestFlowId(QString());
     showStep(4); // Verify choice -> Emoji.
 }
 

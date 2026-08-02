@@ -11,13 +11,28 @@
 #include "intro/verification_flow.h"
 #include "styles/style_constants.h"
 
+#include <QPointer>
+
 namespace TeleMatrix {
+
+namespace {
+
+// The backend keeps a single active self-verification flow, so a second popup
+// would strand the first; raise the existing one instead of opening another.
+QPointer<QWidget> g_activeVerifyBox;
+
+} // namespace
 
 bool ShowVerifySessionPopup(
         ProtocolBridge *bridge,
         QWidget *parent,
         const QString &incomingFlowId) {
     if (!bridge) {
+        return false;
+    }
+    if (g_activeVerifyBox) {
+        g_activeVerifyBox->raise();
+        g_activeVerifyBox->activateWindow();
         return false;
     }
 
@@ -29,6 +44,7 @@ bool ShowVerifySessionPopup(
 
     auto *flow = new VerificationFlow(bridge);
     auto *box = new DialogsIntroBox(flow, parent);
+    g_activeVerifyBox = box;
     // Shorter than the sign-in card: these screens end well above its bottom.
     box->setPreferredHeight(st::verifyBoxHeight);
 
