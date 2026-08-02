@@ -298,12 +298,11 @@ VerifyUserDialog::VerifyUserDialog(
         }
         // The reply to this call is what latches _transactionId on the
         // outgoing path — see buildEmojiPage's sasVerificationStarted handler.
-        _startPending = true;
         if (!_targetUserId.isEmpty()) {
-            _bridge->startUserVerification(_targetUserId);
+            _startRequestId = _bridge->startUserVerification(_targetUserId);
         } else {
             // Incoming request: attach to the flow it arrived on.
-            _bridge->startSasVerification(_transactionId);
+            _startRequestId = _bridge->startSasVerification(_transactionId);
         }
     });
 }
@@ -508,11 +507,12 @@ void VerifyUserDialog::buildEmojiPage() {
 
     // Connect bridge signals.
     connect(_bridge, &ProtocolBridge::sasVerificationStarted,
-            this, [this, showEmojiFailure](bool success, const QString &flowId) {
-        if (!_startPending) {
+            this, [this, showEmojiFailure](
+                quint64 requestId, bool success, const QString &flowId) {
+        if (requestId != _startRequestId || _startRequestId == 0) {
             return; // another surface's start; not this dialog's reply
         }
-        _startPending = false;
+        _startRequestId = 0;
         if (success) {
             // Early latch: our own flow, from our own call's acknowledgement.
             // The outgoing path has no flow id up front, and this is what
@@ -530,12 +530,18 @@ void VerifyUserDialog::buildEmojiPage() {
                 const QString &flowId,
                 const QStringList &emojis,
                 const QStringList &labels) {
-        if (!flowId.isEmpty() && !_transactionId.isEmpty()
-            && flowId != _transactionId) {
+        // Emojis only for the flow this dialog owns. Adopting an unlatched one
+        // here was a second latch door onto _emojisShown: a foreign flow's
+        // emojis would render, set the flag, and let that flow's Done claim
+        // this user is verified with nothing signed for them. Requiring a
+        // latch cannot swallow a legitimate delivery — _transactionId is set
+        // before any emoji for our flow can exist (from the ctor on the
+        // incoming path; from the start reply on the outgoing one, which is
+        // posted when the start returns, whereas emojis need a further
+        // round trip with the peer).
+        if (_transactionId.isEmpty()
+            || (!flowId.isEmpty() && flowId != _transactionId)) {
             return;
-        }
-        if (_transactionId.isEmpty()) {
-            _transactionId = flowId;
         }
         _emojisShown = true;
         showEmojis(emojis, labels);

@@ -164,8 +164,7 @@ void IntroVerifyQr::startVerification() {
 
     setDescriptionText(tr("Waiting for your other session to accept\xE2\x80\xA6"));
 
-    _startPending = true;
-    _bridge->startQrVerification();
+    _startRequestId = _bridge->startQrVerification();
     updateLayout();
     update();
 }
@@ -182,11 +181,12 @@ QString IntroVerifyQr::nextButtonText() const {
     return tr("Continue");
 }
 
-void IntroVerifyQr::onQrCodeReady(bool success, const QString &flowId) {
-    if (!_startPending) {
+void IntroVerifyQr::onQrCodeReady(
+        quint64 requestId, bool success, const QString &flowId) {
+    if (requestId != _startRequestId || _startRequestId == 0) {
         return; // another surface's start; not this page's reply
     }
-    _startPending = false;
+    _startRequestId = 0;
     if (success) {
         // Early latch: our own flow, from our own call's acknowledgement. The
         // modules themselves arrive later on qrCodeDataReady.

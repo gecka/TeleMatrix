@@ -225,6 +225,17 @@ struct SimpleCallbackData {
     BridgeCallbackGuard *guard = nullptr;
 };
 
+// Correlates a start-verification reply with the call that made it. Several
+// verification surfaces can have a start in flight at once (an outgoing
+// VerifyUserDialog and the session popup's emoji page are both main-window
+// widgets with no modality between them), and the reply signals are
+// broadcasts — without this id every one of them would consume the first
+// reply and latch a flow it does not own.
+struct StartVerificationCallbackData {
+    quint64 requestId = 0;
+    BridgeCallbackGuard *guard = nullptr;
+};
+
 struct SavedMessagesCallbackData {
     ProtocolBridge *bridge = nullptr;
     std::function<void(bool, const QString &)> handler;
@@ -1202,11 +1213,15 @@ static void sasCallbackTrampoline(
     const char *flowId,
     void *userdata)
 {
+    auto *data = static_cast<StartVerificationCallbackData *>(userdata);
+    const auto requestId = data->requestId;
+    auto *guard = data->guard;
+    delete data;
     const QString flow = flowId ? QString::fromUtf8(flowId) : QString();
-    withGuardedBridge(userdata, [success, flow](ProtocolBridge *bridge) {
+    withGuardedBridge(guard, [success, flow, requestId](ProtocolBridge *bridge) {
         QMetaObject::invokeMethod(bridge,
-            [bridge, success, flow]() {
-                emit bridge->sasVerificationStarted(success, flow);
+            [bridge, success, flow, requestId]() {
+                emit bridge->sasVerificationStarted(requestId, success, flow);
             }, Qt::QueuedConnection);
     });
 }
@@ -1261,11 +1276,15 @@ static void qrCodeCallbackTrampoline(
     const char *flowId,
     void *userdata)
 {
+    auto *data = static_cast<StartVerificationCallbackData *>(userdata);
+    const auto requestId = data->requestId;
+    auto *guard = data->guard;
+    delete data;
     const QString flow = flowId ? QString::fromUtf8(flowId) : QString();
-    withGuardedBridge(userdata, [success, flow](ProtocolBridge *bridge) {
+    withGuardedBridge(guard, [success, flow, requestId](ProtocolBridge *bridge) {
         QMetaObject::invokeMethod(bridge,
-            [bridge, success, flow]() {
-                emit bridge->qrCodeReady(success, flow);
+            [bridge, success, flow, requestId]() {
+                emit bridge->qrCodeReady(requestId, success, flow);
             }, Qt::QueuedConnection);
     });
 }
@@ -4780,37 +4799,49 @@ void ProtocolBridge::setE2eeSearchEnabled(bool enabled) {
 
 // --- Session verification ---
 
-void ProtocolBridge::startSasVerification(const QString &transactionId) {
+quint64 ProtocolBridge::startSasVerification(const QString &transactionId) {
+    const auto requestId = _nextStartRequestId++;
     if (!_handle) {
-        emit sasVerificationStarted(false, QString());
-        return;
+        // Queued, not a direct emit: the caller stores this id from our return
+        // value, so a synchronous reply would arrive before it could match.
+        QMetaObject::invokeMethod(this, [this, requestId] {
+            emit sasVerificationStarted(requestId, false, QString());
+        }, Qt::QueuedConnection);
+        return requestId;
     }
+    auto *data = new StartVerificationCallbackData{requestId, _callbackGuard.get()};
     if (transactionId.isEmpty()) {
         tm_start_sas_verification(
             _handle,
             sasCallbackTrampoline,
-            static_cast<void *>(_callbackGuard.get()));
+            static_cast<void *>(data));
     } else {
         const QByteArray tx = transactionId.toUtf8();
         tm_start_sas_verification_for(
             _handle,
             tx.constData(),
             sasCallbackTrampoline,
-            static_cast<void *>(_callbackGuard.get()));
+            static_cast<void *>(data));
     }
+    return requestId;
 }
 
-void ProtocolBridge::startUserVerification(const QString &userId) {
+quint64 ProtocolBridge::startUserVerification(const QString &userId) {
+    const auto requestId = _nextStartRequestId++;
     if (!_handle) {
-        emit sasVerificationStarted(false, QString());
-        return;
+        QMetaObject::invokeMethod(this, [this, requestId] {
+            emit sasVerificationStarted(requestId, false, QString());
+        }, Qt::QueuedConnection);
+        return requestId;
     }
+    auto *data = new StartVerificationCallbackData{requestId, _callbackGuard.get()};
     const QByteArray uid = userId.toUtf8();
     tm_start_user_verification(
         _handle,
         uid.constData(),
         sasCallbackTrampoline,
-        static_cast<void *>(_callbackGuard.get()));
+        static_cast<void *>(data));
+    return requestId;
 }
 
 void ProtocolBridge::withdrawUserVerification(const QString &userId) {
@@ -4895,24 +4926,29 @@ void ProtocolBridge::skipVerification() {
         static_cast<void *>(data));
 }
 
-void ProtocolBridge::startQrVerification(const QString &transactionId) {
+quint64 ProtocolBridge::startQrVerification(const QString &transactionId) {
+    const auto requestId = _nextStartRequestId++;
     if (!_handle) {
-        emit qrCodeReady(false, QString());
-        return;
+        QMetaObject::invokeMethod(this, [this, requestId] {
+            emit qrCodeReady(requestId, false, QString());
+        }, Qt::QueuedConnection);
+        return requestId;
     }
+    auto *data = new StartVerificationCallbackData{requestId, _callbackGuard.get()};
     if (transactionId.isEmpty()) {
         tm_start_qr_verification(
             _handle,
             qrCodeCallbackTrampoline,
-            static_cast<void *>(_callbackGuard.get()));
+            static_cast<void *>(data));
     } else {
         const QByteArray tx = transactionId.toUtf8();
         tm_start_qr_verification_for(
             _handle,
             tx.constData(),
             qrCodeCallbackTrampoline,
-            static_cast<void *>(_callbackGuard.get()));
+            static_cast<void *>(data));
     }
+    return requestId;
 }
 
 void ProtocolBridge::confirmQrScanned() {

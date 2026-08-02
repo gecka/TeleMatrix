@@ -509,10 +509,13 @@ public:
 
     // --- Session verification ---
 
-    /// Start SAS emoji verification. The start result arrives via
-    /// sasVerificationStarted (carrying the started flow's id); the emojis via
-    /// sasEmojisAvailable.
-    void startSasVerification(const QString &transactionId = QString());
+    /// Start SAS emoji verification. Returns the id correlating this call with
+    /// its sasVerificationStarted reply (which carries the started flow's id);
+    /// the emojis arrive via sasEmojisAvailable. Store the returned id and
+    /// ignore replies that do not match it — the signal is a broadcast and
+    /// other verification surfaces may have their own start in flight.
+    [[nodiscard]] quint64 startSasVerification(
+        const QString &transactionId = QString());
     /// Send the SAS match confirmation. sasConfirmed reports only whether the
     /// send succeeded; completion arrives as verificationStateChanged(Done).
     void confirmSasMatch();
@@ -525,9 +528,11 @@ public:
     void mismatchSas();
     /// Get verification capabilities. Result arrives via verificationCapabilitiesReady.
     void getVerificationCapabilities();
-    /// Show a QR code for verification. The start result arrives via qrCodeReady
-    /// (carrying the started flow's id); the module grid via qrCodeDataReady.
-    void startQrVerification(const QString &transactionId = QString());
+    /// Show a QR code for verification. Returns the id correlating this call
+    /// with its qrCodeReady reply (which carries the started flow's id); the
+    /// module grid arrives via qrCodeDataReady.
+    [[nodiscard]] quint64 startQrVerification(
+        const QString &transactionId = QString());
     /// Send the QR scan confirmation. qrScanConfirmed reports only whether the
     /// send succeeded; completion arrives as verificationStateChanged(Done).
     void confirmQrScanned();
@@ -542,9 +547,10 @@ public:
 
     // --- Cross-user verification ---
 
-    /// Start verifying ANOTHER user's identity. Emojis arrive via
+    /// Start verifying ANOTHER user's identity. Returns the id correlating
+    /// this call with its sasVerificationStarted reply; emojis arrive via
     /// sasEmojisAvailable.
-    void startUserVerification(const QString &userId);
+    [[nodiscard]] quint64 startUserVerification(const QString &userId);
     /// Withdraw our verification of a user. Result via userVerificationWithdrawn.
     void withdrawUserVerification(const QString &userId);
     /// Query a user's trust state. Result via userTrustStateResult.
@@ -909,10 +915,14 @@ signals:
     void deactivateAccountResult(const AccountActionResult &result);
 
     // --- Session verification signals ---
-    /// Reply to this client's own startSasVerification/startUserVerification
-    /// call; flowId names the flow it started, so a page can scope every later
-    /// event to it well before the emojis arrive. Empty when success is false.
-    void sasVerificationStarted(bool success, const QString &flowId);
+    /// Reply to one startSasVerification/startUserVerification call. requestId
+    /// echoes that call's return value — a surface MUST compare it against its
+    /// own before acting, since this is a broadcast and a concurrently-open
+    /// verification surface will also receive it. flowId names the started
+    /// flow, so the owner can scope every later event to it well before the
+    /// emojis arrive. Empty when success is false.
+    void sasVerificationStarted(
+        quint64 requestId, bool success, const QString &flowId);
     /// Emojis for a SAS flow — fires whenever they become available, including
     /// a SAS the other device started. Replaces the payload that used to ride
     /// sasVerificationStarted.
@@ -944,10 +954,11 @@ signals:
     /// Result of waitBackupKeysReady(): whether key backup became enabled
     /// before the timeout.
     void backupKeysReady(bool ready);
-    /// Reply to this client's own startQrVerification call; flowId names the
-    /// flow it started, so a page can scope every later event to it well
-    /// before the grid arrives on qrCodeDataReady. Empty when success is false.
-    void qrCodeReady(bool success, const QString &flowId);
+    /// Reply to one startQrVerification call; requestId echoes that call's
+    /// return value and MUST be compared against the surface's own. flowId
+    /// names the started flow, so the owner can scope every later event to it
+    /// well before the grid arrives on qrCodeDataReady. Empty on failure.
+    void qrCodeReady(quint64 requestId, bool success, const QString &flowId);
     void qrScanConfirmed(bool success);
     void deviceVerifiedChanged(bool verified);
     /// Result of a userTrustState() query (state = UserTrustState discriminant).
@@ -1139,6 +1150,9 @@ private:
     // safely detect when this bridge has been torn down. Defined in the .cpp;
     // see BridgeCallbackGuard there for the synchronisation contract.
     std::shared_ptr<BridgeCallbackGuard> _callbackGuard;
+    // Correlation ids handed out by the start*Verification calls. Starts at 1
+    // so 0 is usable by callers as "no start in flight".
+    quint64 _nextStartRequestId = 1;
     int _syncState = 0;
     bool _deviceVerified = false;
     QHash<QString, int> _userTrustCache; // userId -> UserTrustState discriminant

@@ -173,11 +173,11 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
 
     // Listen for verification events from the protocol bridge.
     connect(_bridge, &ProtocolBridge::sasVerificationStarted,
-            this, [this](bool success, const QString &flowId) {
-        if (!_startPending) {
+            this, [this](quint64 requestId, bool success, const QString &flowId) {
+        if (requestId != _startRequestId || _startRequestId == 0) {
             return; // another surface's start; not this page's reply
         }
-        _startPending = false;
+        _startRequestId = 0;
         if (success) {
             // Early latch: our own flow, from our own call's acknowledgement.
             // Scopes Cancelled/cancel-code events from here on, well before
@@ -311,8 +311,8 @@ void IntroVerifyEmoji::resetForAttempt() {
     // resets and then restores the adopted flow id without starting anything,
     // so a stale reply landing afterwards would overwrite it with the old
     // flow's id and get the adopted flow's own Cancelled swallowed.
-    // startVerification() sets this true again immediately after resetting.
-    _startPending = false;
+    // startVerification() takes a fresh id immediately after resetting.
+    _startRequestId = 0;
     _lastCancelCode.clear();
     _waiting = false;
     hideError();
@@ -336,8 +336,7 @@ void IntroVerifyEmoji::startVerification() {
     // across Retry so the same request keeps being re-answered — until a start
     // against it fails (see the sasVerificationStarted handler above), which
     // clears it so the next attempt falls back to a fresh outgoing flow.
-    _startPending = true;
-    _bridge->startSasVerification(_requestFlowId);
+    _startRequestId = _bridge->startSasVerification(_requestFlowId);
     updateEmojiLayout();
     update();
 }

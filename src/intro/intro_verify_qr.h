@@ -44,7 +44,7 @@ protected:
 
 private:
     void startVerification();
-    void onQrCodeReady(bool success, const QString &flowId);
+    void onQrCodeReady(quint64 requestId, bool success, const QString &flowId);
     void onQrScanConfirmed(bool success);
     void setScannedState();
     void setWaitingState(bool waiting);
@@ -62,10 +62,10 @@ private:
     int _qrSize = 0;
     bool _scanned = false;
     bool _waiting = false;
-    // A start call of ours is awaiting its reply — the reply that clears this
-    // is the one that belongs to this page (another surface's start reply
-    // arrives with this false and is ignored).
-    bool _startPending = false;
+    // Correlation id of our in-flight start call, 0 when none. Only one
+    // surface consumes qrCodeReady today; this mirrors the emoji page so the
+    // ownership rule is the same everywhere.
+    quint64 _startRequestId = 0;
     QString _flowId;
     // SDK cancel code for the current attempt's flow, latched from
     // verificationCancelInfo just before the Cancelled it explains arrives.

@@ -90,10 +90,11 @@ private:
     bool _waiting = false;
     QString _ignoredFlowId;
     QString _requestFlowId;
-    // A start call of ours is awaiting its reply — the reply that clears this
-    // is the one that belongs to this page (another surface's start reply
-    // arrives with this false and is ignored).
-    bool _startPending = false;
+    // Correlation id of our in-flight start call, 0 when none. A bool is not
+    // enough: this page and VerifyUserDialog are both main-window surfaces
+    // with no modality between them, so both can have a start in flight and
+    // both receive every (broadcast) reply.
+    quint64 _startRequestId = 0;
     // The flow this page currently renders, latched from our own start call's
     // reply and re-confirmed by the emojis that follow.
     QString _flowId;

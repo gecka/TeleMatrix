@@ -64,10 +64,11 @@ private:
 
     ProtocolBridge *_bridge = nullptr;
     QString _transactionId;
-    // A start call of ours is awaiting its reply — the reply that clears this
-    // is the one that belongs to this dialog (another surface's start reply
-    // arrives with this false and is ignored).
-    bool _startPending = false;
+    // Correlation id of our in-flight start call, 0 when none. A bool is not
+    // enough: the session-verification popup's emoji page is another
+    // main-window surface with no modality between us, so both can have a
+    // start in flight and both receive every (broadcast) reply.
+    quint64 _startRequestId = 0;
     // Set once this dialog has shown emojis for its own flow. Gates the success
     // page: _transactionId can hold a foreign flow's id, and claiming "verified"
     // for a flow we did not run is a security lie.
