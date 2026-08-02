@@ -287,15 +287,24 @@ VerifyUserDialog::VerifyUserDialog(
     _stack = new QStackedWidget(_panel);
     panelLayout->addWidget(_stack);
 
-    // Latch our flow id from the first state that carries one. The outgoing path
-    // has no flow id up front — startUserVerification returns only emojis — so
-    // without this the page guard below (which ignores Cancelled from a
-    // *different* flow) stays disabled and any unrelated flow's Cancelled would
-    // fail this dialog. Connected before the page builders so it runs first for
-    // each state.
+    // Latch our flow id from the first state that carries a trustworthy one.
+    // The outgoing path has no flow id up front — startUserVerification returns
+    // only emojis — so without this the page guard below (which ignores
+    // Cancelled from a *different* flow) stays disabled and any unrelated flow's
+    // Cancelled would fail this dialog. Connected before the page builders so it
+    // runs first for each state.
     if (_bridge) {
         connect(_bridge, &ProtocolBridge::verificationStateChanged, this,
-                [this](int, const QString &flowId) {
+                [this](int state, const QString &flowId) {
+            // NOT RequestingVerification: Rust emits it before tagging the new
+            // flow's id, so from the second flow in a session onward it still
+            // carries the previous (already-ended) flow's id. Latching that
+            // strands the dialog for good — every later guard, including the one
+            // gating the emojis, then rejects its own flow.
+            constexpr int kRequestingVerification = 0;
+            if (state == kRequestingVerification) {
+                return;
+            }
             if (_transactionId.isEmpty() && !flowId.isEmpty()) {
                 _transactionId = flowId;
             }
@@ -538,6 +547,7 @@ void VerifyUserDialog::buildEmojiPage() {
         if (_transactionId.isEmpty()) {
             _transactionId = flowId;
         }
+        _emojisShown = true;
         showEmojis(emojis, labels);
     });
 
@@ -564,6 +574,13 @@ void VerifyUserDialog::buildEmojiPage() {
             return;
         }
         if (state == kDone) {
+            // Only a flow whose emojis we actually showed can have been
+            // confirmed here; a Done for anything else (a foreign id latched
+            // above) must not claim this user is verified. A cross-user SAS
+            // cannot complete without its emojis, so this cannot strand us.
+            if (!_emojisShown) {
+                return;
+            }
             showPage(kPageSuccess);
         } else if (state == kCancelled) {
             showEmojiFailure();

@@ -2065,6 +2065,13 @@ impl MatrixProtocol {
                 // permanently dead (stuck loading bar, no folders/pinned) until an
                 // app restart.
                 self.clear_callbacks();
+                // Separately from clear_callbacks (which is sync and so cannot
+                // take the async ctx mutex): an active or ignored verification
+                // flow holds request/SAS/QR objects that each own a Client
+                // clone, which would keep the stores open across the wipe below.
+                // Before the remote logout, so the runtime has an await point to
+                // reap the watchers `reset` aborts and drop their clones too.
+                self.verification.reset_context().await;
                 self.session_lifecycle
                     .logout_remote_best_effort(&client)
                     .await;

@@ -1171,7 +1171,12 @@ impl VerificationService {
         Ok(request.clone())
     }
 
-    async fn reset_context(&self) {
+    /// Drop the active flow's request/SAS/QR and abort its watchers.
+    ///
+    /// `pub(crate)` for the logout path: `VerificationRequest`, `SasVerification`
+    /// and `QrVerification` each hold a `Client`, so a context left populated
+    /// pins `ClientInner` — and its open SQLite handles — past the store wipe.
+    pub(crate) async fn reset_context(&self) {
         let mut ctx = self.ctx.lock().await;
         ctx.reset();
     }
@@ -2296,5 +2301,64 @@ mod tests {
             });
         service.clear_callbacks();
         assert!(lock_verification_mutex(&service.pending_incoming, "pending_incoming").is_none());
+    }
+
+    /// Poll for `sentinel` becoming uniquely owned. It is handed to the client as
+    /// an event-handler context, so the client's own store holds the only other
+    /// reference and it drops exactly when `ClientInner` does.
+    async fn client_dropped_within(sentinel: &Arc<()>, attempts: u32) -> bool {
+        for _ in 0..attempts {
+            if Arc::strong_count(sentinel) == 1 {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        false
+    }
+
+    // A live flow pins the SDK `Client`: the request/SAS/QR objects each hold one
+    // and every watcher task holds its own clones. `ClientInner` owns the four
+    // encrypted SQLite stores, so a context left populated keeps them open across
+    // logout's store wipe — invisible on POSIX, but on Windows the open handles
+    // make the wipe fail and every later sign-in fails until restart. That is why
+    // logout resets the context; `clear_callbacks()` above does not.
+    // `integration_tests::session_teardown` covers the same failure via event
+    // handlers; this one lives here because `ctx` is private to this module.
+    //
+    // Only the tracked-watcher half is covered: `VerificationRequest` and friends
+    // cannot be built without a live SDK-backed flow.
+    #[tokio::test]
+    async fn reset_context_releases_a_client_held_by_a_watcher() {
+        let server = matrix_sdk::test_utils::mocks::MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let sentinel = Arc::new(());
+        client.add_event_handler_context(sentinel.clone());
+
+        let service = VerificationService::new();
+        {
+            let mut ctx = service.ctx.lock().await;
+            let held = client.clone();
+            ctx.watchers.push(tokio::spawn(async move {
+                let _client = held;
+                // Stands in for a watcher parked on a `changes()` stream. With the
+                // app-level timeouts gone, nothing else ends it.
+                std::future::pending::<()>().await;
+            }));
+        }
+        drop(client);
+
+        assert!(
+            !client_dropped_within(&sentinel, 5).await,
+            "probe is broken: a watcher holding a clone did not pin the client, \
+             so the assertion below would pass without proving anything"
+        );
+
+        service.reset_context().await;
+
+        assert!(
+            client_dropped_within(&sentinel, 100).await,
+            "reset_context left the client pinned: the sqlite stores stay open \
+             across logout's wipe and every later sign-in fails on Windows"
+        );
     }
 }

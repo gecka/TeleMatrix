@@ -64,6 +64,10 @@ private:
 
     ProtocolBridge *_bridge = nullptr;
     QString _transactionId;
+    // Set once this dialog has shown emojis for its own flow. Gates the success
+    // page: _transactionId can hold a foreign flow's id, and claiming "verified"
+    // for a flow we did not run is a security lie.
+    bool _emojisShown = false;
     QString _targetUserId;  // non-empty => outgoing; empty => incoming request
     QString _targetDisplayName;
     QWidget *_panel = nullptr;
