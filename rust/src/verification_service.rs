@@ -1031,8 +1031,14 @@ impl VerificationService {
     }
 
     /// Store the request and attach its watcher. The watcher is the single
-    /// owner of request-level emissions (Element's `onChange` shape).
-    async fn begin_flow(&self, request: VerificationRequest, desired: Option<DesiredMethod>) {
+    /// owner of request-level emissions (Element's `onChange` shape). Returns
+    /// the generation the flow is installed under, so the caller can tell later
+    /// whether it is still the one it started.
+    async fn begin_flow(
+        &self,
+        request: VerificationRequest,
+        desired: Option<DesiredMethod>,
+    ) -> u64 {
         let mut ctx = self.ctx.lock().await;
         let is_same = ctx
             .request
@@ -1060,6 +1066,7 @@ impl VerificationService {
         if desired.is_some() {
             ctx.desired = desired;
         }
+        ctx.generation
     }
 
     fn spawn_request_watcher(
@@ -1419,6 +1426,36 @@ impl VerificationService {
         self.reset_context_if_current(Some(flow_id)).await;
     }
 
+    /// Fail a flow only while nothing else owns it: same generation, same
+    /// request, and no SAS or QR started under it. For failures that surface
+    /// after the watcher may already have driven the flow forward — cancelling a
+    /// live SAS/QR from a losing path is the client-side teardown this design
+    /// exists to eliminate. Decision and teardown share one lock, and the
+    /// `Cancelled` is emitted only if the teardown actually happened, so a flow
+    /// the watcher has already failed is not reported twice.
+    async fn fail_flow_if_unstarted(&self, flow_id: &str, generation: u64, reason: &str) {
+        {
+            let mut ctx = self.ctx.lock().await;
+            let unstarted = ctx.generation == generation
+                && ctx.sas.is_none()
+                && ctx.qr.is_none()
+                && ctx
+                    .request
+                    .as_ref()
+                    .map(|r| r.flow_id() == flow_id)
+                    .unwrap_or(false);
+            if !unstarted {
+                verification_debug!(
+                    "flow failure not applied, flow moved on flow_id={flow_id} reason={reason}"
+                );
+                return;
+            }
+            ctx.reset();
+        }
+        verification_debug!("verification flow failed flow_id={flow_id} reason={reason}");
+        self.emit_state_for(VerificationState::Cancelled, flow_id);
+    }
+
     /// User action driving a flow: accept if it's an incoming request in
     /// `Requested`, record the desired method, let the watcher do the rest.
     async fn activate_flow(
@@ -1428,7 +1465,7 @@ impl VerificationService {
     ) -> Result<()> {
         let flow_id = request.flow_id().to_string();
         self.set_current_flow_id(&flow_id);
-        self.begin_flow(request.clone(), Some(desired)).await;
+        let generation = self.begin_flow(request.clone(), Some(desired)).await;
         match request.state() {
             VerificationRequestState::Cancelled(info) => {
                 return Err(anyhow!("Verification request cancelled: {}", info.reason()));
@@ -1443,11 +1480,13 @@ impl VerificationService {
                     .accept_with_methods(Self::accepted_verification_methods())
                     .await
                 {
-                    // `begin_flow` already installed the flow, and a failed
-                    // accept produces no SDK state change — without this the
-                    // context would sit there with no terminal state.
+                    // The flip to Ready is committed before the send that failed
+                    // (matrix-sdk `accept_with_methods`), so the watcher may
+                    // already own this flow — fail it only if it does not.
+                    // Otherwise nothing would emit a terminal state for it.
                     let reason = format!("Failed to accept verification request: {e}");
-                    self.fail_flow(&flow_id, &reason).await;
+                    self.fail_flow_if_unstarted(&flow_id, generation, &reason)
+                        .await;
                     return Err(anyhow!("{reason}"));
                 }
             }
@@ -1923,6 +1962,40 @@ mod tests {
         // No request stored, so the flow-scoped reset is a no-op — the emission
         // is the part the UI depends on.
         assert_eq!(service.ctx.lock().await.generation, gen_before);
+    }
+
+    // `accept_with_methods` commits local state to Ready *before* the send that
+    // can fail, so by the time an accept failure surfaces the watcher may already
+    // own the flow. The gated variant must then stay silent — unlike `fail_flow`
+    // above, which emits unconditionally. Both cases below are the shapes ctx is
+    // left in once someone else owns or has already ended the flow.
+    #[tokio::test]
+    async fn fail_flow_if_unstarted_leaves_a_flow_it_no_longer_owns_alone() {
+        let service = VerificationService::new();
+        let captured = Arc::new(StdMutex::new(Vec::<u32>::new()));
+        let sink = captured.clone();
+        service.on_state_changed(Box::new(move |state, _flow_id| {
+            sink.lock().expect("sink not poisoned").push(state);
+        }));
+
+        // The watcher already failed the flow and reset ctx: no request, and the
+        // generation has moved on. An ungated fail here is the double-Cancelled.
+        let generation = service.ctx.lock().await.generation;
+        service.reset_context().await;
+        service
+            .fail_flow_if_unstarted("$flow:example.org", generation, "accept send failed")
+            .await;
+
+        // Same generation, but the flow is gone from ctx.
+        let generation = service.ctx.lock().await.generation;
+        service
+            .fail_flow_if_unstarted("$flow:example.org", generation, "accept send failed")
+            .await;
+
+        assert!(
+            captured.lock().expect("captured not poisoned").is_empty(),
+            "a flow this call no longer owns must not be cancelled or reported"
+        );
     }
 
     // The flow id tagged onto an emitted state is the current flow id, so the UI
