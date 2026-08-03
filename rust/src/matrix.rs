@@ -2745,7 +2745,9 @@ impl ProtocolClient for MatrixProtocol {
         // Defence in depth: a flow left over from a previous session pins its
         // Client, and the wipe below would then run against open sqlite handles
         // — the same Windows failure logout's reset closes. Unreachable today
-        // (logout already resets), cheap to keep impossible.
+        // (logout already resets), cheap to keep impossible. Weaker reaping
+        // window than logout's, though: the only await before the wipe here is
+        // current_profile_owner().await, which may complete without yielding.
         self.verification.reset_context().await;
         self.verification.abort_banner_watchers();
         let previous_owner = self.current_profile_owner().await;

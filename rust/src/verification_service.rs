@@ -1250,6 +1250,14 @@ impl VerificationService {
         self.ctx.lock().await.watchers.push(handle);
     }
 
+    /// Test-only: install a banner watcher handle directly, mirroring
+    /// `seed_watcher_for_test` for the untracked half, so a teardown test can
+    /// prove `abort_banner_watchers()` releases whatever it pinned.
+    #[cfg(test)]
+    pub(crate) fn seed_banner_watcher_for_test(&self, handle: tokio::task::JoinHandle<()>) {
+        track_banner_watcher_in(&self.banner_watchers, handle);
+    }
+
     /// Returns whether this call performed the reset, so a caller that owes the
     /// UI exactly one terminal state can tell whether it was the one to tear the
     /// flow down.

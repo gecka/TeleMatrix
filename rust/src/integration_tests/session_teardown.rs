@@ -164,6 +164,10 @@ async fn logout_releases_a_client_with_no_verification_flow() {
         1,
         "the mocked logout never fired, so logout ran its destructive tail"
     );
+    assert!(
+        !data_dir.join(".trash").exists(),
+        "logout ran its destructive tail"
+    );
 
     assert!(
         client_dropped(&sentinel).await,
@@ -214,12 +218,63 @@ async fn logout_releases_a_client_pinned_by_a_verification_watcher() {
         1,
         "the mocked logout never fired, so logout ran its destructive tail"
     );
+    assert!(
+        !data_dir.join(".trash").exists(),
+        "logout ran its destructive tail"
+    );
 
     assert!(
         client_dropped(&sentinel).await,
         "logout did not reset the verification context: a watcher still holds a \
          Client clone, so the sqlite stores stay open across the wipe and every \
          later sign-in fails on Windows"
+    );
+    let _ = std::fs::remove_dir_all(&data_dir);
+}
+
+// The untracked half of the same pin: a banner watcher for an incoming
+// request also holds a `Client` clone, in a vec `reset_context` never touches
+// (`banner_watchers` outlives flow changes on purpose). `logout` must abort it
+// separately — this pins that single, equally deletable line.
+#[tokio::test]
+async fn logout_releases_a_client_pinned_by_a_banner_watcher() {
+    let (server, client) = mock_server_and_client().await;
+    let sentinel = sentinel_for(&client);
+    let (protocol, generation, data_dir) =
+        protocol_with_session(&server, client.clone(), "banner-pinned").await;
+
+    let pinned = client.clone();
+    protocol
+        .verification_for_test()
+        .seed_banner_watcher_for_test(tokio::spawn(async move {
+            let _pinned = pinned;
+            // Stands in for a banner watcher parked on an incoming request's
+            // changes: nothing but the abort in `abort_banner_watchers` ends it.
+            std::future::pending::<()>().await;
+        }));
+    drop(client);
+
+    assert!(
+        !client_dropped_within(&sentinel, 5).await,
+        "probe is broken: the client dropped while the protocol still held it"
+    );
+
+    protocol.logout().await.expect("logout should succeed");
+    assert_eq!(
+        generation.load(Ordering::SeqCst),
+        1,
+        "the mocked logout never fired, so logout ran its destructive tail"
+    );
+    assert!(
+        !data_dir.join(".trash").exists(),
+        "logout ran its destructive tail"
+    );
+
+    assert!(
+        client_dropped(&sentinel).await,
+        "logout did not abort banner watchers: one still holds a Client clone, \
+         so the sqlite stores stay open across the wipe and every later sign-in \
+         fails on Windows"
     );
     let _ = std::fs::remove_dir_all(&data_dir);
 }
