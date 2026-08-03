@@ -27,7 +27,7 @@ jobs:
           # libssl-dev: rusqlite bundled-sqlcipher ; libdbus-1-dev: keyring
           # nasm: aws-lc-rs/ring asm (rustls crypto provider)
           # libav*-dev: ffmpeg-next (video thumbnails) — ffmpeg-sys-next links libav.
-          # ubuntu-22.04 ships FFmpeg 4.4; ffmpeg-next 8.1 supports FFmpeg >= 3.4.
+          # ubuntu-22.04 ships FFmpeg 4.4; ffmpeg-next 7.1 supports FFmpeg >= 3.4.
 
       - name: Install Rust toolchain
         # Match rust-toolchain.toml; add rustfmt/clippy for the advisory steps.
