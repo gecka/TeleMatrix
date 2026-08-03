@@ -13,6 +13,7 @@
 
 mod common;
 
+mod backup_prefetch;
 mod room_directory;
 mod rooms_list;
 mod session_invalidation;

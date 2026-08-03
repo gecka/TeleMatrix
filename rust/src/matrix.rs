@@ -1721,17 +1721,22 @@ impl MatrixProtocol {
                     // room the user just opened is the one whose decryption they are
                     // waiting on, and nothing else prioritises it: the session-wide
                     // bulk sweep walks `client.rooms()` in arbitrary order and only
-                    // covers rooms materialized when it ran. Claim-only, so this is
-                    // at most one bulk download per room per session.
+                    // covers rooms materialized when it ran. At most one bulk
+                    // download per room per session — the claim is taken here, before
+                    // the spawn, so reopening the room cannot stack a second task; the
+                    // task itself owns releasing it if it never gets to fetch.
                     if self.backup_prefetched_rooms.claim(room.clone()) {
                         let prefetch_client = client.clone();
                         let prefetch_cache = cache.clone();
                         let prefetch_room = room.clone();
+                        let prefetch_claims = self.backup_prefetched_rooms.clone();
                         self.session_tasks.spawn(async move {
-                            prefetch_room_keys_prioritized(
-                                &prefetch_client,
-                                &prefetch_room,
-                                &prefetch_cache,
+                            run_on_open_prefetch(
+                                prefetch_client,
+                                prefetch_room,
+                                prefetch_cache,
+                                prefetch_claims,
+                                ON_OPEN_PREFETCH_ENABLE_WAIT,
                             )
                             .await;
                         });
@@ -2412,16 +2417,27 @@ const BACKUP_RETRY_SCHEDULE: &[Duration] = &[
 ];
 
 /// The rendered timeline cache (room id -> items) — the same handle the UI reads.
-type TimelineCacheRef = Arc<RwLock<HashMap<String, Vec<TimelineItem>>>>;
+pub(crate) type TimelineCacheRef = Arc<RwLock<HashMap<String, Vec<TimelineItem>>>>;
+
+/// How long the on-open prioritized prefetch waits for the key backup to become
+/// usable before releasing its claim so a later reopen can retry.
+///
+/// It has to wait at all because the whole post-verification window — the one time
+/// a room is guaranteed to be full of undecryptable messages — is precisely when
+/// backups are not yet usable: the backup key is still being gossiped from the
+/// other device, several sync long-polls away. Comfortably outlives
+/// [`BACKUP_RETRY_SCHEDULE`]'s ~9 minutes; a backup that enables later still gets
+/// the room via the session-wide bulk sweep.
+const ON_OPEN_PREFETCH_ENABLE_WAIT: Duration = Duration::from_secs(600);
 
 /// Rooms that already have a backup-key retry chain running, so reopening a room
 /// doesn't stack a second one on top.
 #[derive(Clone, Default)]
-struct BackupRetryRooms(Arc<Mutex<std::collections::HashSet<OwnedRoomId>>>);
+pub(crate) struct BackupRetryRooms(Arc<Mutex<std::collections::HashSet<OwnedRoomId>>>);
 
 impl BackupRetryRooms {
     /// True when the room had no chain yet — the caller now owns it.
-    fn claim(&self, room: OwnedRoomId) -> bool {
+    pub(crate) fn claim(&self, room: OwnedRoomId) -> bool {
         self.0
             .lock()
             .map(|mut rooms| rooms.insert(room))
@@ -2605,6 +2621,63 @@ fn spawn_key_readiness_probe(
     })
 }
 
+/// Body of the on-open prioritized prefetch, owning the claim's lifecycle.
+///
+/// Parks until the key backup is usable rather than giving up on the spot: the
+/// claim is one-shot per session, so bailing early used to spend it on a window
+/// where there was nothing to fetch from yet (see [`ON_OPEN_PREFETCH_ENABLE_WAIT`]),
+/// leaving the room with no prioritized fetch for the rest of the session. If the
+/// backup never becomes usable, release the claim so reopening the room retries.
+///
+/// Always runs inside a spawned session task — never on the room-open path, which
+/// must stay off the network.
+pub(crate) async fn run_on_open_prefetch(
+    client: Client,
+    room: OwnedRoomId,
+    cache: TimelineCacheRef,
+    claims: BackupRetryRooms,
+    bound: Duration,
+) {
+    if !wait_for_backups_enabled(&client, bound).await {
+        debug!(
+            "[keys] on-open fetch for {room} gave up: backup still unusable after {}s; \
+             releasing the claim so reopening retries",
+            bound.as_secs()
+        );
+        claims.release(&room);
+        return;
+    }
+    prefetch_room_keys_prioritized(&client, &room, &cache).await;
+}
+
+/// Resolve once the key backup is usable, or `false` when `bound` elapses first.
+///
+/// Subscribes BEFORE the first readiness check: `state_stream()` does not replay
+/// the current state, so checking first would drop an enable that lands between
+/// the two and park until the deadline for nothing.
+pub(crate) async fn wait_for_backups_enabled(client: &Client, bound: Duration) -> bool {
+    use futures_util::StreamExt;
+
+    let backups = client.encryption().backups();
+    let mut stream = Box::pin(backups.state_stream());
+    if backups.are_enabled().await {
+        return true;
+    }
+    let deadline = tokio::time::Instant::now() + bound;
+    loop {
+        match tokio::time::timeout_at(deadline, stream.next()).await {
+            // Deadline, or the broadcast closed with the session.
+            Err(_) | Ok(None) => return false,
+            // Any item (a transition or a lag notice) means re-check.
+            Ok(Some(_)) => {
+                if backups.are_enabled().await {
+                    return true;
+                }
+            }
+        }
+    }
+}
+
 /// Fetch a freshly-opened room's keys, newest sessions first, then the rest.
 ///
 /// Order is the whole point. An arriving room key makes the SDK redecrypt exactly
@@ -2614,6 +2687,8 @@ fn spawn_key_readiness_probe(
 /// whatever order the backup returns keys in, which is why decryption appeared to
 /// start at random points in the past.
 ///
+/// The caller guarantees the backup is usable ([`run_on_open_prefetch`]).
+///
 /// Keys only — decryption stays SDK-reactive (do not grow this into a decryption
 /// loop; that fights R2D2).
 async fn prefetch_room_keys_prioritized(
@@ -2622,11 +2697,6 @@ async fn prefetch_room_keys_prioritized(
     cache: &TimelineCacheRef,
 ) {
     let backups = client.encryption().backups();
-    if !backups.are_enabled().await {
-        // Nothing to fetch from yet; the per-room chase retries on its schedule.
-        debug!("[keys] on-open fetch for {room_id} skipped: backup not usable yet");
-        return;
-    }
 
     // Newest-first, best effort: a failure here is not terminal because the
     // whole-room download below covers the same sessions.
