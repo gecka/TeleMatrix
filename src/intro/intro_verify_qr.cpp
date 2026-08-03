@@ -324,8 +324,9 @@ void IntroVerifyQr::updateLayout() {
 
     // The default error slot sits where the QR block is drawn, so a failure
     // message lands on top of the container it is about. Put it above, matching
-    // the login/register steps.
-    placeErrorAbove(containerY);
+    // the login/register steps — but wider than the form column, because these
+    // messages are full sentences and the slot's top line overlaps the subtitle.
+    placeErrorAbove(containerY, st::introVerifyErrorWidth);
 
     const auto rowTop = contentTop() + st::introNextTop;
     nextButton()->setFixedSize(st::introNextButtonWidth, st::introNextButtonHeight);

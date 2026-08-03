@@ -695,6 +695,10 @@ inline int introVerifyEmojiContainerW = 450;
 inline int introVerifyEmojiContainerH = 160;
 inline int introVerifyEmojiContainerR = 12;
 inline int introVerifyMismatchTop     = 16;
+// Error column on the QR step. Wider than the 340px form width so the failure
+// sentences ("Verification failed: the keys did not match…") stay one line: the
+// slot sits only a few pixels under the subtitle, so a second line lands on it.
+inline int introVerifyErrorWidth      = 560;
 
 // ─────────────────────────────────────────────
 // Recovery key input (IntroVerifyRecoveryKey)
@@ -1922,6 +1926,7 @@ inline void initPxValues() {
     introVerifyEmojiContainerH = ConvertScale(160);
     introVerifyEmojiContainerR = ConvertScale(12);
     introVerifyMismatchTop = ConvertScale(16);
+    introVerifyErrorWidth = ConvertScale(560);
 
     // Recovery key.
     introRecoveryKeyWidth = ConvertScale(492);

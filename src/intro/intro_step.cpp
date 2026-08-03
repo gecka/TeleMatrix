@@ -229,17 +229,23 @@ int IntroStep::errorSlotHeight() const {
     return QFontMetrics(_error->font()).height() * 2;
 }
 
-void IntroStep::placeErrorAbove(int firstControlY) {
+void IntroStep::placeErrorAbove(int firstControlY, int slotWidth) {
     // Bottom-aligned inside the reserved slot, so a one-line message sits just
     // above the field and a two-line one grows upward into space that was
     // already there.
     const auto height = errorSlotHeight();
-    _error->setFixedWidth(st::introStepWidth);
+    // Only the bottom line of the slot is guaranteed clear of the subtitle above
+    // it — on the compact verification steps the two are barely a line apart — so
+    // a step whose messages would wrap must widen instead of growing upward.
+    const auto columnWidth = (slotWidth > 0)
+        ? qMin(slotWidth, width() - 2 * st::introFieldSpacing)
+        : st::introStepWidth;
+    _error->setFixedWidth(columnWidth);
     _error->setAlignment(Qt::AlignHCenter | Qt::AlignBottom);
     _error->setGeometry(
-        contentLeft(),
+        (width() - columnWidth) / 2,
         firstControlY - height - st::introFieldSpacing,
-        st::introStepWidth,
+        columnWidth,
         height);
 }
 

@@ -119,8 +119,10 @@ protected:
 
     /// Place the error label just above the form's first control (all forms
     /// show errors on top). Call from the step's layout pass with the y of
-    /// the first field.
-    void placeErrorAbove(int firstControlY);
+    /// the first field. `slotWidth` widens the message column past the 340px
+    /// form width for steps whose messages are full sentences; 0 keeps the
+    /// form width.
+    void placeErrorAbove(int firstControlY, int slotWidth = 0);
 
     /// Vertically center the whole content block. Call at the END of a step's
     /// layout pass, once every control is positioned: it measures the actual
