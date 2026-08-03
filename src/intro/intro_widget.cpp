@@ -113,8 +113,7 @@ IntroWidget::IntroWidget(
     connect(_createPasswordStep, &IntroCreatePassword::skipToKeychain, this, [this] {
         // Reverse the vault choice: use the system keychain instead. Pre-login the
         // secret cache is empty, so this is a pure backend flip + vault cleanup.
-        const int state = ProtocolBridge::secretStoreState();
-        if (state == 2 || state == 3 || state == 4) {
+        if (IntroSecretBackend::usesVaultBackend()) {
             ProtocolBridge::secretStoreSwitchBackend(0, QString());
         }
         Q_EMIT secretBackendChosen(false);

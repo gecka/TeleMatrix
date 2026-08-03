@@ -27,10 +27,14 @@ public:
     void submit() override;
     QString nextButtonText() const override;
 
-    /// Label for the stage's "Keys: <choice>" line — the current selection, in
-    /// the same words the cards use.
+    /// Label for the stage's "Keys: <choice>" line — the backend actually in
+    /// use, in the same words the cards use.
     [[nodiscard]] QString choiceLabel() const;
     [[nodiscard]] bool vaultSelected() const { return _vaultSelected; }
+
+    /// Whether the secret store is on the vault backend, whatever its lock state
+    /// (2 VaultLocked, 3 VaultUnlocked, 4 VaultAbsent — logout leaves 4 behind).
+    [[nodiscard]] static bool usesVaultBackend();
 
 signals:
     // Forwarded up so the choice is persisted at device level (survives logout).

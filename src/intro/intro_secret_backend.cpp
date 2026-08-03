@@ -91,10 +91,8 @@ void IntroSecretBackend::activate() {
     }
     updateChoiceLayout();
 
-    // Pre-select from the currently-configured backend (2/3/4 = a vault backend).
-    const int state = ProtocolBridge::secretStoreState();
-    const bool preferVault = (state == 2 || state == 3 || state == 4);
-    select(!_keychainAvailable ? true : preferVault);
+    // Pre-select from the currently-configured backend.
+    select(!_keychainAvailable ? true : usesVaultBackend());
 }
 
 void IntroSecretBackend::select(bool vault) {
@@ -116,8 +114,7 @@ void IntroSecretBackend::submit() {
     } else {
         // Keychain chosen: migrate back if a vault was set up (this run or a prior
         // one). The pre-login secret cache is empty, so this is a pure backend flip.
-        const int state = ProtocolBridge::secretStoreState();
-        if (state == 2 || state == 3 || state == 4) {
+        if (usesVaultBackend()) {
             if (!ProtocolBridge::secretStoreSwitchBackend(0, QString())) {
                 showError(tr("Couldn't switch to the system keychain."));
                 return;
@@ -128,8 +125,19 @@ void IntroSecretBackend::submit() {
     emit goNext();
 }
 
+bool IntroSecretBackend::usesVaultBackend() {
+    const int state = ProtocolBridge::secretStoreState();
+    return state == 2 || state == 3 || state == 4;
+}
+
 QString IntroSecretBackend::choiceLabel() const {
-    return _vaultSelected ? tr("Private vault") : tr("System keychain");
+    // The live backend, NOT `_vaultSelected`: that flag is only initialized when
+    // this screen is activated, so on every screen that shows the "Keys:" line
+    // without having visited the chooser it reported the default. After logging
+    // out of a vault the device is still on the vault (VaultAbsent, its file
+    // deleted), and the line claimed the system keychain while every step went on
+    // asking for the master password.
+    return usesVaultBackend() ? tr("Private vault") : tr("System keychain");
 }
 
 QString IntroSecretBackend::nextButtonText() const {
