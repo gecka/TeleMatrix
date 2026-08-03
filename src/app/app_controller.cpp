@@ -1995,6 +1995,12 @@ void AppController::setConnectingBottomSkip(int skip) {
     }
 }
 
+void AppController::setActiveRoomSeamCover(QRect rowInDialogs) {
+    if (_mainWidget) {
+        _mainWidget->setActiveRoomSeamCover(rowInDialogs);
+    }
+}
+
 void AppController::notifyUpdatePolicyChanged() {
     if (!_updateService) {
         return;

@@ -983,7 +983,38 @@ void DialogsInner::resizeEvent(QResizeEvent *e) {
     Ui::RpWidget::resizeEvent(e);
 }
 
+QRect DialogsInner::activeRowRect() const {
+    // Derived from the selection, NOT from what the last paint happened to cover:
+    // paintDialogRows only walks the rows intersecting the repaint clip, so a
+    // partial repaint (a hover, an avatar arriving, a badge changing) would report
+    // "no active row" and clear the seam cover a frame after it was set.
+    if (_initialLoading
+            || _messageSearchMode
+            || _selectedIndex < 0
+            || _selectedIndex >= _rows.size()) {
+        return QRect();
+    }
+    return QRect(
+        0,
+        _selectedIndex * DialogsRow::rowHeight(),
+        width(),
+        DialogsRow::rowHeight());
+}
+
 void DialogsInner::paintEvent(QPaintEvent *e) {
+    paintContents(e);
+
+    // Reported from the paint pass because that is the one place guaranteed to run
+    // for every reason the row can move — selection, scroll, resize, reorder, a
+    // banner appearing above the list.
+    const auto active = activeRowRect();
+    if (active != _activeRowRect) {
+        _activeRowRect = active;
+        Q_EMIT activeRowPainted(active);
+    }
+}
+
+void DialogsInner::paintContents(QPaintEvent *e) {
     QPainter p(this);
 
     // Fill background (white) to avoid dark-mode bleed-through.

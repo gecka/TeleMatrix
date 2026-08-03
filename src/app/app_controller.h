@@ -166,6 +166,9 @@ public:
     /// Forwarded to the main widget, which owns the connection pill.
     void setConnectingBottomSkip(int skip);
 
+    /// Forwarded to the main widget, which owns the pane seam.
+    void setActiveRoomSeamCover(QRect rowInDialogs);
+
     /// App-global auto-updater. Owned here rather than per-account: it has to
     /// work before login and outlives account switches.
     [[nodiscard]] Core::UpdateService *updateService() const { return _updateService.get(); }

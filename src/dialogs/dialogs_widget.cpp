@@ -2612,6 +2612,23 @@ void DialogsWidget::setupScrollArea() {
         applyInitialDialogsLoadState(_initialDialogsLoadState);
     });
 
+    QObject::connect(_inner, &DialogsInner::activeRowPainted, this,
+        [this](QRect rowRect) {
+            if (!_controller) {
+                return;
+            }
+            // Clipped to the scroll viewport: a row scrolled half out of view must
+            // only continue across the seam for the part still on screen, and one
+            // scrolled fully away must not paint at all. Only the y-range travels
+            // — the seam's width belongs to the splitter handle, not to us.
+            const auto visible = rowRect.isEmpty()
+                ? QRect()
+                : QRect(0, _inner->mapTo(this, rowRect.topLeft()).y(),
+                        1, rowRect.height())
+                      .intersected(QRect(0, _scroll->y(), 1, _scroll->height()));
+            _controller->setActiveRoomSeamCover(visible);
+        });
+
     QObject::connect(_inner, &DialogsInner::pinRoomRequested, this, [this](const QString &roomId, bool pinned) {
         if (_bridge && !roomId.isEmpty()) {
             _pendingPinRequests.enqueue(PendingPinRequest{roomId, pinned});

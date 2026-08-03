@@ -93,6 +93,11 @@ public:
     /// pinned to its bottom edge (currently only the update bar).
     void setConnectingBottomSkip(int skip);
 
+    /// Continue the selected room row's background across the pane seam, so it
+    /// meets the timeline without a delimiter. `rowInDialogs` is the row's rect in
+    /// the rooms list's coordinates; an empty rect clears the cover.
+    void setActiveRoomSeamCover(QRect rowInDialogs);
+
 Q_SIGNALS:
     void activeRoomChanged(const QString &roomId);
     void logoutRequested();

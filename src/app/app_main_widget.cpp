@@ -164,6 +164,26 @@ public:
         update();
     }
 
+    /// Same idea for an arbitrary vertical band: the selected room row.
+    ///
+    /// That row is full-bleed too, so the seam drew a light delimiter down its
+    /// right edge — the one thing separating it from the timeline. `top` is in
+    /// this handle's coordinates; a zero height clears the cover.
+    ///
+    /// A y-range rather than a rect, because the width is never the caller's to
+    /// choose: setHandleWidth(1) is only a request, and the style hands out a
+    /// wider handle than that (5px here). The cover has to span whatever width
+    /// this handle actually got, exactly as setBottomCover does.
+    void setBandCover(int top, int height, QColor color) {
+        if (_bandTop == top && _bandHeight == height && _bandColor == color) {
+            return;
+        }
+        _bandTop = top;
+        _bandHeight = height;
+        _bandColor = color;
+        update();
+    }
+
 protected:
     void paintEvent(QPaintEvent *) override {
         QPainter p(this);
@@ -174,13 +194,19 @@ protected:
         // a restart "fixed" it by resetting the backing store). Compositing it
         // over windowBg exactly once also matches what the contrast floors in
         // tools/theme/colorize.py and tst_theme_registry measure.
-        const auto seam = (_coverHeight > 0)
-            ? rect().adjusted(0, 0, 0, -_coverHeight)
-            : rect();
-        if (!seam.isEmpty()) {
-            p.fillRect(seam, st::windowBg);
-            p.fillRect(seam, st::splitterHandleBg);
+        //
+        // The whole rect every time, then the covers over it: WA_OpaquePaintEvent
+        // means an unpainted pixel keeps stale content, and the covers can now
+        // start anywhere, so carving the seam around them is no longer a single
+        // adjusted() away.
+        p.fillRect(rect(), st::windowBg);
+        p.fillRect(rect(), st::splitterHandleBg);
+        if (_bandHeight > 0 && _bandColor.isValid()) {
+            p.fillRect(
+                QRect(0, _bandTop, width(), _bandHeight).intersected(rect()),
+                _bandColor);
         }
+        // Last: the bottom bar sits above the room list where they meet.
         if (_coverHeight > 0) {
             p.fillRect(
                 QRect(0, height() - _coverHeight, width(), _coverHeight),
@@ -191,6 +217,9 @@ protected:
 private:
     int _coverHeight = 0;
     QColor _coverColor;
+    int _bandTop = 0;
+    int _bandHeight = 0;
+    QColor _bandColor;
 };
 
 class ThemedSplitter : public QSplitter {
@@ -206,6 +235,15 @@ public:
         for (auto i = 0; i != count(); ++i) {
             if (auto *h = static_cast<ThemedSplitterHandle *>(handle(i))) {
                 h->setBottomCover(height, color);
+            }
+        }
+    }
+
+    /// `top` is in this splitter's coordinates; each handle maps it into its own.
+    void setHandleBandCover(int top, int height, QColor color) {
+        for (auto i = 0; i != count(); ++i) {
+            if (auto *h = static_cast<ThemedSplitterHandle *>(handle(i))) {
+                h->setBandCover(top - h->y(), height, color);
             }
         }
     }
@@ -1540,6 +1578,20 @@ void AppMainWidget::setConnectingBottomSkip(int skip) {
         static_cast<ThemedSplitter *>(_splitter)->setHandleBottomCover(
             skip, skip > 0 ? st::groupCallLive2 : QColor());
     }
+}
+
+void AppMainWidget::setActiveRoomSeamCover(QRect rowInDialogs) {
+    if (!_splitter || !_dialogs) {
+        return;
+    }
+    // Same reasoning as the bottom bar above: the selected row is full-bleed, so
+    // the seam beside it reads as a border between the list and the timeline.
+    // Continue the row's own colour across the handle for exactly its height.
+    const auto empty = rowInDialogs.isEmpty();
+    static_cast<ThemedSplitter *>(_splitter)->setHandleBandCover(
+        empty ? 0 : _dialogs->y() + rowInDialogs.y(),
+        empty ? 0 : rowInDialogs.height(),
+        empty ? QColor() : st::dialogsBgActive);
 }
 
 void AppMainWidget::restoreDialogsWidth() {

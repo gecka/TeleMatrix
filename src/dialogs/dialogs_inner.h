@@ -138,9 +138,20 @@ signals:
     void searchResultClicked(const QString &roomId, const QString &eventId);
     void loadMoreSearchResults();
     void initialLoadingPainted();
+    /// Where the selected row was just painted, in this widget's coordinates
+    /// (empty when nothing is selected). Emitted from the paint pass because that
+    /// is the one place guaranteed to run for every reason the row can move —
+    /// selection, scroll, resize, reorder, a banner appearing above the list.
+    void activeRowPainted(QRect rowRect);
 
 protected:
     void paintEvent(QPaintEvent *e) override;
+    /// The actual painting. Split out so paintEvent keeps a single exit at which
+    /// to report the selected row, however many early returns this takes.
+    void paintContents(QPaintEvent *e);
+    /// The selected row's rect in this widget's coordinates, empty when no row is
+    /// showing (no selection, or a mode that draws no rows at all).
+    [[nodiscard]] QRect activeRowRect() const;
     void resizeEvent(QResizeEvent *e) override;
     void mousePressEvent(QMouseEvent *e) override;
     void mouseMoveEvent(QMouseEvent *e) override;
@@ -176,6 +187,8 @@ private:
     QString _searchQuery;
     int _hoveredIndex = -1;
     int _selectedIndex = -1;
+    /// Where the selected row landed in the last paint; empty when none showed.
+    QRect _activeRowRect;
     int _menuRowIndex = -1;
     QString _selectedRoomId;
     QPointer<HistoryPopupMenuStyle::PopupMenu> _contextMenu;
