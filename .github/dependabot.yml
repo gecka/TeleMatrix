@@ -56,6 +56,18 @@ updates:
         update-types: ['version-update:semver-minor', 'version-update:semver-major']
       - dependency-name: sha2
         update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      # FFmpeg generation lock. ffmpeg-next's major tracks FFmpeg's, and macOS links
+      # the universal FFmpeg 7.1 that Qt ships — the crate pin, the vendored headers
+      # in third_party/ffmpeg-7.1, Qt's sonames (asserted in CMakeLists.txt) and the
+      # vcpkg commit the Windows job checks out are one unit. Moving the crate alone
+      # is the mismatch that already killed the Windows build once: ffmpeg-sys-next
+      # 7.x includes libavcodec/avfft.h, which FFmpeg 8 removed. PR CI cannot catch
+      # it — no package build runs on pull requests (see the header above). Re-pin by
+      # hand, all four together; third_party/ffmpeg-7.1/README.md has the procedure.
+      - dependency-name: ffmpeg-next
+        update-types: ['version-update:semver-major']
+      - dependency-name: ffmpeg-sys-next
+        update-types: ['version-update:semver-major']
     open-pull-requests-limit: 5
 
   - package-ecosystem: cargo
