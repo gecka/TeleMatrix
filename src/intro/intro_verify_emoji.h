@@ -32,6 +32,11 @@ public:
     // Empty when neither is known.
     QString currentFlowId() const { return _flowId.isEmpty() ? _requestFlowId : _flowId; }
 
+    // Correlation id of a start call still on the wire, 0 when none. Non-zero
+    // together with an empty currentFlowId() means this page owns a flow it
+    // cannot yet name, so a cancel has to wait for the reply.
+    [[nodiscard]] quint64 pendingStartRequestId() const { return _startRequestId; }
+
     // Ignore a Cancelled state belonging to this flow id — used when switching
     // here from a QR flow we deliberately tore down ("compare emoji instead"),
     // so that flow's cancellation does not surface as a failure on this page.

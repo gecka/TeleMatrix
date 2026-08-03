@@ -78,6 +78,7 @@ void tm_set_new_login_callback(
 #include <QTimer>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <functional>
@@ -5082,6 +5083,33 @@ void ProtocolBridge::cancelVerification(const QString &transactionId) {
             simpleCallbackTrampoline,
             static_cast<void *>(data));
     }
+}
+
+void ProtocolBridge::cancelVerificationOnStartReply(quint64 startRequestId) {
+    if (!startRequestId) {
+        return;
+    }
+    // One id can be answered by either reply: _nextStartRequestId is shared by
+    // the SAS and QR starts, and the caller may be a QR page.
+    auto connections = std::make_shared<std::array<QMetaObject::Connection, 2>>();
+    const auto onReply = [this, startRequestId, connections](
+            quint64 requestId, bool success, const QString &flowId) {
+        if (requestId != startRequestId) {
+            return;
+        }
+        for (auto &connection : *connections) {
+            QObject::disconnect(connection);
+        }
+        // A failed start left no flow to cancel; cancelling with an empty id
+        // here is exactly the unrelated-flow teardown this exists to avoid.
+        if (success && !flowId.isEmpty()) {
+            cancelVerification(flowId);
+        }
+    };
+    (*connections)[0] = connect(
+        this, &ProtocolBridge::sasVerificationStarted, this, onReply);
+    (*connections)[1] = connect(
+        this, &ProtocolBridge::qrCodeReady, this, onReply);
 }
 
 void ProtocolBridge::mismatchSas() {

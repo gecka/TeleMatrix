@@ -205,6 +205,17 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible()) {
             return;
         }
+        // Accept only this page's own emojis: rendering arms "They match",
+        // which confirms whatever SAS the backend holds, so adopting a foreign
+        // flow here makes the user sign a verification they never saw. The
+        // start reply latches _flowId before any emoji for our flow can exist
+        // (emojis need a further peer round trip after the start returns), and
+        // the ignored flow's late emojis are accepted explicitly — the revival
+        // path below arrives with _flowId cleared by resetForAttempt().
+        if (!VerificationPageRules::emojisBelongToPage(
+                flowId, _flowId, _ignoredFlowId)) {
+            return;
+        }
         // Emojis for a flow we marked ignored (e.g. the QR flow left behind
         // for "compare emoji instead") prove the cancel raced the peer's SAS
         // start and lost — that flow is alive and now serving this page.
@@ -214,7 +225,11 @@ IntroVerifyEmoji::IntroVerifyEmoji(QWidget *parent, ProtocolBridge *bridge)
         if (VerificationPageRules::emojisReviveIgnoredFlow(flowId, _ignoredFlowId)) {
             _ignoredFlowId.clear();
         }
-        _flowId = flowId;
+        if (!flowId.isEmpty()) {
+            // Never unlatch on an untagged emission: an empty _flowId would
+            // then make this page's own Done unownable (acceptDone).
+            _flowId = flowId;
+        }
         presentEmojis(emojis, labels);
     });
     connect(_bridge, &ProtocolBridge::sasConfirmed,

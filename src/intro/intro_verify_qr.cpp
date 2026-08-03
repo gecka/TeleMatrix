@@ -80,7 +80,15 @@ IntroVerifyQr::IntroVerifyQr(QWidget *parent, ProtocolBridge *bridge)
         if (!isVisible() || modules.isEmpty() || size <= 0) {
             return;
         }
-        _flowId = flowId;
+        // Don't render another flow's code. This page has no adoption path, so
+        // the pre-latch wildcard is enough here — unlike the emoji page, which
+        // needs the stricter emojisBelongToPage.
+        if (!VerificationPageRules::flowMatches(flowId, _flowId)) {
+            return;
+        }
+        if (!flowId.isEmpty()) {
+            _flowId = flowId;
+        }
         _modules = modules;
         _qrSize = size;
         hideError();

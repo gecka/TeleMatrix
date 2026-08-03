@@ -73,6 +73,9 @@ protected:
     void resizeEvent(QResizeEvent *e) override;
 
 private:
+    /// Correlation id of a start call the current method page still has on the
+    /// wire, 0 for any other page or when none is pending.
+    [[nodiscard]] quint64 pendingStartRequestId() const;
     void showStep(int index);
     /// Latch success and show the success screen.
     void onVerified();

@@ -209,7 +209,21 @@ void VerificationFlow::cancel() {
     _finished = true;
     _recoveryKeyStep->deactivate();
     _setupEncryptionStep->deactivate();
-    _bridge->cancelVerification(activeFlowId());
+    const auto flowId = activeFlowId();
+    if (flowId.isEmpty()) {
+        if (const auto pending = pendingStartRequestId()) {
+            // The page owns a flow it cannot yet name. An empty cancel would
+            // tear down whatever the backend holds instead — possibly an
+            // incoming request whose banner is up — while dropping it would
+            // orphan ours. Cancel the flow our own reply names. Only from
+            // here: the method-switch sites cancel BEFORE starting the next
+            // flow on purpose, and deferring there would let the new flow
+            // displace the old one out of a flow-scoped cancel's reach.
+            _bridge->cancelVerificationOnStartReply(pending);
+            return;
+        }
+    }
+    _bridge->cancelVerification(flowId);
 }
 
 QString VerificationFlow::activeFlowId() const {
@@ -217,6 +231,14 @@ QString VerificationFlow::activeFlowId() const {
     case kStepEmoji: return _emojiStep->currentFlowId();
     case kStepQr: return _qrStep->currentFlowId();
     default: return QString();
+    }
+}
+
+quint64 VerificationFlow::pendingStartRequestId() const {
+    switch (_stack->currentIndex()) {
+    case kStepEmoji: return _emojiStep->pendingStartRequestId();
+    case kStepQr: return _qrStep->pendingStartRequestId();
+    default: return 0;
     }
 }
 

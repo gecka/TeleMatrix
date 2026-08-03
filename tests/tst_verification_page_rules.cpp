@@ -106,6 +106,58 @@ private slots:
         QVERIFY(!R::emojisReviveIgnoredFlow(QStringLiteral("$a"), QString()));
     }
 
+    // THE DECEIVING-ACTION GUARD (final review C1). Emojis the emoji page
+    // accepts are RENDERED with "They match" armed, so a foreign flow's
+    // payload does not merely display a lie — clicking confirms whatever SAS
+    // the backend holds. Unlike every other rule here, an unlatched page is
+    // therefore not a wildcard. The ignored-flow arm is what keeps that from
+    // stranding the "compare emoji instead" revival, which legitimately
+    // arrives with _flowId cleared by resetForAttempt().
+    void emojiPayloadOwnership_data() {
+        QTest::addColumn<QString>("eventFlow");
+        QTest::addColumn<QString>("pageFlow");
+        QTest::addColumn<QString>("ignoredFlow");
+        QTest::addColumn<bool>("accepted");
+
+        QTest::newRow("untagged, latched")
+            << QString() << QStringLiteral("$a") << QString() << true;
+        QTest::newRow("untagged, unlatched")
+            << QString() << QString() << QString() << true;
+        // Pins the untagged arm itself: without it, an untagged emission is
+        // accepted only while _flowId or _ignoredFlowId is still empty, so a
+        // latched page that is also still ignoring a flow would reject its own
+        // emojis and hang with no timeout to save it.
+        QTest::newRow("untagged, latched, a flow still ignored")
+            << QString() << QStringLiteral("$a") << QStringLiteral("$qr") << true;
+        QTest::newRow("own flow")
+            << QStringLiteral("$a") << QStringLiteral("$a") << QString() << true;
+        // ignoreFlow($qr) -> showStep(kStepEmoji) -> resetForAttempt() clears
+        // _flowId but not _ignoredFlowId: the QR flow's late emojis land here.
+        QTest::newRow("revived ignored flow, unlatched")
+            << QStringLiteral("$qr") << QString() << QStringLiteral("$qr") << true;
+        // Same revival after our own fresh start already latched.
+        QTest::newRow("revived ignored flow, latched elsewhere")
+            << QStringLiteral("$qr") << QStringLiteral("$new")
+            << QStringLiteral("$qr") << true;
+        QTest::newRow("foreign, latched")
+            << QStringLiteral("$b") << QStringLiteral("$a") << QString() << false;
+        // The case the unconditional adoption made reachable: a cross-user
+        // dialog's SAS rendering on an unlatched session-verification page.
+        QTest::newRow("foreign, unlatched")
+            << QStringLiteral("$b") << QString() << QString() << false;
+        QTest::newRow("foreign while an unrelated flow is ignored")
+            << QStringLiteral("$b") << QStringLiteral("$a")
+            << QStringLiteral("$qr") << false;
+    }
+    void emojiPayloadOwnership() {
+        QFETCH(QString, eventFlow);
+        QFETCH(QString, pageFlow);
+        QFETCH(QString, ignoredFlow);
+        QFETCH(bool, accepted);
+        QCOMPARE(
+            R::emojisBelongToPage(eventFlow, pageFlow, ignoredFlow), accepted);
+    }
+
     // A foreign code adopted while unlatched mislabels the next failure's
     // severity — the strict rule requires a real match on both sides
     // (element-alignment, Task 4 fix round). Both pages use it now: the QR

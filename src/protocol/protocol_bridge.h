@@ -524,7 +524,18 @@ public:
     /// Skip verification. Result arrives via verificationSkipped.
     void skipVerification();
     /// Cancel active verification flow. Result arrives via verificationCancelled.
+    /// An empty transactionId cancels whichever flow the backend holds, which
+    /// may not be the caller's — prefer cancelVerificationOnStartReply while a
+    /// start is still on the wire.
     void cancelVerification(const QString &transactionId = QString());
+    /// Cancel the flow named by the reply to `startRequestId`, once that reply
+    /// lands. For a surface dismissed while its start call is still on the
+    /// wire: it has no flow id to cancel yet, and an empty cancel would take
+    /// down an unrelated flow (e.g. an incoming request whose banner is up).
+    /// The wait lives on the bridge, so it outlives the surface — a dialog is
+    /// deleted as soon as its event loop quits, long before a start can reply.
+    /// A failed start left no flow behind, so nothing is cancelled then.
+    void cancelVerificationOnStartReply(quint64 startRequestId);
     void mismatchSas();
     /// Get verification capabilities. Result arrives via verificationCapabilitiesReady.
     void getVerificationCapabilities();

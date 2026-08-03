@@ -31,6 +31,10 @@ public:
     // a following page which flow to ignore when switching away.
     QString currentFlowId() const { return _flowId; }
 
+    // Correlation id of a start call still on the wire, 0 when none. See
+    // IntroVerifyEmoji::pendingStartRequestId.
+    [[nodiscard]] quint64 pendingStartRequestId() const { return _startRequestId; }
+
 signals:
     void verified();
     void useEmojiVerification();

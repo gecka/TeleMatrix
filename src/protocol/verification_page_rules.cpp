@@ -63,6 +63,18 @@ bool VerificationPageRules::emojisReviveIgnoredFlow(
     return !eventFlow.isEmpty() && eventFlow == ignoredFlow;
 }
 
+bool VerificationPageRules::emojisBelongToPage(
+        const QString &eventFlow,
+        const QString &pageFlow,
+        const QString &ignoredFlow) {
+    // intro_verify_emoji.cpp: an unlatched page is not a wildcard — accepting a
+    // foreign flow's emojis there renders them with "They match" armed.
+    if (eventFlow.isEmpty()) {
+        return true;
+    }
+    return eventFlow == pageFlow || eventFlow == ignoredFlow;
+}
+
 bool VerificationPageRules::adoptCancelCodeStrict(
         const QString &eventFlow, const QString &pageFlow) {
     // intro_verify_emoji.cpp / intro_verify_qr.cpp: require a real match on

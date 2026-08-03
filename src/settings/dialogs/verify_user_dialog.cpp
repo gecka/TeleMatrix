@@ -751,7 +751,19 @@ void VerifyUserDialog::accept() {
 void VerifyUserDialog::reject() {
     // Cancel any in-flight verification to avoid orphaned backend operations.
     if (_bridge) {
-        _bridge->cancelVerification(_transactionId);
+        if (_transactionId.isEmpty() && _startRequestId) {
+            // Outgoing path, closed inside the start's network window: we have
+            // no flow id yet, and an empty cancel takes down whatever flow the
+            // backend holds — e.g. an incoming request whose banner is up,
+            // which the other device would see as a decline it never earned.
+            // Cancel the flow our own reply names instead; dropping the cancel
+            // would orphan our own request. _startRequestId stays set on
+            // purpose, so a repeat reject re-registers the same flow-scoped
+            // cancel rather than falling through to the empty one.
+            _bridge->cancelVerificationOnStartReply(_startRequestId);
+        } else {
+            _bridge->cancelVerification(_transactionId);
+        }
     }
     _result = Rejected;
     if (_loop) _loop->quit();

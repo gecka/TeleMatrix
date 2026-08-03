@@ -67,6 +67,19 @@ struct VerificationPageRules {
     [[nodiscard]] static bool emojisReviveIgnoredFlow(
         const QString &eventFlow, const QString &ignoredFlow);
 
+    // Emoji payloads on the intro emoji page. Rendering them arms "They match",
+    // which confirms whatever SAS the backend holds — so a foreign flow's
+    // emojis here make the user sign someone else's verification, not merely
+    // display a lie. Accept iff untagged, ours, or the ignored flow (its late
+    // emojis prove the cancel lost the race — verification_flow.cpp's
+    // ignoreFlow() → showStep(kStepEmoji) path clears _flowId but deliberately
+    // keeps _ignoredFlowId, so those legitimately arrive unlatched). Stricter
+    // than flowMatches: an unlatched page is NOT a wildcard here.
+    [[nodiscard]] static bool emojisBelongToPage(
+        const QString &eventFlow,
+        const QString &pageFlow,
+        const QString &ignoredFlow);
+
     // Cancel-code adoption for later severity classification: requires a real
     // match on both sides, so a foreign flow's code can never mislabel this
     // page's own later Cancelled. Safe as the only variant because adoption
