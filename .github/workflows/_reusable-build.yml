@@ -459,7 +459,25 @@ jobs:
           # so the cross-platform pkg-config link works unchanged. With the binary
           # cache above, a cache hit unpacks prebuilt FFmpeg instead of compiling it.
           vcpkg install "ffmpeg[core,avcodec,avformat,swresample,swscale]:x64-windows"
-          choco install pkgconfiglite -y --no-progress
+
+          # pkg-config itself comes from chocolatey, whose community feed 503s often
+          # enough to matter — and `choco install` EXITS 0 when it does ("Chocolatey
+          # installed 0/0 packages"), so the miss stays invisible until CMake fails
+          # three steps later with "Could NOT find PkgConfig". Retry on the tool being
+          # absent, NEVER on the exit code, and fail here where the cause is legible.
+          $havePkgConfig = { [bool](Get-Command pkg-config -ErrorAction SilentlyContinue) -or
+                             (Test-Path "$env:ChocolateyInstall\bin\pkg-config.exe") }
+          foreach ($attempt in 1..3) {
+            if ($attempt -gt 1) { Start-Sleep -Seconds (15 * ($attempt - 1)) }
+            # try/catch: PowerShell 7.4 turns a non-zero native exit into a throw.
+            try { choco install pkgconfiglite -y --no-progress } catch { Write-Host "::warning::choco: $_" }
+            if (& $havePkgConfig) { break }
+            Write-Host "::warning::pkgconfiglite installed nothing (attempt $attempt/3); retrying"
+          }
+          if (-not (& $havePkgConfig)) {
+            throw "pkg-config is still missing after 3 attempts — the chocolatey feed is down, which is not a repo change. Re-run this job."
+          }
+
           # VCPKG_ROOT/VCPKGRS_DYNAMIC let ffmpeg-sys-next (cargo) fall back to vcpkg.
           # NOTE: PKG_CONFIG_PATH is set INLINE at the Configure/Build steps, not here —
           # the later "Install Qt" action (aqtinstall/Python) overwrites PKG_CONFIG_PATH
