@@ -10,17 +10,39 @@ use futures_util::StreamExt;
 use matrix_sdk::event_cache::PaginationStatus;
 use matrix_sdk::Room;
 use matrix_sdk_ui::timeline::{
-    RoomExt, Timeline as SdkTimeline, TimelineEventFocusThreadMode, TimelineFocus,
-    TimelineItem as SdkTimelineItem,
+    EncryptedMessage, MsgLikeKind, RoomExt, Timeline as SdkTimeline, TimelineEventFocusThreadMode,
+    TimelineFocus, TimelineItem as SdkTimelineItem, TimelineItemContent,
 };
+use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
-use tracing::warn;
+use tracing::{debug, warn};
 
 const INITIAL_BACK_PAGINATION_LIMIT: u16 = 50;
 const PAGINATION_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Cadence of the stuck-UTD reconciler while its session set is churning /
+/// after it goes idle at the backoff cap.
+pub(crate) const UTD_RECONCILE_BASE: Duration = Duration::from_secs(5);
+pub(crate) const UTD_RECONCILE_CAP: Duration = Duration::from_secs(60);
+
+/// Next reconciler sleep. Any activity (set changed) or nothing to do (empty)
+/// resets to the base cadence; an unchanged non-empty set — UTDs whose keys
+/// genuinely aren't local yet — backs off toward the cap so the retries stay
+/// polite instead of becoming a hot redecryption loop.
+pub(crate) fn next_reconcile_interval(
+    current: Duration,
+    set_changed: bool,
+    empty: bool,
+) -> Duration {
+    if empty || set_changed {
+        UTD_RECONCILE_BASE
+    } else {
+        (current * 2).min(UTD_RECONCILE_CAP)
+    }
+}
 
 /// Reduced timeline diffs that the protocol layer can apply without asking the
 /// SDK for the full item vector. Virtual-item churn (date dividers, read
@@ -233,6 +255,7 @@ pub struct TimelineWindow {
     pub live_timeline: Arc<SdkTimeline>,
     live_watcher_handle: Option<JoinHandle<()>>,
     live_pagination_status_handle: Option<JoinHandle<()>>,
+    utd_reconciler_handle: Option<JoinHandle<()>>,
     focused_timeline: Option<Arc<SdkTimeline>>,
     focused_watcher_handle: Option<JoinHandle<()>>,
     focus_target_event_id: Option<String>,
@@ -338,6 +361,56 @@ impl TimelineWindow {
         }
     }
 
+    /// Megolm session ids of the UTD items currently in `items`.
+    fn utd_session_ids(items: &[Arc<SdkTimelineItem>]) -> BTreeSet<String> {
+        items
+            .iter()
+            .filter_map(|item| item.as_event())
+            .filter_map(|event| match event.content() {
+                TimelineItemContent::MsgLike(msg_like) => match &msg_like.kind {
+                    MsgLikeKind::UnableToDecrypt(EncryptedMessage::MegolmV1AesSha2 {
+                        session_id,
+                        ..
+                    }) => Some(session_id.clone()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Safety net for lost redecryption triggers. The SDK's pipeline is
+    /// at-most-once end to end: the event-cache redecryptor retries a session
+    /// exactly when its key-arrival notification is delivered, swallows retry
+    /// errors, and the UI timeline's Lagging handler is a no-op — so one failed
+    /// or lag-dropped attempt during the post-verification key flood leaves an
+    /// item undecrypted forever while its key sits in the store (decrypts on
+    /// restart). While this window shows UTDs, periodically re-request
+    /// decryption for exactly those sessions via the SDK's explicit-request
+    /// path. Local-only, targeted, and backed off — not the old hot
+    /// redecryption loop.
+    async fn reconcile_stuck_utds(timeline: Arc<SdkTimeline>, room_id: String) {
+        let mut interval = UTD_RECONCILE_BASE;
+        let mut last: BTreeSet<String> = BTreeSet::new();
+        loop {
+            tokio::time::sleep(interval).await;
+            let items = timeline.items().await;
+            let items: Vec<_> = items.into_iter().collect();
+            let sessions = Self::utd_session_ids(&items);
+            let changed = sessions != last;
+            interval = next_reconcile_interval(interval, changed, sessions.is_empty());
+            last = sessions.clone();
+            if sessions.is_empty() {
+                continue;
+            }
+            debug!(
+                "[keys] reconciling {} stuck UTD session(s) in {room_id}",
+                sessions.len()
+            );
+            timeline.retry_decryption(sessions).await;
+        }
+    }
+
     pub async fn new(room: Room, room_id: String, on_changed: OnTimelineChanged) -> Result<Self> {
         let build_t0 = std::time::Instant::now();
 
@@ -395,6 +468,7 @@ impl TimelineWindow {
             live_timeline,
             live_watcher_handle: None,
             live_pagination_status_handle: None,
+            utd_reconciler_handle: None,
             focused_timeline: None,
             focused_watcher_handle: None,
             focus_target_event_id: None,
@@ -415,6 +489,15 @@ impl TimelineWindow {
         if let Some(handle) = self.live_pagination_status_handle.take() {
             handle.abort();
         }
+        if let Some(handle) = self.utd_reconciler_handle.take() {
+            handle.abort();
+        }
+
+        let reconcile_timeline = self.live_timeline.clone();
+        let reconcile_room_id = self.room_id.clone();
+        self.utd_reconciler_handle = Some(tokio::spawn(async move {
+            Self::reconcile_stuck_utds(reconcile_timeline, reconcile_room_id).await;
+        }));
 
         let status_timeline = self.live_timeline.clone();
         let status_state = self.state.clone();
@@ -745,13 +828,49 @@ impl Drop for TimelineWindow {
         if let Some(h) = self.focused_watcher_handle.take() {
             h.abort();
         }
+        if let Some(h) = self.utd_reconciler_handle.take() {
+            h.abort();
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{classify_event_change, reduce_batch, EventChange, ReducedOp};
+    use super::{
+        classify_event_change, next_reconcile_interval, reduce_batch, EventChange, ReducedOp,
+        UTD_RECONCILE_BASE, UTD_RECONCILE_CAP,
+    };
     use eyeball_im::{Vector, VectorDiff};
+    use std::time::Duration;
+
+    // The reconciler must never become a hot redecryption loop: an unchanged
+    // non-empty UTD set (keys genuinely not local yet) backs off toward the cap,
+    // while any activity — or nothing to do — resets to the base cadence so a
+    // lost-trigger UTD is re-attempted promptly.
+    #[test]
+    fn reconcile_interval_backs_off_only_while_stuck() {
+        let mut interval = UTD_RECONCILE_BASE;
+        interval = next_reconcile_interval(interval, false, false);
+        assert_eq!(interval, UTD_RECONCILE_BASE * 2);
+        for _ in 0..8 {
+            interval = next_reconcile_interval(interval, false, false);
+        }
+        assert_eq!(
+            interval, UTD_RECONCILE_CAP,
+            "unchanged set caps, never grows past it"
+        );
+
+        assert_eq!(
+            next_reconcile_interval(interval, true, false),
+            UTD_RECONCILE_BASE,
+            "a changed set (key flood activity) resets the cadence"
+        );
+        assert_eq!(
+            next_reconcile_interval(Duration::from_secs(60), false, true),
+            UTD_RECONCILE_BASE,
+            "an emptied set resets so the next UTD gets a prompt first pass"
+        );
+    }
 
     fn keys(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()
