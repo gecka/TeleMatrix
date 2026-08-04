@@ -6,6 +6,7 @@
 
 #include "dialogs_room_create_dialog.h"
 #include "ui/widgets/emoji_input_field.h"
+#include "ui/widgets/input_fields.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -80,24 +81,6 @@ protected:
         p.setPen(Qt::NoPen);
         p.setBrush(st::boxBg);
         p.drawRoundedRect(rect(), st::boxRadius, st::boxRadius);
-    }
-};
-
-// Rounded panel with a static 1px border (st::inputBorderFg) over st::boxBg.
-// Used as the alias-input container, which had no focus-border in the original
-// QSS. Live st:: colors so it tracks theme changes.
-class StaticBorderPanel : public QWidget {
-public:
-    explicit StaticBorderPanel(QWidget *parent) : QWidget(parent) {}
-
-protected:
-    void paintEvent(QPaintEvent *) override {
-        QPainter p(this);
-        PainterHighQualityEnabler hq(p);
-        p.setPen(QPen(st::inputBorderFg, 1));
-        p.setBrush(st::boxBg);
-        const QRectF r = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-        p.drawRoundedRect(r, 4, 4);
     }
 };
 
@@ -547,33 +530,27 @@ void DialogsRoomCreateDialog::init() {
             &DialogsRoomCreateDialog::updateVisibilityFields);
     settingsLayout->addWidget(_publicCheck);
 
-    // Room alias (shown when public). The server suffix stays visible in
-    // the field so the local-part editor cannot collide with it.
-    _aliasContainer = new StaticBorderPanel(settingsContainer);
-    _aliasContainer->setFixedHeight(36);
+    // Room alias (shown when public). The server suffix stays visible next to the
+    // field so the local-part editor cannot collide with it. Same flat underline
+    // and floating caption as the name and topic fields above.
+    _aliasContainer = new QWidget(settingsContainer);
+    _aliasContainer->setFixedHeight(st::defaultInputField.heightMin);
 
     auto *aliasLayout = new QHBoxLayout(_aliasContainer);
-    aliasLayout->setContentsMargins(10, 0, 10, 0);
-    aliasLayout->setSpacing(4);
+    aliasLayout->setContentsMargins(0, 0, 0, 0);
+    aliasLayout->setSpacing(8);
 
-    _aliasField = new QLineEdit(_aliasContainer);
-    _aliasField->setPlaceholderText(QCoreApplication::translate("DialogsRoomCreateDialog", "Room address"));
-    _aliasField->setFrame(false);
-    _aliasField->setAttribute(Qt::WA_MacShowFocusRect, false);
-    // Frameless + transparent background; live st:: colors via QPalette.
-    _aliasField->setFont(st::baseFont(14));
-    {
-        QPalette pal = _aliasField->palette();
-        pal.setColor(QPalette::Base, Qt::transparent);
-        pal.setColor(QPalette::Text, st::windowFg);
-        pal.setColor(QPalette::Highlight, st::windowBgActive);
-        _aliasField->setPalette(pal);
-    }
-    _aliasField->setTextMargins(0, 0, 0, 0);
-    aliasLayout->addWidget(_aliasField, 1);
+    auto *aliasInput = new ::Ui::InputField(
+        _aliasContainer,
+        st::defaultInputField,
+        rpl::single<QString>(
+            QCoreApplication::translate("DialogsRoomCreateDialog", "Room address")));
+    aliasInput->setFloatingPlaceholder(true);
+    _aliasField = aliasInput;
+    aliasLayout->addWidget(aliasInput, 1);
 
     _aliasSuffixLabel = new QLabel(_aliasContainer);
-    _aliasSuffixLabel->setFont(st::baseFont(14));
+    _aliasSuffixLabel->setFont(st::normalFont);
     _aliasSuffixLabel->setText(_serverName.isEmpty()
         ? QString()
         : QStringLiteral(":%1").arg(_serverName));
@@ -584,7 +561,10 @@ void DialogsRoomCreateDialog::init() {
     }
     _aliasSuffixLabel->setTextInteractionFlags(Qt::NoTextInteraction);
     _aliasSuffixLabel->setVisible(!_serverName.isEmpty());
-    aliasLayout->addWidget(_aliasSuffixLabel, 0, Qt::AlignVCenter);
+    // Bottom-aligned onto the field's text line, lifted clear of its underline.
+    _aliasSuffixLabel->setContentsMargins(
+        0, 0, 0, st::defaultInputField.textMargins.bottom());
+    aliasLayout->addWidget(_aliasSuffixLabel, 0, Qt::AlignBottom);
     _aliasSlot = reservedSlotFor(_aliasContainer, settingsContainer);
     settingsLayout->addWidget(_aliasSlot);
 

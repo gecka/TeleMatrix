@@ -884,11 +884,25 @@ public:
         setPalette(pal);
     }
 
+public:
+    // Read-only decides whether the underline shows, so repaint the layer with it.
+    void setEditable(bool editable) {
+        setReadOnly(!editable);
+        updateChrome();
+    }
+
+    void refreshStyle(const st::InputFieldStyle &style) override {
+        ::Ui::EmojiInputField::refreshStyle(style);
+        // The cover name is bold body text, not field text.
+        QPalette pal = palette();
+        pal.setColor(QPalette::Text, st::windowBoldFg);
+        setPalette(pal);
+    }
+
 protected:
-    void paintEvent(QPaintEvent *e) override {
-        ::Ui::EmojiInputField::paintEvent(e);
+    void paintChrome(QPainter &p) override {
+        ::Ui::EmojiInputField::paintChrome(p); // chrome off: draws nothing
         if (!isReadOnly() && hasFocus()) {
-            QPainter p(this);
             p.fillRect(0, height() - 2, width(), 2, st::activeLineFg);
         }
     }
@@ -954,7 +968,7 @@ public:
         }
         _canEditName = canEdit;
         if (_nameField) {
-            _nameField->setReadOnly(!canEdit);
+            _nameField->setEditable(canEdit);
         }
         update();
     }

@@ -70,6 +70,19 @@ endforeach()
 # widget classes themselves rather than just the pure-logic core.
 target_link_libraries(tst_dialogs_width PRIVATE Qt6::Widgets)
 
+# The input-field chrome lives in the app target, not telematrix_core, so compile
+# the real production input_fields.cpp in (exercises the same object, not a copy).
+add_executable(tst_input_field_chrome
+    tst_input_field_chrome.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/widgets/input_fields.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/style/runtime_font.cpp)
+target_link_libraries(tst_input_field_chrome
+    PRIVATE telematrix_core Qt6::Test Qt6::Widgets)
+add_test(NAME input_field_chrome COMMAND tst_input_field_chrome)
+add_dependencies(telematrix_cpp_tests tst_input_field_chrome)
+set_tests_properties(input_field_chrome PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # MediaCache lives in the app target (not telematrix_core), and pulls in
 # Qt Widgets/Concurrent. Give it a dedicated runner that compiles the real
 # production media_cache.cpp directly (exercises the same object, not a copy).

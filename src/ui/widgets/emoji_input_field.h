@@ -48,13 +48,28 @@ public:
     // paint their own decoration and size themselves.
     void setChromeVisible(bool visible);
 
+    /// Re-read colors from the style struct (call after theme change).
+    virtual void refreshStyle(const st::InputFieldStyle &style);
+
 Q_SIGNALS:
     void submitted();
     // QLineEdit::editingFinished's shape: Return, or losing focus.
     void editingFinished();
 
 protected:
+    // Paints the field's decoration UNDER its text. Overridden by fields that supply
+    // their own (the room-settings cover name); the base draws the shared chrome.
+    //
+    // This runs on a dedicated layer widget, not in paintEvent, because a QTextEdit's
+    // paintEvent targets the viewport — which applyFieldMetrics() insets by the text
+    // margins, so it clips away exactly the two strips the chrome needs: the bottom
+    // border and the lifted floating caption.
+    virtual void paintChrome(QPainter &p);
+    // Repaint the decoration after a state change (focus, content, style, metrics).
+    void updateChrome();
+
     void paintEvent(QPaintEvent *e) override;
+    void resizeEvent(QResizeEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;
     void focusInEvent(QFocusEvent *e) override;
     void focusOutEvent(QFocusEvent *e) override;
@@ -63,6 +78,8 @@ protected:
     [[nodiscard]] QMimeData *createMimeDataFromSelection() const override;
 
 private:
+    class ChromeLayer;
+
     [[nodiscard]] InputChrome::State chromeState() const;
     void startFocusAnimation(bool focused);
     void updatePlaceholderShown();
@@ -75,6 +92,7 @@ private:
     QVariantAnimation _focusAnimation;
     QVariantAnimation _placeholderShownAnimation;
     EmojiObjects::Watcher *_emoji = nullptr;
+    ChromeLayer *_chrome = nullptr;
     qreal _focusedProgress = 0.;
     qreal _placeholderShownProgress = 0.;
     int _maxLength = 0;

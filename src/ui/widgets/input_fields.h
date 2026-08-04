@@ -67,8 +67,27 @@ struct State {
     bool floating = false;
 };
 
+// Where the flat field's bottom border goes: the field's LAST rows, thickening on
+// focus. Note it touches `state.rect`'s bottom edge — so the chrome can only be
+// painted onto a surface covering the whole field. A QTextEdit viewport, inset by
+// the text margins, clips it away entirely (that is what broke the popup forms).
+[[nodiscard]] QRect UnderlineRect(const State &state);
+
 void PaintFlatSurrounding(QPainter &p, const State &state);
 void PaintPlaceholder(QPainter &p, const State &state);
+
+// Height range and text margins for a field in the given mode. A flat caption field
+// (borderRadius 0) reserves a top strip so the placeholder can float up as a caption;
+// with no caption (floating off — single-field forms) that strip is dropped and the
+// field shrinks. Round filter fields (dialogsFilter) keep their style's own metrics.
+// Shared so InputField and EmojiInputField cannot drift apart.
+struct Metrics {
+    int minHeight = 0;
+    int maxHeight = 0;
+    QMargins textMargins;
+};
+
+[[nodiscard]] Metrics FieldMetrics(const st::InputFieldStyle &style, bool floating);
 
 } // namespace InputChrome
 

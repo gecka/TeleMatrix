@@ -15,10 +15,15 @@
 #include <QCommonStyle>
 
 #include "ui/painter.h"
+#include "ui/style/runtime_scale.h"
 
 namespace Ui {
 
 namespace {
+
+// A flat field with no caption strip: just tall enough for one line of text.
+constexpr auto kCompactFieldHeight = 38;
+constexpr auto kCompactFieldTopMargin = 8;
 
 class InputStyle final : public QCommonStyle {
 public:
@@ -208,22 +213,46 @@ void InputField::paintRoundSurrounding(QPainter &p) const {
 
 namespace InputChrome {
 
+Metrics FieldMetrics(const st::InputFieldStyle &style, bool floating) {
+    // Compact = a flat field with no caption to make room for.
+    const auto compact = (style.borderRadius == 0) && !floating;
+    if (!compact) {
+        const auto minHeight = qMax(1, style.heightMin);
+        return { minHeight, qMax(minHeight, style.heightMax), style.textMargins };
+    }
+    const auto height = TeleMatrix::Style::ConvertScale(kCompactFieldHeight);
+    auto margins = style.textMargins;
+    margins.setTop(qMin(
+        margins.top(),
+        TeleMatrix::Style::ConvertScale(kCompactFieldTopMargin)));
+    return { height, height, margins };
+}
+
+QRect UnderlineRect(const State &state) {
+    const auto &style = *state.style;
+    const auto border = (state.focusedProgress > 0.)
+        ? qMax(1, style.borderActive)
+        : qMax(0, style.border);
+    if (border <= 0) {
+        return QRect();
+    }
+    return QRect(
+        state.rect.left(),
+        state.rect.bottom() + 1 - border,
+        state.rect.width(),
+        border);
+}
+
 void PaintFlatSurrounding(QPainter &p, const State &state) {
     const auto &style = *state.style;
-    const auto focused = (state.focusedProgress > 0.);
     p.fillRect(
         state.rect,
         MixColors(style.textBg, style.textBgActive, state.focusedProgress));
 
-    const auto border = focused
-        ? qMax(1, style.borderActive)
-        : qMax(0, style.border);
-    if (border > 0) {
+    const auto underline = UnderlineRect(state);
+    if (!underline.isEmpty()) {
         p.fillRect(
-            state.rect.left(),
-            state.rect.bottom() + 1 - border,
-            state.rect.width(),
-            border,
+            underline,
             MixColors(style.borderFg, style.borderFgActive, state.focusedProgress));
     }
 }
@@ -267,9 +296,10 @@ void PaintPlaceholder(QPainter &p, const State &state) {
         MixColors(_style.placeholderFg, _style.placeholderFgActive, _focusedProgress);
 
     if (!_floatingPlaceholder) {
-        // No caption: the placeholder sits inside only while empty AND unfocused,
-        // so it never sits under the caret of a focused field.
-        if (!state.empty || state.focused) {
+        // No caption: the placeholder sits inside the field and survives focus —
+        // these forms auto-focus on open, and hiding it there would leave nothing
+        // to say what the (empty) field is for. It goes on the first character.
+        if (!state.empty) {
             return;
         }
         const auto r = state.rect.marginsRemoved(_textMargins + _style.placeholderMargins);
@@ -388,19 +418,10 @@ void InputField::setCancelVisible(bool visible) {
 }
 
 void InputField::applyFieldMetrics() {
-    // A flat caption field (borderRadius 0) reserves a top strip so a focused or
-    // filled placeholder can float up as a caption. With no caption (floating
-    // off — single-field forms) that strip is dropped and the field shrinks.
-    // Round filter fields (dialogsFilter, borderRadius > 0) keep their metrics.
-    const auto compact = (_style.borderRadius == 0) && !_floatingPlaceholder;
-    const auto minH = compact ? 38 : qMax(1, _style.heightMin);
-    const auto maxH = compact ? 38 : qMax(minH, _style.heightMax);
-    setMinimumHeight(minH);
-    setMaximumHeight(maxH);
-    auto margins = _style.textMargins;
-    if (compact) {
-        margins.setTop(qMin(margins.top(), 8));
-    }
+    const auto metrics = InputChrome::FieldMetrics(_style, _floatingPlaceholder);
+    setMinimumHeight(metrics.minHeight);
+    setMaximumHeight(metrics.maxHeight);
+    auto margins = metrics.textMargins;
     if (_cancelVisible) {
         margins.setRight(_style.cancelButtonSize);
     }

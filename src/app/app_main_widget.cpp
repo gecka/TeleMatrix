@@ -41,6 +41,7 @@
 #include "../settings/settings_widget.h"
 #include "../styles/style_constants.h"
 #include "../ui/layers/layer_stack_widget.h"
+#include "../ui/widgets/emoji_input_field.h"
 #include "../ui/widgets/input_fields.h"
 #include "../ui/widgets/connecting_widget.h"
 #include "network_monitor.h"
@@ -362,6 +363,13 @@ void AppMainWidget::setupLayout() {
                 field->refreshStyle(field->currentStyle().borderRadius > 0
                     ? st::dialogsFilter
                     : st::defaultInputField);
+            }
+            // EmojiInputField is a QTextEdit, so it is not an InputField — it needs
+            // its own pass or its cached colors stay on the previous theme. Every
+            // one of them is a flat form field.
+            const auto emojiFields = findChildren<::Ui::EmojiInputField *>();
+            for (auto *field : emojiFields) {
+                field->refreshStyle(st::defaultInputField);
             }
         });
     }
