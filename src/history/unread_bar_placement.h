@@ -81,4 +81,41 @@ enum class Action {
     bool drawnLoaded,
     int unreadCount);
 
+// Whether a live slice may latch the session's delimiter decision (after which
+// placement is frozen for as long as the room stays open).
+//
+// Settling initial entry is necessary but NOT sufficient. Two ways the room can
+// look settled while the delimiter is still undecided: a cold room's first slice
+// is a live placeholder with no unread state (so "no unreads to mark" is
+// unknown, not established), and initial entry force-settles after its attempt
+// cap even when the anchor never loaded and nothing was drawn. Latching in
+// either case freezes the room bar-less for the whole session — the reported
+// "missing delimiter". So while the room has unreads and no bar is drawn, stay
+// unlatched and let later slices place it once the anchor loads. Nothing slides:
+// placement freezes the anchor on first draw (resolveAnchor).
+[[nodiscard]] inline bool shouldResolveOnLiveSlice(
+        bool unreadStateKnown,
+        bool initialScrollNeeded,
+        int unreadCount,
+        const QString &drawnBarId) {
+    return unreadStateKnown
+        && !initialScrollNeeded
+        && (unreadCount <= 0 || !drawnBarId.isEmpty());
+}
+
+// Whether the read detector may be armed at all. Entry-settled is load-bearing:
+// the detector measures the viewport, and during initial room entry the
+// viewport is transient — the fresh window renders at the pre-entry scroll
+// offset while the entry scroll (bottom / saved position / unread bar / jump)
+// is still queued. Arming there "reads" whatever rows happen to sit in that
+// transient viewport: receipts go out for messages never seen, the frontier
+// advances, and the delimiter is later placed at the drifted frontier (above
+// only the newest remnant) or suppressed outright once the count hit zero.
+[[nodiscard]] inline bool canMarkMessagesRead(
+        bool windowActive,
+        bool roomOpen,
+        bool entryScrollSettled) {
+    return windowActive && roomOpen && entryScrollSettled;
+}
+
 } // namespace TeleMatrix::UnreadBar

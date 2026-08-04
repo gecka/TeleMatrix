@@ -6089,6 +6089,8 @@ void HistoryWidget::closeRoom() {
     _sessionUnreadBarEventId.clear();
     _unreadBarResolved = false;
     _readMarkerLoaded = false;
+    _unreadStateKnown = false;
+    _entryScrollSettled = false;
     _unreadEntryAttempts = 0;
     _forceBottomEntryUntilLiveSlice = false;
     // Drop the read-consuming latch; the store clears its own clamp via
@@ -6205,6 +6207,9 @@ bool HistoryWidget::scrollToUnreadBar() {
     }
     _scrollToBottomPending = false;
     _scroll->scrollToY(qBound(0, top, _scroll->scrollTopMax()));
+    // The viewport is now genuinely parked at the bar — entry has settled and
+    // read detection may arm (callers run syncReadMarkingMode).
+    _entryScrollSettled = true;
     return true;
 }
 
@@ -6232,13 +6237,16 @@ bool HistoryWidget::tryApplyInitialUnreadScroll() {
 	// yet. If it can NEVER load (boundary beyond pageable history), that repeats
 	// forever and the delimiter latch never sets — the bar stays mutable for the
 	// whole session. After a bounded number of attempts, force-settle at the best
-	// loaded candidate and let the latch resolve on the next live slice.
+	// loaded candidate. Force-placing is best-effort: with an empty or still
+	// unloaded anchor it draws nothing, and shouldResolveOnLiveSlice then keeps
+	// the latch open so a later slice can still place the bar.
 	if (++_unreadEntryAttempts > kMaxUnreadEntryAttempts) {
 		_unreadBarDismissed = false;
 		placeUnreadBar(_roomUnreadCount, /*force=*/true); // best-effort placement
 		scrollToUnreadBar();                              // ok if it can't scroll
 		_preserveUnreadBarOnEntry = true;
-		_initialUnreadScrollNeeded = false; // → latch sets on the next live slice
+		_initialUnreadScrollNeeded = false;
+		_entryScrollSettled = true; // force-settle even when the scroll failed
 		syncReadMarkingMode();
 		return true;
 	}
@@ -6582,9 +6590,10 @@ void HistoryWidget::applyStoreUnreadState(const UnreadRoomState &state) {
 
 void HistoryWidget::syncReadMarkingMode() {
     if (_list) {
-        _list->setMarkingMessagesRead(
-            _windowActive
-            && !_currentRoomId.isEmpty());
+        _list->setMarkingMessagesRead(UnreadBar::canMarkMessagesRead(
+            _windowActive,
+            !_currentRoomId.isEmpty(),
+            _entryScrollSettled));
     }
 }
 
@@ -6596,6 +6605,7 @@ void HistoryWidget::updateReadConsumingGate() {
     // teleport to the bottom (a gappy-sync reset), which is not the user reading.
     const bool consuming = _windowActive
         && !_currentRoomId.isEmpty()
+        && _entryScrollSettled
         && _list && _list->isLive()
         && !_preserveUnreadBarOnEntry
         && !_list->readDetectionHeld()
@@ -6973,6 +6983,9 @@ void HistoryWidget::scrollToUnreadOrBottom() {
     _unreadBarDismissed = false;
     destroyUnreadBar();
     _scroll->scrollToY(_scroll->scrollTopMax());
+    // Explicit user navigation to the tail settles entry too.
+    _entryScrollSettled = true;
+    syncReadMarkingMode();
 }
 
 void HistoryWidget::showMessage(const QString &roomId, const QString &eventId) {
@@ -7454,9 +7467,6 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
 	if (!awaitingJumpTarget && !emptyStillLoading) {
 		_list->setLoadingTimeline(false);
 	}
-	if (_unreadStateStore) {
-		_unreadStateStore->applyTimelineSnapshot(roomId, slice);
-	}
 
     // When a jump target is active, anchor to IT instead of the first
     // visible message.  This prevents media loading above the target
@@ -7531,8 +7541,23 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
 
     // Refresh before any placement below: whether the read boundary is confirmed
     // loaded in this window decides whether canPlaceUnreadBarAt can place the
-    // delimiter immediately (see its use in placeUnreadBar).
-    _readMarkerLoaded = slice.readMarkerLoaded;
+    // delimiter immediately (see its use in placeUnreadBar). Only slices that
+    // actually carry unread state may refresh it — a cold room's live placeholder
+    // slice reports readMarkerLoaded=false for lack of data, and letting that
+    // clobber a confirmed boundary re-arms the "a read message must precede the
+    // anchor" heuristic that the hide-system-messages filter defeats.
+    if (slice.unreadStateKnown) {
+        _unreadStateKnown = true;
+        _readMarkerLoaded = slice.readMarkerLoaded;
+    }
+
+    // Feeding the store re-enters applyStoreUnreadState synchronously, which
+    // places the delimiter against _list's rows and _readMarkerLoaded — so it must
+    // run after setSlice above and after the refresh here, never against the
+    // previous slice's state.
+    if (_unreadStateStore) {
+        _unreadStateStore->applyTimelineSnapshot(roomId, slice);
+    }
 
     applyLiveUnreadState(slice);
     // applyLiveUnreadState's updateUnreadCount calls are conditional (count
@@ -7603,7 +7628,10 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
         // would fire AFTER a prepend's scroll correction, overriding it.
         _scroll->scrollToY(_scroll->scrollTopMax());
         // Arriving at the live tail is explicit "caught up" intent — re-arm read
-        // detection if a prior reset had held it.
+        // detection if a prior reset had held it. It also settles entry (the
+        // disk-first bottom entry lands here, not in scheduleInitialRoomScroll).
+        _entryScrollSettled = true;
+        syncReadMarkingMode();
         if (_list) {
             _list->resetReadDetectionHold();
         }
@@ -7612,6 +7640,7 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
             || _windowActive;
         const auto allowUnsyncedReadConsumption = _synced || _windowActive;
         if (canConsumeReadState
+            && slice.unreadStateKnown
             && allowUnsyncedReadConsumption
             && !_currentRoomId.isEmpty()
             && _list
@@ -7640,7 +7669,12 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
     // Freeze the delimiter for the rest of this room session once initial entry
     // (including any unread backfill) has settled: from here live updates never
     // place, move, or clear the drawn delimiter. Reset on room switch.
-    if (slice.isLive && !_initialUnreadScrollNeeded) {
+    if (slice.isLive
+        && UnreadBar::shouldResolveOnLiveSlice(
+            _unreadStateKnown,
+            _initialUnreadScrollNeeded,
+            _roomUnreadCount,
+            _list->firstUnreadEventId())) {
         _unreadBarResolved = true;
     }
 
@@ -7656,6 +7690,8 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
                 }
             }
             _scrollStates.clearPendingRestore();
+            _entryScrollSettled = true;
+            syncReadMarkingMode();
         }
     }
 
@@ -7695,6 +7731,9 @@ void HistoryWidget::applyTimelineSlice(const QString &roomId, TimelineSlice slic
         }
         // Prevent the queued loadRoomData scroll lambda from overriding this.
         _jumpScrollApplied = true;
+        // The jump landed the viewport at its target — entry has settled.
+        _entryScrollSettled = true;
+        syncReadMarkingMode();
         if (_jumpLoad.active()) {
             if (_jumpLoad.onTargetArrived() == JumpLoadController::Action::Reveal) {
                 finishJumpReveal();
@@ -8266,8 +8305,12 @@ void HistoryWidget::loadRoom(const QString &roomId) {
         // Fresh room session: the delimiter must be re-decided by initial entry.
         _unreadBarResolved = false;
         _readMarkerLoaded = false;
+        _unreadStateKnown = false;
         _unreadEntryAttempts = 0;
         _initialScrollPending = true;
+        // Read detection stays disarmed until the new room's entry scroll is
+        // applied — the first slices render at a transient viewport position.
+        _entryScrollSettled = false;
         if (_readReceiptTimer) {
             _readReceiptTimer->stop();
         }
@@ -8470,6 +8513,8 @@ void HistoryWidget::scheduleInitialRoomScroll(
                             _scrollStates.clearPendingRestore();
                             _scroll->scrollToY(
                                 qBound(0, y - saved.anchorPixelOffset, freshMax));
+                            _entryScrollSettled = true;
+                            syncReadMarkingMode();
                             return;
                         }
                     }
@@ -8498,6 +8543,8 @@ void HistoryWidget::scheduleInitialRoomScroll(
                 _forceBottomEntryUntilLiveSlice = !initialSliceIsLive;
                 _initialUnreadScrollNeeded = false;
                 _scroll->scrollToY(freshMax);
+                _entryScrollSettled = true;
+                syncReadMarkingMode();
             }
         } else {
             // Same-room refresh: preserve the current position.
@@ -8513,7 +8560,14 @@ void HistoryWidget::scheduleInitialRoomScroll(
         const auto canConsumeUnsyncedEntryRead = unsyncedEntry
             && initialSliceIsLive
             && _windowActive;
+        // _unreadStateKnown: on a cold open the room's unread state has not
+        // arrived yet, and a public room whose loaded window is all system
+        // messages renders zero rows once the filter runs — so max==0 makes the
+        // "at bottom" test trivially true. Consuming the read state there zeroes
+        // the badge and receipts the newest loaded event while the real unread
+        // span is still unknown.
         if ((!unsyncedEntry || canConsumeUnsyncedEntryRead)
+            && _unreadStateKnown
             && _list && _list->isLive()
             && !_preserveUnreadBarOnEntry
             && (max <= 0 || top >= max - 1)) {

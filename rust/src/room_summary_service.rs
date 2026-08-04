@@ -487,6 +487,10 @@ impl RoomSummaryService {
             None
         };
 
+        // One read: two calls could straddle a join-rule sync and yield the
+        // known-but-private combination, which merge_sticky_previews trusts.
+        let join_rule_public = room.is_public();
+
         Ok(RoomSummary {
             room_id,
             display_name,
@@ -504,7 +508,8 @@ impl RoomSummaryService {
             pinned_order,
             is_marked_unread: room.is_marked_unread(),
             is_direct,
-            is_public: room.is_public().unwrap_or(false),
+            is_public: join_rule_public.unwrap_or(false),
+            is_public_known: join_rule_public.is_some(),
             filter_ids,
             space_ids,
             is_last_event_outgoing: is_outgoing,
@@ -592,6 +597,7 @@ impl RoomSummaryService {
         let topic = room.topic().unwrap_or_default();
         let member_count = room.joined_members_count();
         let invite_timestamp = invite_sort_timestamp(&room_id);
+        let join_rule_public = room.is_public();
 
         Ok(RoomSummary {
             room_id,
@@ -614,7 +620,8 @@ impl RoomSummaryService {
             pinned_order: None,
             is_marked_unread: false,
             is_direct,
-            is_public: room.is_public().unwrap_or(false),
+            is_public: join_rule_public.unwrap_or(false),
+            is_public_known: join_rule_public.is_some(),
             filter_ids: vec![],
             space_ids: Vec::new(),
             is_last_event_outgoing: false,
@@ -820,9 +827,24 @@ impl RoomSummaryService {
         }
     }
 
-    /// Apply [`preserve_preview_if_blank`] across a wholesale-rebuilt room list
-    /// using the prior list as the source, then re-sort (restored timestamps
-    /// change ordering). No-op when there is no prior list.
+    /// Keep a room's last known join-rule publicness when the freshly built
+    /// summary could not answer. `Room::is_public()` reads local state, so before
+    /// a room's state has synced it is None and `is_public` flattens to false —
+    /// on a cold start that overwrites a cached `true` and silently disables
+    /// "hide system messages in public rooms" (it also persists, outliving the
+    /// sync that would have fixed it). A room that genuinely answered private
+    /// still wins: only an unknown fresh value is filled in.
+    pub(crate) fn preserve_publicness_if_unknown(fresh: &mut RoomSummary, prior: &RoomSummary) {
+        if !fresh.is_public_known && prior.is_public_known {
+            fresh.is_public = prior.is_public;
+            fresh.is_public_known = true;
+        }
+    }
+
+    /// Apply [`preserve_preview_if_blank`] and [`preserve_publicness_if_unknown`]
+    /// across a wholesale-rebuilt room list using the prior list as the source,
+    /// then re-sort (restored timestamps change ordering). No-op when there is no
+    /// prior list.
     pub(crate) fn merge_sticky_previews(fresh: &mut [RoomSummary], prior: &[RoomSummary]) {
         if prior.is_empty() {
             return;
@@ -832,6 +854,7 @@ impl RoomSummaryService {
         for summary in fresh.iter_mut() {
             if let Some(p) = prior_by_id.get(summary.room_id.as_str()) {
                 Self::preserve_preview_if_blank(summary, p);
+                Self::preserve_publicness_if_unknown(summary, p);
             }
         }
         fresh.sort_by_key(|b| std::cmp::Reverse(b.last_event_timestamp));
@@ -1365,6 +1388,7 @@ mod tests {
             is_marked_unread: false,
             is_direct: false,
             is_public: false,
+            is_public_known: false,
             filter_ids: Vec::new(),
             space_ids: Vec::new(),
             is_last_event_outgoing: false,
@@ -1428,5 +1452,71 @@ mod tests {
             fresh[1].last_event_timestamp,
             UNIX_EPOCH + Duration::from_secs(100)
         );
+    }
+
+    #[test]
+    fn unknown_publicness_keeps_prior_answer() {
+        // The cold-start shape: the cache knows the room is public, but the rebuilt
+        // summary was built before the join rule synced (unknown → flattened false).
+        // Clobbering here disables "hide system messages in public rooms" for the
+        // session AND persists, outliving the sync that would have fixed it.
+        let mut prior = summary("!r:x", "hi", 100);
+        prior.is_public = true;
+        prior.is_public_known = true;
+        let mut fresh = summary("!r:x", "hi", 100); // is_public_known: false
+        RoomSummaryService::preserve_publicness_if_unknown(&mut fresh, &prior);
+        assert!(fresh.is_public);
+        assert!(fresh.is_public_known);
+    }
+
+    #[test]
+    fn known_publicness_overrides_prior() {
+        // A room that actually answered wins in both directions — no sticky true.
+        let mut prior = summary("!r:x", "hi", 100);
+        prior.is_public = true;
+        prior.is_public_known = true;
+        let mut fresh = summary("!r:x", "hi", 100);
+        fresh.is_public_known = true; // answered: private
+        RoomSummaryService::preserve_publicness_if_unknown(&mut fresh, &prior);
+        assert!(
+            !fresh.is_public,
+            "a known-private answer must not be undone"
+        );
+
+        let mut prior_private = summary("!r:x", "hi", 100);
+        prior_private.is_public_known = true;
+        let mut fresh_public = summary("!r:x", "hi", 100);
+        fresh_public.is_public = true;
+        fresh_public.is_public_known = true;
+        RoomSummaryService::preserve_publicness_if_unknown(&mut fresh_public, &prior_private);
+        assert!(fresh_public.is_public, "a newly public room must go public");
+    }
+
+    #[test]
+    fn unknown_publicness_stays_unknown_without_prior_answer() {
+        // Neither side knows: nothing to restore, and the room must stay flagged
+        // unknown so a later rebuild can still fill it in.
+        let prior = summary("!r:x", "hi", 100);
+        let mut fresh = summary("!r:x", "hi", 100);
+        RoomSummaryService::preserve_publicness_if_unknown(&mut fresh, &prior);
+        assert!(!fresh.is_public);
+        assert!(!fresh.is_public_known);
+    }
+
+    #[test]
+    fn merge_sticky_previews_carries_publicness() {
+        // The merge is where the cold-start rebuild meets the cached list, so the
+        // preservation must be wired into it, not just available as a helper.
+        let mut prior_public = summary("!a:x", "alpha", 100);
+        prior_public.is_public = true;
+        prior_public.is_public_known = true;
+        let prior = [prior_public];
+        let mut fresh = [summary("!a:x", "", 0)];
+        RoomSummaryService::merge_sticky_previews(&mut fresh, &prior);
+        assert!(
+            fresh[0].is_public,
+            "cold rebuild must not un-public the room"
+        );
+        assert!(fresh[0].is_public_known);
     }
 }

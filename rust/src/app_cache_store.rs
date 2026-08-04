@@ -237,8 +237,10 @@ impl AppCacheStore {
                 pinned_order: row.get::<_, Option<f64>>(26)?,
                 is_marked_unread: row.get::<_, bool>(13)?,
                 is_direct: row.get::<_, bool>(14)?,
-                // NULL (never learned) reads as private, same as before the column existed.
+                // NULL (never learned) reads as private, same as before the column existed,
+                // but stays flagged unknown so a rebuild doesn't treat it as an answer.
                 is_public: row.get::<_, Option<bool>>(27)?.unwrap_or(false),
+                is_public_known: row.get::<_, Option<bool>>(27)?.is_some(),
                 is_last_event_outgoing: row.get::<_, bool>(15)?,
                 is_last_event_service: row.get::<_, bool>(16)?,
                 last_event_send_state: send_state_from_u32(row.get::<_, u32>(17)?),
@@ -319,7 +321,9 @@ impl AppCacheStore {
                     room.room_topic,
                     now,
                     room.pinned_order,
-                    room.is_public,
+                    // NULL when the join rule never synced, so a reload can tell
+                    // "not learned yet" from a real private room.
+                    room.is_public_known.then_some(room.is_public),
                 ])?;
                 for (filter_index, filter_id) in room.filter_ids.iter().enumerate() {
                     // Persist the durable tag key, not the per-session handle.
@@ -579,6 +583,7 @@ mod tests {
             is_marked_unread: false,
             is_direct: false,
             is_public: false,
+            is_public_known: false,
             filter_ids: Vec::new(),
             space_ids: Vec::new(),
             is_last_event_outgoing: false,
@@ -639,7 +644,9 @@ mod tests {
             let store = AppCacheStore::open(&dir, "test-key").expect("open app cache");
             let mut public = summary("!public:x", "hi", 100);
             public.is_public = true;
-            let private = summary("!private:x", "hi", 100);
+            public.is_public_known = true;
+            let mut private = summary("!private:x", "hi", 100);
+            private.is_public_known = true;
             store.save_rooms(&[public, private]).expect("save rooms");
         }
 
@@ -648,6 +655,46 @@ mod tests {
         assert_eq!(seeded.len(), 2);
         assert!(seeded[0].is_public, "a public room must reload as public");
         assert!(!seeded[1].is_public, "a private room must stay private");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // Known-ness must round-trip too, not just the flattened bool: a room whose join rule never
+    // synced persists as NULL, and only that lets the next rebuild tell "not learned yet" from a
+    // real private room (a rebuilt-unknown must not clobber a cached public — see
+    // RoomSummaryService::preserve_publicness_if_unknown).
+    #[test]
+    fn persisted_publicness_distinguishes_unknown_from_private() {
+        let dir = temp_dir("publicness-known");
+        {
+            let store = AppCacheStore::open(&dir, "test-key").expect("open app cache");
+            let unknown = summary("!unknown:x", "hi", 100); // is_public_known: false
+            let mut private = summary("!private:x", "hi", 100);
+            private.is_public_known = true;
+            let mut public = summary("!public:x", "hi", 100);
+            public.is_public = true;
+            public.is_public_known = true;
+            store
+                .save_rooms(&[unknown, private, public])
+                .expect("save rooms");
+        }
+
+        let store = AppCacheStore::open(&dir, "test-key").expect("reopen app cache");
+        let seeded = store.load_rooms().expect("load rooms");
+        assert_eq!(seeded.len(), 3);
+        assert!(
+            !seeded[0].is_public_known,
+            "a never-learned join rule must reload as unknown"
+        );
+        assert!(!seeded[0].is_public, "unknown still reads as private");
+        assert!(
+            seeded[1].is_public_known && !seeded[1].is_public,
+            "a known-private room must reload as known-private"
+        );
+        assert!(
+            seeded[2].is_public_known && seeded[2].is_public,
+            "a known-public room must reload as known-public"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }

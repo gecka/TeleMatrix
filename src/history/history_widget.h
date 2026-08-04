@@ -383,6 +383,21 @@ private:
     // waiting for a visible read message to precede it — which the "hide system
     // messages in public rooms" filter can erase. Refreshed on every slice.
     bool _readMarkerLoaded = false;
+    // Whether any slice for this room session has carried a known unread state
+    // (TimelineSlice.unreadStateKnown). A cold room's first slice is a live
+    // placeholder with unreadStateKnown=false and unreadCount=0 — indistinguish-
+    // able from "fully read" by count alone. Consuming read state there (the
+    // at-bottom auto-read) would zero the badge and receipt the newest loaded
+    // event before the room's real unread state ever arrived. Reset per room.
+    bool _unreadStateKnown = false;
+    // Whether the open room's initial entry scroll has been applied (bottom
+    // entry, saved-position restore, unread-bar entry, or jump landing). Read
+    // detection stays disarmed until then: the fresh window renders at the
+    // pre-entry scroll offset while the entry scroll is still queued, and a
+    // detector pass against that transient viewport receipts messages the user
+    // never saw and drifts the frontier the delimiter is placed from. Reset per
+    // room.
+    bool _entryScrollSettled = false;
     // Frozen first-unread boundary for the open room: captured once when the
     // delimiter is first placed, then the bar is only ever (re)placed here —
     // never at the drifting live frontier. It SURVIVES transient conditions

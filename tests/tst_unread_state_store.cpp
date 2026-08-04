@@ -262,6 +262,50 @@ private slots:
         QCOMPARE(state.effectiveUnreadCount, 2);
     }
 
+    // Reading up to an OLDER message must not claim the room's newest activity as
+    // read. Stamping the frontier at the latest *seen* activity made the qMin pin
+    // permanent: newActivity can never fire again (nothing is newer than "newest"),
+    // so the badge stayed at the optimistic value while real unreads sat there.
+    // The fresh-login shape: the persisted room summary is newer than the loaded
+    // timeline window, so the auto-read at the bottom reads an old message.
+    void readingOlderMessageStillRevertsOnNewerActivity() {
+        UnreadStateStore store;
+        store.applyRoomListSnapshot({roomAt("!r:x", 8, 500)});
+        // Auto-read at the bottom of a partial window: newest loaded message ts=100.
+        store.optimisticReadProgress("!r:x", "$old", "", 0, /*readTillTs=*/100);
+        QCOMPARE(store.roomState("!r:x").effectiveUnreadCount, 0);
+        // The room's real activity (ts=500) is still unread — the next snapshot
+        // must release the pin instead of being classified as already read.
+        store.applyRoomListSnapshot({roomAt("!r:x", 8, 500)});
+        const auto state = store.roomState("!r:x");
+        QCOMPARE(state.pendingOptimisticUnreadCount, -1);
+        QCOMPARE(state.effectiveUnreadCount, 8);
+    }
+
+    // Same defect via an unknown timestamp: the read-till event is not in the
+    // loaded list (the "hide system messages" filter erased it), so readTillTs is
+    // 0. That must leave the frontier alone, not jump it to the newest activity.
+    void unknownReadTillTsDoesNotClaimLatestActivity() {
+        UnreadStateStore store;
+        store.applyRoomListSnapshot({roomAt("!r:x", 4, 500)});
+        store.optimisticReadProgress("!r:x", "$gone", "", 0, /*readTillTs=*/0);
+        QCOMPARE(store.roomState("!r:x").effectiveUnreadCount, 0);
+        store.applyRoomListSnapshot({roomAt("!r:x", 4, 500)});
+        QCOMPARE(store.roomState("!r:x").effectiveUnreadCount, 4);
+    }
+
+    // Guard the other direction: an explicit "mark as read" DOES mean everything
+    // seen is read, so its frontier legitimately covers the latest activity and a
+    // re-delivered snapshot of that same activity must not un-read the room.
+    void explicitMarkReadStillCoversLatestActivity() {
+        UnreadStateStore store;
+        store.applyRoomListSnapshot({roomAt("!r:x", 6, 500)});
+        store.optimisticMarkRead("!r:x");
+        QCOMPARE(store.roomState("!r:x").effectiveUnreadCount, 0);
+        store.applyRoomListSnapshot({roomAt("!r:x", 6, 500)});
+        QCOMPARE(store.roomState("!r:x").effectiveUnreadCount, 0);
+    }
+
     // Hygiene: a pure count raise (no event actually read → empty readTill)
     // must not mint pending read state or advance the read frontier. The count
     // itself flows through the server-count feeds; a raise is not a read.

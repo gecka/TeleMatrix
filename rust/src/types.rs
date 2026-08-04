@@ -127,6 +127,11 @@ pub struct RoomSummary {
     /// whether to hide system messages at room-open time instead of waiting for the async settings
     /// snapshot (which caused a visible flicker).
     pub is_public: bool,
+    /// Whether `is_public` is an answer or a default. `Room::is_public()` returns None until the
+    /// room's join rule has synced, and `is_public` flattens that to false — so a rebuilt summary
+    /// is indistinguishable from a genuinely private room and would clobber a known value (see
+    /// `merge_sticky_previews`). Not exposed over FFI: C++ consumes the flattened bool.
+    pub is_public_known: bool,
     pub filter_ids: Vec<i32>,
     /// Room ids of the joined spaces this room belongs to (recursively, through
     /// nested joined sub-spaces). Parallel to `filter_ids` but keyed by space id.

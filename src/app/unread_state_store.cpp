@@ -346,9 +346,16 @@ quint64 UnreadStateStore::optimisticReadProgress(
 	// Stamp the frontier at the timestamp of the message actually read, not the
 	// latest *seen* activity — otherwise the debounced room-list snapshot that
 	// carries this very message classifies it as new activity and reverts the
-	// optimistic read (the blink). qMax guards a 0/absent ts (never regress the
-	// frontier below what a prior snapshot established).
-	state.readFrontierTs = qMax(state.serverLastActivityTs, readTillTs);
+	// optimistic read (the blink). Never the latest activity either: reading up to
+	// an OLDER message would then claim everything newer as read too, and since
+	// newActivity is the only thing that releases the qMin pin in
+	// recomputeEffectiveState, the badge stays stuck at the optimistic value until
+	// something newer still arrives. That is reachable whenever readTillTs is 0 —
+	// the read-till event is not in the loaded list, which the "hide system
+	// messages in public rooms" filter causes routinely. qMax against the existing
+	// frontier keeps a 0/absent ts from regressing what a prior read established.
+	// (Explicit mark-read does stamp the latest activity: there the claim is true.)
+	state.readFrontierTs = qMax(state.readFrontierTs, readTillTs);
 	state.pendingReadTillEventId = readTillEventId;
 	state.pendingOptimisticFrontierEventId = nextUnreadEventId;
 	state.pendingOptimisticUnreadCount = qMax(0, newUnreadCount);

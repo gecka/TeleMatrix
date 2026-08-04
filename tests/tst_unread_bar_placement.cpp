@@ -164,6 +164,73 @@ private slots:
         };
         QVERIFY(!UnreadBar::canPlaceUnreadBarAt(rows, QString(), true));
     }
+
+    // shouldResolveOnLiveSlice(): when a live slice may freeze the session's
+    // delimiter decision. Latching too early is what leaves a room bar-less for
+    // its whole session (both placement paths are gated on the latch).
+    //
+    // A cold room's first slice is a live placeholder with no unread state and
+    // count 0 — "nothing to mark" is unknown there, not established.
+    void doesNotResolveWhileUnreadStateUnknown() {
+        QVERIFY(!UnreadBar::shouldResolveOnLiveSlice(
+            /*unreadStateKnown=*/false,
+            /*initialScrollNeeded=*/false,
+            /*unreadCount=*/0,
+            /*drawnBarId=*/QString()));
+    }
+    // THE FIX: initial entry force-settled after its attempt cap, but the anchor
+    // never loaded so force-placing drew nothing. Staying unlatched lets a later
+    // slice place the bar once backfill supplies the anchor.
+    void doesNotResolveWithUnreadsAndNoDrawnBar() {
+        QVERIFY(!UnreadBar::shouldResolveOnLiveSlice(
+            true, /*initialScrollNeeded=*/false, /*unreadCount=*/5, QString()));
+    }
+    // The bar is drawn: freeze it now, so live updates can never move it.
+    void resolvesOnceBarIsDrawn() {
+        QVERIFY(UnreadBar::shouldResolveOnLiveSlice(
+            true, false, 5, QStringLiteral("U1")));
+    }
+    // Nothing to mark: the delimiter is decided (there is none).
+    void resolvesWhenFullyRead() {
+        QVERIFY(UnreadBar::shouldResolveOnLiveSlice(true, false, 0, QString()));
+    }
+    // Initial entry still running (scrolling to / paging back for the boundary).
+    void doesNotResolveWhileInitialScrollPending() {
+        QVERIFY(!UnreadBar::shouldResolveOnLiveSlice(
+            true, /*initialScrollNeeded=*/true, 5, QStringLiteral("U1")));
+        QVERIFY(!UnreadBar::shouldResolveOnLiveSlice(true, true, 0, QString()));
+    }
+    // The reported "missing delimiter", at the decision level: fresh login into a
+    // public room with system messages hidden. The first live slice is a cold
+    // placeholder (no unread state, count 0 because it hasn't arrived); the real
+    // count lands next, with the anchor still unloaded; only once the anchor
+    // loads and the bar draws may the session freeze.
+    void coldPublicRoomEntryStaysPlaceableUntilDrawn() {
+        QVERIFY(!UnreadBar::shouldResolveOnLiveSlice(false, false, 0, QString()));
+        QVERIFY(!UnreadBar::shouldResolveOnLiveSlice(true, false, 12, QString()));
+        QVERIFY(UnreadBar::shouldResolveOnLiveSlice(
+            true, false, 12, QStringLiteral("U1")));
+    }
+
+    // canMarkMessagesRead(): the read detector must stay disarmed until the
+    // room's entry scroll has been applied. The fresh window renders at the
+    // pre-entry scroll offset while the entry scroll is still queued; a detector
+    // pass against that transient viewport receipts messages the user never saw
+    // and drifts the frontier — the delimiter is then placed above only the
+    // newest remnant, or never once the count hit zero.
+    void detectionDisarmedUntilEntrySettles() {
+        QVERIFY(!UnreadBar::canMarkMessagesRead(
+            /*windowActive=*/true,
+            /*roomOpen=*/true,
+            /*entryScrollSettled=*/false));
+    }
+    void detectionArmsOnceEntrySettled() {
+        QVERIFY(UnreadBar::canMarkMessagesRead(true, true, true));
+    }
+    void detectionNeedsActiveWindowAndOpenRoom() {
+        QVERIFY(!UnreadBar::canMarkMessagesRead(false, true, true));
+        QVERIFY(!UnreadBar::canMarkMessagesRead(true, false, true));
+    }
 };
 
 QTEST_APPLESS_MAIN(TestUnreadBarPlacement)
