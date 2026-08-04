@@ -515,18 +515,12 @@ impl VerificationService {
                         return;
                     };
 
-                    let device_label = match client.devices().await {
-                        Ok(response) => response
-                            .devices
-                            .into_iter()
-                            .find(|device| device.device_id == from_device)
-                            .and_then(|device| device.display_name)
-                            .filter(|name| !name.trim().is_empty())
-                            .unwrap_or_else(|| from_device.clone()),
-                        Err(_) => from_device.clone(),
-                    };
-
+                    // Store before fetching the display name: that request is a
+                    // network round trip, and until this lands in ctx a retry on
+                    // this device cannot see the peer's request and would create
+                    // a competing one.
                     let mut stored_request = false;
+                    let mut stale_request = None;
                     {
                         let mut ctx = verification_ctx.lock().await;
                         let replace = ctx
@@ -548,6 +542,10 @@ impl VerificationService {
                             Self::verification_request_state_details(&request.state())
                         );
                         if replace {
+                            stale_request = ctx
+                                .request
+                                .take()
+                                .filter(|old| !old.is_done() && !old.is_cancelled());
                             // reset() aborts the superseded flow's watchers; a
                             // bare overwrite would leave them emitting.
                             ctx.reset();
@@ -555,6 +553,28 @@ impl VerificationService {
                             stored_request = true;
                         }
                     }
+
+                    // Outside the lock: a live request we are abandoning stays
+                    // "ongoing" in matrix-sdk-crypto and would make it cancel
+                    // both this one and the next one we create.
+                    if let Some(stale) = stale_request {
+                        verification_debug!(
+                            "cancelling superseded request flow_id={}",
+                            stale.flow_id()
+                        );
+                        let _ = stale.cancel().await;
+                    }
+
+                    let device_label = match client.devices().await {
+                        Ok(response) => response
+                            .devices
+                            .into_iter()
+                            .find(|device| device.device_id == from_device)
+                            .and_then(|device| device.display_name)
+                            .filter(|name| !name.trim().is_empty())
+                            .unwrap_or_else(|| from_device.clone()),
+                        Err(_) => from_device.clone(),
+                    };
 
                     if stored_request {
                         {
@@ -1296,6 +1316,27 @@ impl VerificationService {
             for handle in ctx.watchers.drain(..) {
                 handle.abort();
             }
+            // A request we abandon stays "ongoing" in matrix-sdk-crypto, which
+            // would then cancel both it and whatever we start next, and the peer
+            // would keep waiting on a prompt nothing will answer. Only while
+            // nothing started under it: a flow with a live SAS/QR can be one
+            // event from Done, and the crypto machine finishes it either way.
+            // Spawned so the send stays off the ctx lock.
+            if ctx.sas.is_none() && ctx.qr.is_none() {
+                if let Some(stale) = ctx
+                    .request
+                    .take()
+                    .filter(|old| !old.is_done() && !old.is_cancelled())
+                {
+                    verification_debug!(
+                        "cancelling superseded request flow_id={}",
+                        stale.flow_id()
+                    );
+                    tokio::spawn(async move {
+                        let _ = stale.cancel().await;
+                    });
+                }
+            }
             ctx.sas = None;
             ctx.qr = None;
             ctx.sas_token += 1;
@@ -1383,6 +1424,15 @@ impl VerificationService {
         })
     }
 
+    /// Whether the request already carries the peer's SAS. A QR transition is
+    /// not a collision for either start path — only a SAS is.
+    fn transitioned_to_sas(request: &VerificationRequest) -> bool {
+        match request.state() {
+            VerificationRequestState::Transitioned { verification } => verification.sas().is_some(),
+            _ => false,
+        }
+    }
+
     async fn act_on_ready(&self, request: &VerificationRequest, generation: u64) {
         let desired = {
             let ctx = self.ctx.lock().await;
@@ -1400,6 +1450,16 @@ impl VerificationService {
 
     async fn start_sas_on_ready(&self, request: &VerificationRequest, generation: u64) {
         let flow_id = request.flow_id().to_string();
+        // The peer's ready and start can arrive in one sync, so by the time this
+        // watcher runs their SAS may already be adopted. `start_sas` works from
+        // Transitioned too and returns a *second* SAS for the same flow, which
+        // matrix-sdk-crypto's cache then resolves by cancelling both (m.user) —
+        // its start-race tie-break only guards the inbound direction. Let the
+        // Transitioned arm adopt theirs instead.
+        if Self::transitioned_to_sas(request) {
+            verification_debug!("skipping SAS start, peer already started flow_id={flow_id}");
+            return;
+        }
         match request.start_sas().await {
             Ok(Some(sas)) => self.adopt_sas(sas, &flow_id, generation).await,
             Ok(None) => {
@@ -1437,10 +1497,10 @@ impl VerificationService {
             if !same_flow {
                 return;
             }
-            if ctx.sas.is_some() && sas.we_started() {
-                // Our own start echoed back through the request stream.
-                return;
-            }
+            // Every Transitioned is adopted, including a re-delivery of one we
+            // already hold: a tie-break replacement carries a *different* SAS
+            // under the same flow, and only the newest object still receives
+            // events. `sas_token` silences the superseded watcher.
             // SAS displaces any QR we were showing (matrix-sdk-crypto replaces
             // the cache entry without cancelling it, so only the token stops
             // that watcher from tearing this SAS down later).
@@ -1453,10 +1513,12 @@ impl VerificationService {
                 self.spawn_sas_watcher(sas.clone(), flow_id.to_string(), generation, token);
             ctx.watchers.push(handle);
         }
-        if !sas.we_started() {
-            if let Err(e) = sas.accept().await {
-                verification_debug!("failed to accept peer SAS flow_id={flow_id} error={e}");
-            }
+        // Unconditional: `we_started()` is inherited from the request, not from
+        // whoever sent the start, so a peer SAS adopted on the requesting side
+        // still reports true and would never be accepted. matrix-sdk no-ops
+        // unless the SAS is actually waiting for our accept.
+        if let Err(e) = sas.accept().await {
+            verification_debug!("failed to accept peer SAS flow_id={flow_id} error={e}");
         }
         self.emit_state_for(VerificationState::SasStarted, flow_id);
     }
@@ -1549,6 +1611,13 @@ impl VerificationService {
             if stale || ctx.qr.is_some() {
                 return;
             }
+        }
+        // Same cache collision as the SAS path: generating now would sit next to
+        // a SAS the peer just started and cancel both. Their SAS is adopted by
+        // the Transitioned arm, and the UI follows it off the QR page.
+        if Self::transitioned_to_sas(request) {
+            verification_debug!("skipping QR generation, peer started SAS flow_id={flow_id}");
+            return;
         }
         let qr = match request.generate_qr_code().await {
             Ok(Some(qr)) => qr,
@@ -1705,6 +1774,7 @@ impl VerificationService {
     /// `Cancelled` is emitted only if the teardown actually happened, so a flow
     /// the watcher has already failed is not reported twice.
     async fn fail_flow_if_unstarted(&self, flow_id: &str, generation: u64, reason: &str) {
+        let stale_request;
         {
             let mut ctx = self.ctx.lock().await;
             let unstarted = ctx.generation == generation
@@ -1721,7 +1791,16 @@ impl VerificationService {
                 );
                 return;
             }
+            // Nothing started under it, so cancelling can only end this flow —
+            // and leaving it live would poison the next request (same-user glare).
+            stale_request = ctx
+                .request
+                .take()
+                .filter(|old| !old.is_done() && !old.is_cancelled());
             ctx.reset();
+        }
+        if let Some(stale) = stale_request {
+            let _ = stale.cancel().await;
         }
         verification_debug!("verification flow failed flow_id={flow_id} reason={reason}");
         self.emit_state_for(VerificationState::Cancelled, flow_id);
@@ -2023,6 +2102,24 @@ impl VerificationService {
         self.emit_state(VerificationState::RequestingVerification);
 
         let identity = Self::verification_identity(&client, &own_user_id).await?;
+
+        // The refresh above takes seconds on a slow link, and the peer's own
+        // request can land meanwhile — creating ours now would make
+        // matrix-sdk-crypto cancel both as same-user glare. Answer theirs
+        // instead; `activate_flow` accepts one still in `Requested`.
+        {
+            let ctx = self.ctx.lock().await;
+            if let Some(ref req) = ctx.request {
+                if !req.is_done() && !req.is_cancelled() {
+                    verification_debug!(
+                        "adopting request that arrived during identity refresh flow_id={} state={}",
+                        req.flow_id(),
+                        Self::verification_request_state_details(&req.state())
+                    );
+                    return Ok(req.clone());
+                }
+            }
+        }
 
         let request = identity
             .request_verification_with_methods(Self::outgoing_verification_methods())
