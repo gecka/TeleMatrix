@@ -21,6 +21,7 @@ class ConnectingWidget;
 
 namespace TeleMatrix {
 class NetworkMonitor;
+class WakeMonitor;
 } // namespace TeleMatrix
 
 namespace TeleMatrix {
@@ -146,6 +147,7 @@ private:
     QSplitter *_splitter = nullptr;
     ::Ui::ConnectingWidget *_connecting = nullptr;
     ::TeleMatrix::NetworkMonitor *_networkMonitor = nullptr;
+    ::TeleMatrix::WakeMonitor *_wakeMonitor = nullptr;
     bool _networkOnline = true;
     int _syncState = 0;
     DialogsWidget *_dialogs = nullptr;

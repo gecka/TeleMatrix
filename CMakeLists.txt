@@ -452,6 +452,9 @@ add_executable(TeleMatrix
     src/app/app_main_widget.cpp
     src/app/network_monitor.h
     src/app/network_monitor.cpp
+    # Implementation is per-platform (see the platform blocks below); the header
+    # is listed here so AUTOMOC finds it — it has no same-named .cpp to pair with.
+    src/app/wake_monitor.h
     src/media/media_view_overlay.h
     src/media/media_view_overlay.cpp
     src/dialogs/dialogs_row.h
@@ -723,12 +726,19 @@ if (APPLE)
         src/ui/platform/ui_utility_mac.mm
         src/ui/platform/confirm_quit_mac.mm
         src/ui/platform/reveal_in_folder_mac.mm
+        # Resume-from-sleep signal: NSWorkspaceDidWakeNotification.
+        src/app/wake_monitor_mac.mm
     )
 else()
     target_sources(TeleMatrix PRIVATE
         src/ui/platform/ui_utility_stub.cpp
         src/ui/platform/confirm_quit_stub.cpp
     )
+endif()
+# Resume-from-sleep signal on the platforms with no backend for it (Windows);
+# Linux gets the logind implementation in its own block below.
+if (WIN32)
+    target_sources(TeleMatrix PRIVATE src/app/wake_monitor_stub.cpp)
 endif()
 
 # Embed the application icon into the Windows executable.
@@ -758,6 +768,8 @@ if (UNIX AND NOT APPLE)
         src/window/notification_platform_linux.cpp
         # "Show in Folder": org.freedesktop.FileManager1, portal fallback.
         src/ui/platform/reveal_in_folder_linux.cpp
+        # Resume-from-sleep signal: logind's PrepareForSleep.
+        src/app/wake_monitor_linux.cpp
     )
     target_link_libraries(TeleMatrix PRIVATE Qt6::DBus)
 endif()

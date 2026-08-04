@@ -44,7 +44,9 @@
 #include "../ui/widgets/emoji_input_field.h"
 #include "../ui/widgets/input_fields.h"
 #include "../ui/widgets/connecting_widget.h"
+#include "account.h"
 #include "network_monitor.h"
+#include "wake_monitor.h"
 
 #include <algorithm>
 
@@ -913,6 +915,26 @@ void AppMainWidget::setupLayout() {
     if (_history) {
         _history->onNetworkOnlineChanged(_networkOnline); // seed initial state
     }
+
+    // Sockets die with the suspend, but waking rarely moves reachability, so
+    // nothing above notices. Reconnect EVERY account: the reachability handler
+    // only re-arms the active one, which leaves the others waiting on the SDK's
+    // own probe. Cheap to over-call — the re-arm coalesces and is a no-op on a
+    // healthy sync.
+    _wakeMonitor = new ::TeleMatrix::WakeMonitor(this);
+    connect(_wakeMonitor, &::TeleMatrix::WakeMonitor::woke, this, [this] {
+        if (!_controller) {
+            return;
+        }
+        auto &domain = _controller->domain();
+        for (auto i = 0; i != domain.count(); ++i) {
+            if (const auto account = domain.account(i)) {
+                if (const auto bridge = account->bridge()) {
+                    bridge->reconnect();
+                }
+            }
+        }
+    });
 
     // Show on a sync regression (state 1) once we've already synced (state 2) at
     // least once. The bridge is recreated on logout, but so is this widget, so
