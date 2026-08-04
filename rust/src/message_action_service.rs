@@ -188,9 +188,7 @@ impl MessageActionService {
             }
         }
 
-        if TimelineConversionService::schedule_reply_details_prefetch(&pinned_timeline, &all_items)
-            .await
-        {
+        if TimelineConversionService::fetch_reply_details(&pinned_timeline, &all_items).await {
             all_items = pinned_timeline.items().await.into_iter().collect();
         }
         let cached_reply_previews: HashMap<String, crate::types::ReplyPreview> = {

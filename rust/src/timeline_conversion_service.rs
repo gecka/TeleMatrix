@@ -23,6 +23,10 @@ use crate::types::{
     ReplyPreview, SendState, TimelineItem, UserProfile,
 };
 
+/// Cap on replied-to events fetched per refresh, so a long backlog of replies
+/// can't turn one render into a burst of `/event/` requests.
+const MAX_REPLY_DETAIL_PREFETCH: usize = 12;
+
 pub(crate) struct TimelineConversionService;
 
 impl TimelineConversionService {
@@ -842,42 +846,85 @@ impl TimelineConversionService {
         }
     }
 
-    pub(crate) async fn schedule_reply_details_prefetch(
-        timeline: &SdkTimeline,
+    /// Dedup and cap the ids a prefetch round will ask for. Split out from the
+    /// item walk below because the cap is the only part worth testing.
+    pub(crate) fn take_prefetch_candidates(
+        ids: impl Iterator<Item = OwnedEventId>,
+    ) -> Vec<OwnedEventId> {
+        let mut seen: HashSet<OwnedEventId> = HashSet::new();
+        let mut candidates = Vec::new();
+        for event_id in ids {
+            if !seen.insert(event_id.clone()) {
+                continue;
+            }
+            candidates.push(event_id);
+            if candidates.len() >= MAX_REPLY_DETAIL_PREFETCH {
+                break;
+            }
+        }
+        candidates
+    }
+
+    /// Replies whose replied-to event is still missing, capped and deduped.
+    fn reply_details_candidates(
         items: &[Arc<matrix_sdk_ui::timeline::TimelineItem>],
-    ) -> bool {
-        let mut requested: HashSet<OwnedEventId> = HashSet::new();
-        for entry in items.iter() {
-            let Some(item) = entry.as_event() else {
-                continue;
-            };
+    ) -> Vec<OwnedEventId> {
+        Self::take_prefetch_candidates(items.iter().filter_map(|entry| {
+            let item = entry.as_event()?;
             let TimelineItemContent::MsgLike(msg_like) = item.content() else {
-                continue;
+                return None;
             };
-            let Some(in_reply_to) = msg_like.in_reply_to.as_ref() else {
-                continue;
-            };
+            let in_reply_to = msg_like.in_reply_to.as_ref()?;
             if !matches!(
                 &in_reply_to.event,
                 matrix_sdk_ui::timeline::TimelineDetails::Unavailable
             ) {
-                continue;
+                return None;
             }
-            let Some(event_id): Option<OwnedEventId> = item
-                .event_id()
+            item.event_id()
                 .map(|id: &matrix_sdk::ruma::EventId| id.to_owned())
-            else {
-                continue;
-            };
-            if !requested.insert(event_id.clone()) {
-                continue;
-            }
-            let _ = timeline.fetch_details_for_event(&event_id).await;
-            if requested.len() >= 12 {
-                break;
-            }
+        }))
+    }
+
+    /// Fetch missing replied-to events in the background.
+    ///
+    /// Never await this from a render path: each fetch is a `/event/` request
+    /// bounded only by the SDK's 30s timeout, and a room whose events are all
+    /// on disk would still wait it out before painting. The results arrive on
+    /// their own — the SDK writes them through the timeline's observable items,
+    /// so the watcher brings us back here with the details filled in.
+    ///
+    /// Re-requesting is already prevented twice over: the filter only takes
+    /// `Unavailable` replies, and the SDK marks an item `Pending` for the
+    /// duration of its fetch.
+    pub(crate) fn spawn_reply_details_prefetch(
+        timeline: &Arc<SdkTimeline>,
+        items: &[Arc<matrix_sdk_ui::timeline::TimelineItem>],
+    ) {
+        let pending = Self::reply_details_candidates(items);
+        if pending.is_empty() {
+            return;
         }
-        !requested.is_empty()
+        let timeline = timeline.clone();
+        tokio::spawn(async move {
+            for event_id in pending {
+                let _ = timeline.fetch_details_for_event(&event_id).await;
+            }
+        });
+    }
+
+    /// Awaiting variant, for a caller that reads a transient timeline once and
+    /// drops it — there is no watcher there to deliver details that land later.
+    /// Returns whether anything was fetched, i.e. whether to re-read the items.
+    pub(crate) async fn fetch_reply_details(
+        timeline: &SdkTimeline,
+        items: &[Arc<matrix_sdk_ui::timeline::TimelineItem>],
+    ) -> bool {
+        let pending = Self::reply_details_candidates(items);
+        for event_id in &pending {
+            let _ = timeline.fetch_details_for_event(event_id).await;
+        }
+        !pending.is_empty()
     }
 
     fn extract_mxc_url(source: &MediaSource) -> String {
@@ -1082,6 +1129,47 @@ struct ReplyPreviewInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ---- take_prefetch_candidates: dedup + cap ----
+
+    fn event_ids(count: usize) -> Vec<OwnedEventId> {
+        (0..count)
+            .map(|i| OwnedEventId::try_from(format!("$ev{i}:example.org")).expect("valid event id"))
+            .collect()
+    }
+
+    #[test]
+    fn prefetch_candidates_stop_at_the_cap() {
+        let ids = event_ids(MAX_REPLY_DETAIL_PREFETCH + 5);
+        let taken = TimelineConversionService::take_prefetch_candidates(ids.iter().cloned());
+        assert_eq!(taken.len(), MAX_REPLY_DETAIL_PREFETCH);
+        assert_eq!(taken, ids[..MAX_REPLY_DETAIL_PREFETCH]);
+    }
+
+    #[test]
+    fn prefetch_candidates_drop_repeats() {
+        let ids = event_ids(3);
+        let repeated: Vec<OwnedEventId> = ids.iter().chain(ids.iter()).cloned().collect();
+        assert_eq!(
+            TimelineConversionService::take_prefetch_candidates(repeated.into_iter()),
+            ids
+        );
+    }
+
+    #[test]
+    fn prefetch_candidates_count_unique_ids_against_the_cap() {
+        // A repeat must not consume a slot, or a reply quoted many times would
+        // starve the rest of the screen of previews.
+        let ids = event_ids(MAX_REPLY_DETAIL_PREFETCH);
+        let with_repeats: Vec<OwnedEventId> = ids
+            .iter()
+            .flat_map(|id| std::iter::repeat_n(id.clone(), 3))
+            .collect();
+        assert_eq!(
+            TimelineConversionService::take_prefetch_candidates(with_repeats.into_iter()).len(),
+            MAX_REPLY_DETAIL_PREFETCH
+        );
+    }
 
     // ---- scale_waveform_amplitude: the 0..=31 quantization formula ----
 

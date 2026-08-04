@@ -372,7 +372,7 @@ impl TimelineCacheService {
 
     pub(crate) async fn cache_timeline_diffs(
         room_id: &str,
-        timeline: &SdkTimeline,
+        timeline: &Arc<SdkTimeline>,
         diffs: Vec<TimelineDiff>,
         context: &TimelineCacheContext,
     ) -> bool {
@@ -549,9 +549,7 @@ impl TimelineCacheService {
             return false;
         }
 
-        if TimelineConversionService::schedule_reply_details_prefetch(timeline, &edge_items).await {
-            return false;
-        }
+        TimelineConversionService::spawn_reply_details_prefetch(timeline, &edge_items);
 
         let pinned_event_ids: HashSet<String> = timeline
             .room()
@@ -671,7 +669,7 @@ impl TimelineCacheService {
 
     pub(crate) async fn cache_timeline_snapshot(
         room_id: &str,
-        timeline: &SdkTimeline,
+        timeline: &Arc<SdkTimeline>,
         context: &TimelineCacheContext,
     ) {
         let own_user_id = timeline.room().own_user_id().to_owned();
@@ -683,7 +681,7 @@ impl TimelineCacheService {
             .into_iter()
             .map(|id| id.to_string())
             .collect();
-        let mut all_items: Vec<_> = timeline.items().await.into_iter().collect();
+        let all_items: Vec<_> = timeline.items().await.into_iter().collect();
         let acknowledged_transaction_ids: HashSet<String> = all_items
             .iter()
             .filter_map(|item| item.as_event())
@@ -718,9 +716,7 @@ impl TimelineCacheService {
                 .collect()
         };
 
-        if TimelineConversionService::schedule_reply_details_prefetch(timeline, &all_items).await {
-            all_items = timeline.items().await.into_iter().collect();
-        }
+        TimelineConversionService::spawn_reply_details_prefetch(timeline, &all_items);
 
         let mut converted: Vec<TimelineItem> = all_items
             .iter()
