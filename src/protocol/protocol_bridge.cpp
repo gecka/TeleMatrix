@@ -783,30 +783,29 @@ static void roomUnreadSnapshotCallbackTrampoline(
     auto *guard = data->guard;
     const auto roomId = data->roomId;
     const auto requestId = data->requestId;
-    // The notif-info portion of the snapshot needs the live bridge, so build the
-    // result inside the guard. Capture the slice-derived field first, since the
-    // slice must be freed (below) before the guard is taken.
+    // Capture the slice-derived field first, since the slice must be freed
+    // (below) before the guard is taken.
     const auto unreadCount = static_cast<int>(slice.unread_count);
     tm_free_timeline_slice(slice);
     delete data;
     withGuardedBridge(guard, [roomId, requestId, success, unreadCount](ProtocolBridge *bridge) {
-        TeleMatrix::RoomUnreadSnapshot result;
-        if (success) {
-            result.unreadCount = unreadCount;
-            result.highlightCount = 0;
-            result.notificationMode = TeleMatrix::RoomNotificationMode::AllMessages;
-            result.isMuted = false;
-            result.isMarkedUnread = false;
-            if (bridge) {
-                const auto info = bridge->roomNotifInfo(roomId);
-                result.notificationMode = info.notificationMode;
-                result.isMuted = info.isMuted;
-                result.isMarkedUnread = info.isMarkedUnread;
-            }
-        }
         QMetaObject::invokeMethod(
             bridge,
-            [bridge, roomId, requestId, success, result]() {
+            [bridge, roomId, requestId, success, unreadCount]() {
+                TeleMatrix::RoomUnreadSnapshot result;
+                if (success) {
+                    result.unreadCount = unreadCount;
+                    result.highlightCount = 0;
+                    // Read here and not in the callback thread above: the guard's
+                    // mutex covers the bridge POINTER's lifetime, not its data, so
+                    // reading _roomNotifById there raced setCachedRooms rebuilding
+                    // it on this thread — a torn read lands mid-reallocation and
+                    // QHash aborts on `numBuckets > 0`.
+                    const auto info = bridge->roomNotifInfo(roomId);
+                    result.notificationMode = info.notificationMode;
+                    result.isMuted = info.isMuted;
+                    result.isMarkedUnread = info.isMarkedUnread;
+                }
                 bridge->handleRoomUnreadSnapshotReady(roomId, requestId, success, result);
             },
             Qt::QueuedConnection);
