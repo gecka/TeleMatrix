@@ -8,7 +8,7 @@ project(TeleMatrix LANGUAGES CXX)
 #
 # Don't hand-edit these: `scripts/release.sh <version>` bumps both, commits, tags and
 # pushes. release.yml refuses to publish a tag that disagrees with TELEMATRIX_VERSION.
-set(TELEMATRIX_VERSION "1.0.0-beta.1")
+set(TELEMATRIX_VERSION "1.0.0-beta.2")
 set(TELEMATRIX_RELEASE_DATE "2026-08-04")
 
 # Objective-C++ only exists on Apple platforms; the .mm sources are added
