@@ -26,9 +26,9 @@ use eyeball_im::VectorDiff;
 use futures_util::{pin_mut, StreamExt};
 use matrix_sdk::{Client, Room, RoomState};
 use matrix_sdk_ui::room_list_service::filters::new_filter_non_left;
-use matrix_sdk_ui::room_list_service::RoomListItem;
+use matrix_sdk_ui::room_list_service::{RoomListItem, State as RoomListState};
 use matrix_sdk_ui::sync_service::{State as SyncServiceState, SyncService};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, Instrument as _};
 
 /// Shared slot holding the running sliding-sync `SyncService`, so the room-open
 /// path can subscribe rooms (via its `RoomListService`) and logout/session-change
@@ -63,20 +63,38 @@ impl SlidingSyncService {
     ) {
         let session_tasks = runtime.session_tasks.clone();
         let tasks_handle = session_tasks.tasks();
-        session_tasks.spawn(async move {
-            if let Err(e) = Self::run(
-                client,
-                runtime,
-                session_generation,
-                tasks_handle,
-                sync_handle,
-                reconnect_notify,
-            )
-            .await
-            {
-                warn!("[sliding] sync service exited with error: {e}");
+        // Every account syncs in the same process, so untagged lines from two of
+        // them are indistinguishable. WARN level because span creation obeys the
+        // env filter: an INFO span would vanish under `RUST_LOG=warn` and take
+        // the tag off the WARN lines that still print. The SDK's own
+        // "supervisor task" span is WARN for the same reason — and since
+        // `SyncService::start()` is awaited inside this span, that supervisor
+        // (and its room-list/encryption children) inherits the account too.
+        let span = tracing::span!(
+            tracing::Level::WARN,
+            "account",
+            user = client
+                .user_id()
+                .map(|id| id.to_string())
+                .unwrap_or_default()
+        );
+        session_tasks.spawn(
+            async move {
+                if let Err(e) = Self::run(
+                    client,
+                    runtime,
+                    session_generation,
+                    tasks_handle,
+                    sync_handle,
+                    reconnect_notify,
+                )
+                .await
+                {
+                    warn!("[sliding] sync service exited with error: {e}");
+                }
             }
-        });
+            .instrument(span),
+        );
     }
 
     async fn run(
@@ -125,6 +143,12 @@ impl SlidingSyncService {
         // independent of the borrowed room-list stream, so they coexist in one
         // select! loop.
         let mut state_sub = sync_service.state();
+        // The connection heartbeat. The room-list state machine stores a state
+        // only after a sliding-sync response comes back, and it stores
+        // unconditionally (`set`, not `set_if_not_eq`), so this yields once per
+        // successful response — including responses that change no rooms, which
+        // the diff stream below stays silent for.
+        let mut room_list_state_sub = sync_service.room_list_service().state();
 
         let mut announced_synced = false;
         // Pending one-shot rebuild to reflect favourite/pinned account-data tags
@@ -213,14 +237,14 @@ impl SlidingSyncService {
                     if let Some(state) = maybe_state {
                         map_service_state(&runtime, &state);
                         match &state {
-                            // Connected/running again after the initial sync —
-                            // clear the "Connecting…"/"Waiting for network…"
-                            // regression. A reconnect that doesn't change the room
-                            // list emits no batch, so the indicator has to be cleared
-                            // from the service state, not only from a batch.
-                            SyncServiceState::Running if announced_synced => {
-                                set_sync_state(&runtime, SYNC_STATE_SYNCED);
-                            }
+                            // NOTE: `Running` is deliberately NOT treated as
+                            // "connected" here. The SDK publishes it from
+                            // `start()` without sending anything, so every failed
+                            // retry would report SYNCED — which hid the connecting
+                            // pill, reset its backoff, and opened the notification
+                            // gate on a dead connection. The room-list heartbeat
+                            // arm below is the evidence-based signal.
+                            //
                             // The Error state is terminal — the service stopped.
                             // Restart it (capped exponential backoff) so the app
                             // reconnects after a transient failure offline mode
@@ -247,6 +271,17 @@ impl SlidingSyncService {
                                 }
                             }
                             _ => {}
+                        }
+                    }
+                }
+                maybe_room_list_state = room_list_state_sub.next() => {
+                    if let Some(state) = maybe_room_list_state {
+                        // A response came back, so the connection really works —
+                        // clear any "Waiting for network" regression. Gated on
+                        // `announced_synced` so the initial population still owns
+                        // the first SYNCED (the batch paths above).
+                        if announced_synced && room_list_state_is_connected(&state) {
+                            set_sync_state(&runtime, SYNC_STATE_SYNCED);
                         }
                     }
                 }
@@ -470,6 +505,23 @@ fn map_service_state(runtime: &SyncLoopRuntime, state: &SyncServiceState) {
     }
 }
 
+/// Whether a room-list state means a sliding-sync response actually came back.
+///
+/// The state machine stores a state only after the sync call resolves: success
+/// stores the next state, failure stores `Error`/`Terminated`. So anything but
+/// those two is proof the connection works — the one signal here that cannot be
+/// produced by merely re-arming the service.
+///
+/// Any success state counts, not just `Running`: recovering from an error goes
+/// `Error{Running}` → `Recovering` → `Running`, so waiting for `Running` would
+/// hold the notification gate shut for an extra round trip.
+fn room_list_state_is_connected(state: &RoomListState) -> bool {
+    !matches!(
+        state,
+        RoomListState::Error { .. } | RoomListState::Terminated { .. }
+    )
+}
+
 /// Walk an error's source chain for the store-cipher marker (mirrors the classic
 /// loop's `is_store_crypto_error`).
 fn error_is_store_crypto(err: &dyn std::error::Error) -> bool {
@@ -507,6 +559,41 @@ fn set_sync_state(runtime: &SyncLoopRuntime, state: u32) {
             .unwrap_or_else(|e| e.into_inner());
         if let Some(callback) = guard.as_ref() {
             callback(state);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The failure stores. These are the two the SDK writes when the sync call
+    // did NOT come back, so they must never report a working connection.
+    #[test]
+    fn a_failed_room_list_state_is_not_connected() {
+        assert!(!room_list_state_is_connected(&RoomListState::Error {
+            from: Box::new(RoomListState::Running)
+        }));
+        assert!(!room_list_state_is_connected(&RoomListState::Terminated {
+            from: Box::new(RoomListState::Running)
+        }));
+    }
+
+    // Every other state is only ever stored after a successful response.
+    // `Recovering` in particular must count: it is what the first response
+    // after an outage stores, and the notification gate waits on this.
+    #[test]
+    fn every_success_room_list_state_is_connected() {
+        for state in [
+            RoomListState::Init,
+            RoomListState::SettingUp,
+            RoomListState::Recovering,
+            RoomListState::Running,
+        ] {
+            assert!(
+                room_list_state_is_connected(&state),
+                "{state:?} is a success store and must report connected"
+            );
         }
     }
 }
