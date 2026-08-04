@@ -900,13 +900,21 @@ impl RoomSummaryService {
     /// Returns None for service/system messages that should not appear in preview.
     pub(crate) fn content_to_preview(content: &MessageContent) -> Option<String> {
         match content {
-            MessageContent::Text { body, .. } => Some(body.clone()),
-            MessageContent::Image { caption, .. } => {
-                Some(caption.clone().unwrap_or_else(|| "Photo".to_string()))
-            }
-            MessageContent::Video { caption, .. } => {
-                Some(caption.clone().unwrap_or_else(|| "Video".to_string()))
-            }
+            // Authored prose is humanized; filenames and the fixed labels below
+            // are not — a file really named `[draft](final).pdf` must keep it.
+            MessageContent::Text { body, .. } => Some(Self::humanize_preview_text(body)),
+            MessageContent::Image { caption, .. } => Some(
+                caption
+                    .as_deref()
+                    .map(Self::humanize_preview_text)
+                    .unwrap_or_else(|| "Photo".to_string()),
+            ),
+            MessageContent::Video { caption, .. } => Some(
+                caption
+                    .as_deref()
+                    .map(Self::humanize_preview_text)
+                    .unwrap_or_else(|| "Video".to_string()),
+            ),
             MessageContent::File { filename, .. } => Some(filename.clone()),
             MessageContent::Audio { info } => {
                 Some(Self::audio_preview_text(info.is_voice, &info.filename))
@@ -927,6 +935,94 @@ impl RoomSummaryService {
         }
     }
 
+    /// Make a plain-text body readable in the chat list and in notifications.
+    ///
+    /// Both surfaces show the event's `body`, and other clients and bridges are
+    /// free to put markdown source there while the rendered form lives in
+    /// `formatted_body` — so a mention arrives as literal
+    /// `[@member:server.com](https://…)`. The timeline never shows this because
+    /// it parses the HTML instead; here there is no HTML to parse.
+    ///
+    /// Shortening to `@localpart` matches what the timeline renders for a
+    /// mention, so all three surfaces agree.
+    pub(crate) fn humanize_preview_text(text: &str) -> String {
+        Self::shorten_user_ids(&Self::strip_markdown_links(text))
+    }
+
+    /// `[label](url)` -> `label`. Anything not matching that exact shape is
+    /// copied through, so stray brackets survive untouched.
+    fn strip_markdown_links(text: &str) -> String {
+        let bytes = text.as_bytes();
+        let mut out = String::with_capacity(text.len());
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'[' {
+                if let Some(parsed) = Self::parse_markdown_link(text, i) {
+                    let (label, next) = parsed;
+                    out.push_str(label);
+                    i = next;
+                    continue;
+                }
+            }
+            // Not a link: copy one whole char (byte indexing would split UTF-8).
+            let ch = text[i..].chars().next().unwrap_or('\u{fffd}');
+            out.push(ch);
+            i += ch.len_utf8();
+        }
+        out
+    }
+
+    /// Parse `[label](url)` starting at `open`; returns the label and the index
+    /// just past the closing paren.
+    fn parse_markdown_link(text: &str, open: usize) -> Option<(&str, usize)> {
+        let rest = &text[open + 1..];
+        let close = rest.find(']')?;
+        if rest.as_bytes().get(close + 1) != Some(&b'(') {
+            return None;
+        }
+        let url_start = close + 2;
+        let url_len = rest[url_start..].find(')')?;
+        let label = &rest[..close];
+        if label.is_empty() {
+            return None;
+        }
+        Some((label, open + 1 + url_start + url_len + 1))
+    }
+
+    /// `@localpart:server` -> `@localpart`.
+    ///
+    /// The server run is dropped up to the next whitespace, mirroring the reply
+    /// preview's regex in `history_message.cpp`. A trailing comma or period on a
+    /// mention mid-sentence goes with it; standalone mentions are the norm and
+    /// the alternative is guessing where a server name ends.
+    fn shorten_user_ids(text: &str) -> String {
+        let mut out = String::with_capacity(text.len());
+        let mut rest = text;
+        while let Some(at) = rest.find('@') {
+            out.push_str(&rest[..at]);
+            let after = &rest[at + 1..];
+            let end = after
+                .find(|c: char| c.is_whitespace())
+                .unwrap_or(after.len());
+            let candidate = &after[..end];
+            match candidate.split_once(':') {
+                // Both halves must be non-empty for this to be a user id;
+                // `foo@bar.com` has no colon and is left alone.
+                Some((localpart, server)) if !localpart.is_empty() && !server.is_empty() => {
+                    out.push('@');
+                    out.push_str(localpart);
+                    rest = &after[end..];
+                }
+                _ => {
+                    out.push('@');
+                    rest = after;
+                }
+            }
+        }
+        out.push_str(rest);
+        out
+    }
+
     pub(crate) fn detect_voice_message(audio: &AudioMessageEventContent) -> bool {
         audio.voice.is_some()
     }
@@ -943,7 +1039,7 @@ impl RoomSummaryService {
                 AnySyncMessageLikeEvent::RoomMessage(m) => {
                     if let Some(original) = m.as_original() {
                         match &original.content.msgtype {
-                            MessageType::Text(t) => Some(t.body.clone()),
+                            MessageType::Text(t) => Some(Self::humanize_preview_text(&t.body)),
                             MessageType::Image(img) => {
                                 let mime = img.info.as_ref().and_then(|i| i.mimetype.as_deref());
                                 let fname = img.filename();
@@ -961,8 +1057,10 @@ impl RoomSummaryService {
                                 Self::detect_voice_message(audio),
                                 audio.filename(),
                             )),
-                            MessageType::Emote(e) => Some(format!("* {}", e.body)),
-                            MessageType::Notice(n) => Some(n.body.clone()),
+                            MessageType::Emote(e) => {
+                                Some(format!("* {}", Self::humanize_preview_text(&e.body)))
+                            }
+                            MessageType::Notice(n) => Some(Self::humanize_preview_text(&n.body)),
                             _ => None,
                         }
                     } else {
@@ -1061,6 +1159,86 @@ mod tests {
             body: body.into(),
             formatted_body: None,
         }
+    }
+
+    // ---- humanize_preview_text: markdown mentions from other clients ---------
+
+    #[test]
+    fn a_markdown_mention_becomes_a_short_handle() {
+        // The reported shape: a bridge/foreign client put markdown source in
+        // `body` and the rendered anchor in `formatted_body`.
+        assert_eq!(
+            RoomSummaryService::humanize_preview_text(
+                "[@member:server.com](https://matrix.to/#/@member:server.com) hi"
+            ),
+            "@member hi"
+        );
+    }
+
+    #[test]
+    fn a_bare_user_id_becomes_a_short_handle() {
+        assert_eq!(
+            RoomSummaryService::humanize_preview_text("ping @member:server.com now"),
+            "ping @member now"
+        );
+    }
+
+    #[test]
+    fn ordinary_text_is_untouched() {
+        for body in [
+            "hello world",
+            // No colon, so not a user id — must survive intact.
+            "mail me at user@example.com",
+            // Unbalanced markdown is left exactly as written.
+            "[oops",
+            "a [b] c",
+            "100% [done]",
+        ] {
+            assert_eq!(RoomSummaryService::humanize_preview_text(body), body);
+        }
+    }
+
+    #[test]
+    fn every_link_on_a_line_is_stripped() {
+        assert_eq!(
+            RoomSummaryService::humanize_preview_text("[a](http://x) and [b](http://y)"),
+            "a and b"
+        );
+    }
+
+    #[test]
+    fn non_ascii_text_around_a_mention_survives() {
+        // The scanner walks bytes, so a multi-byte char next to a match is the
+        // obvious way to slice a string mid-codepoint.
+        assert_eq!(
+            RoomSummaryService::humanize_preview_text("héllo [@a:b.com](u) — ¡adiós!"),
+            "héllo @a — ¡adiós!"
+        );
+    }
+
+    #[test]
+    fn a_humanized_mention_reaches_the_chat_list_preview() {
+        assert_eq!(
+            RoomSummaryService::content_to_preview(&text("[@member:server.com](https://s) hi")),
+            Some("@member hi".to_string())
+        );
+    }
+
+    #[test]
+    fn a_filename_keeps_its_brackets() {
+        // Not prose: stripping here would rename the user's file.
+        let file = MessageContent::File {
+            url: String::new(),
+            mime_type: String::new(),
+            filename: "[draft](final).pdf".into(),
+            caption: None,
+            size: 0,
+            duration_ms: 0,
+        };
+        assert_eq!(
+            RoomSummaryService::content_to_preview(&file),
+            Some("[draft](final).pdf".to_string())
+        );
     }
 
     // ---- content_to_preview: all 8 MessageContent variants -------------------
