@@ -33,6 +33,7 @@
 #include "../media/media_view_overlay.h"
 #include "../protocol/media_cache.h"
 #include "../protocol/protocol_bridge.h"
+#include "../protocol/room_list_membership.h"
 #include "../history/room_settings_widget.h"
 #include "../history/user_profile_popup.h"
 #include "../settings/appearance/theme_selector_panel.h"
@@ -709,17 +710,10 @@ void AppMainWidget::setupLayout() {
     // (with the Join bar) instead, like the Explore flow does.
     QObject::connect(_history, &HistoryWidget::roomSwitchRequested,
         this, [this](const QString &roomId, const QStringList &via) {
-        bool joined = false;
-        if (_bridge) {
-            for (const auto &room : _bridge->cachedRooms()) {
-                if (room.roomId == roomId
-                    && room.membership == MembershipState::Join) {
-                    joined = true;
-                    break;
-                }
-            }
-        }
-        if (!joined) {
+        // Same rule as the sender: preview only a room the loaded list says we
+        // are not in, never one it simply hasn't heard of yet.
+        if (_bridge
+            && RoomListMembership::shouldOpenAsPreview(_bridge->cachedRooms(), roomId)) {
             showRoomPreview(roomId, via);
             return;
         }

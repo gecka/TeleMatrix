@@ -2957,7 +2957,7 @@ static QVector<TeleMatrix::RoomSummary> convertFfiRooms(FfiRoomList ffiList) {
     return result;
 }
 
-QVector<RoomSummary> ProtocolBridge::getRoomsBlockingForStartupOnly() {
+QVector<RoomSummary> ProtocolBridge::getRoomsBlocking() {
     QVector<RoomSummary> result;
     if (!_handle) {
         setCachedRooms({});
@@ -2974,7 +2974,7 @@ QVector<RoomSummary> ProtocolBridge::getRoomsBlockingForStartupOnly() {
 
     result = convertFfiRooms(ffiList);
     if (timer.elapsed() > 100) {
-        qWarning() << "[PERF] ProtocolBridge::getRoomsBlockingForStartupOnly blocked"
+        qWarning() << "[PERF] ProtocolBridge::getRoomsBlocking blocked"
             << timer.elapsed() << "ms for" << result.size() << "rooms";
     }
     {
@@ -2984,7 +2984,7 @@ QVector<RoomSummary> ProtocolBridge::getRoomsBlockingForStartupOnly() {
                 ++withPreview;
             }
         }
-        qDebug() << "[startup] getRoomsBlocking:" << result.size()
+        qDebug() << "[rooms] getRoomsBlocking:" << result.size()
             << "rooms," << withPreview << "with last message";
     }
     if (result.isEmpty()) {

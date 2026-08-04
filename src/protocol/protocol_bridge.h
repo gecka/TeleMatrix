@@ -65,9 +65,12 @@ public:
     /// Generate a bridge-wide request token for async snapshot calls.
     quint64 nextRequestId();
 
-    /// Blocking startup-only room list read. Interactive UI must use
+    /// Blocking room list read, for the two moments this account is about to be
+    /// PRESENTED and its rooms must already exist: app startup, and switching
+    /// onto an account that has only ever synced in the background. Everything
+    /// else — anything reacting to a change while on screen — must use
     /// cachedRooms() plus getRoomsAsync().
-    QVector<RoomSummary> getRoomsBlockingForStartupOnly();
+    QVector<RoomSummary> getRoomsBlocking();
 
     // Recent emojis (server-synced via io.element.recent_emoji account data).
     // setRecentEmoji persists the full ordered (emoji, count) list; the startup

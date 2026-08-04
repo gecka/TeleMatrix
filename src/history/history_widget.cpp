@@ -87,6 +87,7 @@
 
 #include "ui/style/icon_provider.h"
 #include "../protocol/protocol_bridge.h"
+#include "../protocol/room_list_membership.h"
 #include "../protocol/media_cache.h"
 
 #include "history_popup_menu_style.h"
@@ -3470,7 +3471,11 @@ void HistoryWidget::setupMessageList() {
                const QStringList &via) {
         // Unjoined target: route straight to a preview, via hints intact —
         // they are what lets the homeserver find a room-id on another server.
-        if (roomId != _currentRoomId && !isJoinedRoom(roomId)) {
+        // Must match the receiver's rule, or an unloaded list has one side
+        // previewing while the other declines to.
+        if (roomId != _currentRoomId
+            && _bridge
+            && RoomListMembership::shouldOpenAsPreview(_bridge->cachedRooms(), roomId)) {
             emit roomSwitchRequested(roomId, via);
             return;
         }
@@ -7000,7 +7005,11 @@ void HistoryWidget::showMessageLive(
     }
     // A toast can outlive our membership, or name a room we never joined; there
     // is no timeline to open, so hand it over for a preview like jumpTo() does.
-    if (roomId != _currentRoomId && !isJoinedRoom(roomId)) {
+    // Only for a room the loaded list says we are NOT in — an unloaded list means
+    // "don't know", and treating that as "not a member" peeked joined rooms.
+    if (roomId != _currentRoomId
+        && _bridge
+        && RoomListMembership::shouldOpenAsPreview(_bridge->cachedRooms(), roomId)) {
         emit roomSwitchRequested(roomId);
         return;
     }
@@ -7048,7 +7057,8 @@ void HistoryWidget::jumpTo(
     if (roomId != _currentRoomId) {
         // A link can target a room we haven't joined; there is no timeline to
         // jump-load there — hand it to the main widget, which opens a preview.
-        if (!isJoinedRoom(roomId)) {
+        if (_bridge
+            && RoomListMembership::shouldOpenAsPreview(_bridge->cachedRooms(), roomId)) {
             emit roomSwitchRequested(roomId);
             return;
         }

@@ -50,6 +50,7 @@ set(TELEMATRIX_TEST_AREAS
     video_frame_scaler
     media_retry_policy
     verification_page_rules
+    room_list_membership
 )
 
 # Aggregate target so CI can build every test runner with one `--target` (no need

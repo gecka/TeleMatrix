@@ -1115,7 +1115,7 @@ void AppController::start() {
         // Show the main shell immediately for authorized users, but keep
         // the locally cached room list stable until initial sync is ready.
         showMain();
-        const auto cachedRooms = bridge()->getRoomsBlockingForStartupOnly();
+        const auto cachedRooms = bridge()->getRoomsBlocking();
         if (!cachedRooms.isEmpty() && _mainWidget) {
             _mainWidget->applyCachedRooms(cachedRooms);
         }
@@ -1562,6 +1562,20 @@ void AppController::activateAccount(int index, int slideDirection) {
         return;
     }
 
+    // Build this account's room list if it has only ever synced in the
+    // background: syncing is not the same as having been PRESENTED, and only a
+    // presented account has ever had its list built (every getRoomsAsync caller
+    // runs against the on-screen bridge). Handing the incoming UI an empty list
+    // makes it read "not a member" — which opened a joined room as a peek when a
+    // notification click switched account and opened the room in one turn.
+    //
+    // Done here, before the teardown, so the wait happens with the outgoing
+    // account still painted. At most once per account: the cache then persists
+    // for the rest of the session.
+    if (target->bridge() && target->bridge()->cachedRooms().isEmpty()) {
+        target->bridge()->getRoomsBlocking();
+    }
+
     // Freeze what is on screen before it goes, so the outgoing account can be
     // slid away over the incoming one once that has been built.
     QPixmap outgoing;
@@ -1593,8 +1607,8 @@ void AppController::activateAccount(int index, int slideDirection) {
 
     // Keep the window exactly as the user left it — only the contents change.
     showMain(/*restoreWindowGeometry=*/false);
-    // Straight from the live bridge's memory: this account has been syncing,
-    // so there is nothing to block on.
+    // Straight from the live bridge's memory, built above if it had never been
+    // presented. Still empty only when the account genuinely has no rooms.
     const auto rooms = target->bridge()->cachedRooms();
     if (!rooms.isEmpty() && _mainWidget) {
         _mainWidget->applyCachedRooms(rooms);
