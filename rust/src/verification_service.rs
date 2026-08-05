@@ -515,6 +515,19 @@ impl VerificationService {
                         return;
                     };
 
+                    // Glare can kill a request between the wire and this handler
+                    // (the sender's own retry does exactly that). Storing it would
+                    // raise a banner for a dead flow and emit states nothing can
+                    // answer; a cancelled request is inert everywhere downstream.
+                    if request.is_done() || request.is_cancelled() {
+                        verification_debug!(
+                            "incoming request already terminal, ignoring flow_id={} state={}",
+                            transaction_id,
+                            Self::verification_request_state_details(&request.state())
+                        );
+                        return;
+                    }
+
                     // Store before fetching the display name: that request is a
                     // network round trip, and until this lands in ctx a retry on
                     // this device cannot see the peer's request and would create
@@ -1756,14 +1769,45 @@ impl VerificationService {
     /// accept send and the watcher's own start failing together), and
     /// `emit_state_for` shares no lock with ctx, so emitting first would let both
     /// through and send the UI two `Cancelled` for one flow.
+    ///
+    /// The abandoned request is cancelled too. Left live it stays "ongoing" in
+    /// matrix-sdk-crypto's per-user map, which we cannot see (0.18 has no
+    /// pending-request enumeration), and the next create is glared against it
+    /// and born cancelled.
     async fn fail_flow(&self, flow_id: &str, reason: &str) {
         verification_debug!("verification flow failed flow_id={flow_id} reason={reason}");
-        if self.reset_context_if_current(Some(flow_id)).await {
-            self.emit_state_for(VerificationState::Cancelled, flow_id);
-        } else {
-            // Someone else ended this flow and owes the terminal state.
-            verification_debug!("flow failure not emitted, flow already ended flow_id={flow_id}");
+        let stale_request;
+        {
+            let mut ctx = self.ctx.lock().await;
+            let still_current = ctx
+                .request
+                .as_ref()
+                .map(|request| request.flow_id() == flow_id)
+                .unwrap_or(false);
+            if !still_current {
+                // Someone else ended this flow and owes the terminal state.
+                verification_debug!(
+                    "flow failure not emitted, flow already ended flow_id={flow_id}"
+                );
+                return;
+            }
+            stale_request = ctx
+                .request
+                .take()
+                .filter(|old| !old.is_done() && !old.is_cancelled());
+            ctx.reset();
         }
+        // Spawned, never awaited: every caller runs ON the request watcher, and
+        // the reset above just aborted that task — it dies at its next await, so
+        // an awaited cancel would be dropped and the emit below skipped. Nothing
+        // between the lock and the emit may await, for the same reason.
+        if let Some(stale) = stale_request {
+            verification_debug!("cancelling failed flow's request flow_id={flow_id}");
+            tokio::spawn(async move {
+                let _ = stale.cancel().await;
+            });
+        }
+        self.emit_state_for(VerificationState::Cancelled, flow_id);
     }
 
     /// Fail a flow only while nothing else owns it: same generation, same
@@ -2124,14 +2168,65 @@ impl VerificationService {
         let request = identity
             .request_verification_with_methods(Self::outgoing_verification_methods())
             .await?;
-        // Tag every subsequent emitted state with this flow id (the user path
-        // at ensure_user_verification_request already does this).
-        self.set_current_flow_id(request.flow_id());
         verification_debug!(
             "created outgoing self-verification request source=own-user flow_id={} state={}",
             request.flow_id(),
             Self::verification_request_state_details(&request.state())
         );
+
+        // Born cancelled: the crypto machine held a live request for us that no
+        // ctx check can see (0.18 exposes no pending-request enumeration) and
+        // glared both. That flip also cleared the blocker, so one more create
+        // gets through. The peer received the doomed request either way; the
+        // retry's arrival kills it there within milliseconds, which is what
+        // stops it being accepted and then cancelled seconds later.
+        let request = if request.is_cancelled() {
+            warn!(
+                "self-verification request born cancelled (hidden same-user request) flow_id={}; retrying once",
+                request.flow_id()
+            );
+            // An incoming may have landed while we were creating — adopt it if
+            // it is live, ignore it if the same glare just killed it.
+            {
+                let ctx = self.ctx.lock().await;
+                if let Some(ref req) = ctx.request {
+                    if !req.is_done() && !req.is_cancelled() {
+                        verification_debug!(
+                            "adopting request that arrived during glare retry flow_id={} state={}",
+                            req.flow_id(),
+                            Self::verification_request_state_details(&req.state())
+                        );
+                        return Ok(req.clone());
+                    }
+                }
+            }
+            let retry = identity
+                .request_verification_with_methods(Self::outgoing_verification_methods())
+                .await?;
+            verification_debug!(
+                "created outgoing self-verification request source=own-user attempt=2 flow_id={} state={}",
+                retry.flow_id(),
+                Self::verification_request_state_details(&retry.state())
+            );
+            if retry.is_cancelled() {
+                // The blocker survived its own cancellation, so it is one of the
+                // two states matrix-sdk-crypto refuses to cancel: Passive (another
+                // of our devices answered it first — nothing clears it but an app
+                // restart, the map is in memory) or Done awaiting the per-sync GC.
+                warn!(
+                    "self-verification request born cancelled twice flow_id={}; blocker is Passive (restart the app) or Done (clears on next sync)",
+                    retry.flow_id()
+                );
+            }
+            retry
+        } else {
+            request
+        };
+
+        // Tag every subsequent emitted state with this flow id (the user path
+        // at ensure_user_verification_request already does this). Only for the
+        // request we return — a discarded first attempt is never activated.
+        self.set_current_flow_id(request.flow_id());
 
         Ok(request)
     }
@@ -2263,9 +2358,9 @@ mod tests {
     // `reset_context_if_current` must only wipe the context when it still owns
     // the active flow. The outgoing user-verification error path relies on this:
     // an incoming request may have replaced `ctx` while we waited for readiness,
-    // and a blanket reset there would strand that other flow. Its return value is
-    // load-bearing too: `fail_flow` emits `Cancelled` only when it is true, which
-    // is what keeps two concurrent failers from both reporting one flow.
+    // and a blanket reset there would strand that other flow. `fail_flow` makes
+    // the same still-current check inline (it also cancels the request it
+    // abandons) — same contract, so that one flow gets one `Cancelled`.
     #[tokio::test]
     async fn reset_context_if_current_is_flow_scoped() {
         let service = VerificationService::new();
@@ -2320,7 +2415,8 @@ mod tests {
     // Both directions matter: two tasks failing one flow at once must produce one
     // `Cancelled` (the emission shares no lock with ctx, so emitting first let
     // both through), and a watcher must not announce a terminal state for a flow
-    // someone else already tore down.
+    // someone else already tore down. When it IS the one, it also cancels the
+    // request — only reachable with an SDK-backed request, so manual-only.
     #[tokio::test]
     async fn fail_flow_is_silent_when_it_did_not_end_the_flow() {
         let service = VerificationService::new();
@@ -2343,6 +2439,24 @@ mod tests {
             "a flow this call did not end must not be reported cancelled"
         );
         assert_eq!(service.ctx.lock().await.generation, gen_before);
+    }
+
+    // The silent path must not touch the flow id either: it tags every state the
+    // flow that DOES own the context emits, so clobbering it here would misattribute
+    // that flow's terminal state to the one this call declined to end.
+    #[tokio::test]
+    async fn a_declined_failure_leaves_the_current_flow_id_alone() {
+        let service = VerificationService::new();
+        service.set_current_flow_id("$owner:example.org");
+
+        service
+            .fail_flow("$other:example.org", "start failed")
+            .await;
+
+        assert_eq!(
+            *lock_verification_mutex(&service.current_flow_id, "current_flow_id"),
+            "$owner:example.org"
+        );
     }
 
     // `accept_with_methods` commits local state to Ready *before* the send that
