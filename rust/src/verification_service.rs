@@ -1463,12 +1463,24 @@ impl VerificationService {
 
     async fn start_sas_on_ready(&self, request: &VerificationRequest, generation: u64) {
         let flow_id = request.flow_id().to_string();
-        // The peer's ready and start can arrive in one sync, so by the time this
-        // watcher runs their SAS may already be adopted. `start_sas` works from
-        // Transitioned too and returns a *second* SAS for the same flow, which
-        // matrix-sdk-crypto's cache then resolves by cancelling both (m.user) —
-        // its start-race tie-break only guards the inbound direction. Let the
-        // Transitioned arm adopt theirs instead.
+        // Only the ACCEPTER starts. Symmetric auto-start loses a race no check
+        // can close: the watcher runs concurrently with sync processing, so the
+        // peer's start can be adopted between any state read here and
+        // `start_sas`'s own cache insert (it awaits a store read in between) —
+        // and matrix-sdk-crypto's tie-break only guards the inbound direction,
+        // so that interleaving cancels BOTH sides with m.user. Observed with a
+        // 2ms gap on a slow host. The requester waits: the Transitioned arm
+        // adopts the accepter's start, matching Element (the accepting device
+        // picks the method). A foreign accepter that never starts is bounded by
+        // the SDK's own 10-minute request timeout.
+        if request.we_started() {
+            verification_debug!(
+                "requester side: waiting for the accepter to start SAS flow_id={flow_id}"
+            );
+            return;
+        }
+        // Same race in miniature for the accepter (a foreign requester may
+        // auto-start too): skip if their SAS is already adopted.
         if Self::transitioned_to_sas(request) {
             verification_debug!("skipping SAS start, peer already started flow_id={flow_id}");
             return;
