@@ -1567,6 +1567,16 @@ impl MatrixProtocol {
             &self.runtime_handle,
         ));
 
+        // Ask our other devices for the room keys of everything still stuck once
+        // this device is verified — the SDK's automatic requests are gated on
+        // being verified, so the whole pre-verification backlog would otherwise
+        // only ever be chased through the key backup. Aborted with the session.
+        self.session_tasks.register(spawn_utd_gossip_sweep(
+            client.clone(),
+            self.timeline.cache.clone(),
+            &self.runtime_handle,
+        ));
+
         // Open the local FTS search index up front. Both the backfill worker below
         // and live indexing (timeline_cache_service) no-op silently against a
         // `None` index, and nothing else opens it at session start since the
@@ -2544,19 +2554,36 @@ const KEY_READINESS_PROBE_INTERVAL: Duration = Duration::from_secs(15);
 /// 40 minutes of ticks — a post-verification backlog is the slow case we are
 /// trying to time, so the probe has to outlive it.
 const KEY_READINESS_PROBE_TICKS: usize = 160;
+/// Consecutive all-clear ticks before the probe declares the account decrypted.
+const KEY_READINESS_CLEAN_TICKS: usize = 2;
 
-/// Rooms with UTDs, distinct stuck megolm sessions, and stuck items across the
-/// whole UI cache.
-async fn utd_totals(cache: &TimelineCacheRef) -> (usize, usize, usize) {
-    let guard = cache.read().await;
-    let mut rooms = 0usize;
-    let mut items = 0usize;
+/// UTD tallies across the whole UI cache.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct UtdTotals {
+    /// Rooms holding at least one undecryptable item.
+    rooms: usize,
+    /// Distinct stuck megolm sessions.
+    sessions: usize,
+    /// Undecryptable items.
+    items: usize,
+    /// Rooms with any cached items at all — the denominator that tells "nothing
+    /// is stuck" apart from "nothing has been rendered yet".
+    populated_rooms: usize,
+}
+
+/// Pure core of [`utd_totals`], split out so the tallies are testable without a
+/// live cache handle.
+fn utd_totals_of(cache: &HashMap<String, Vec<TimelineItem>>) -> UtdTotals {
+    let mut totals = UtdTotals::default();
     let mut sessions = std::collections::HashSet::new();
-    for room_items in guard.values() {
+    for room_items in cache.values() {
+        if !room_items.is_empty() {
+            totals.populated_rooms += 1;
+        }
         let mut room_stuck = false;
         for item in room_items {
             if let MessageContent::UnableToDecrypt { session_id, .. } = &item.content {
-                items += 1;
+                totals.items += 1;
                 room_stuck = true;
                 if let Some(sid) = session_id {
                     sessions.insert(sid.clone());
@@ -2564,10 +2591,145 @@ async fn utd_totals(cache: &TimelineCacheRef) -> (usize, usize, usize) {
             }
         }
         if room_stuck {
-            rooms += 1;
+            totals.rooms += 1;
         }
     }
-    (rooms, sessions.len(), items)
+    totals.sessions = sessions.len();
+    totals
+}
+
+/// Rooms with UTDs, distinct stuck megolm sessions, and stuck items across the
+/// whole UI cache.
+async fn utd_totals(cache: &TimelineCacheRef) -> UtdTotals {
+    utd_totals_of(&*cache.read().await)
+}
+
+/// Gaps between gossip-sweep passes, i.e. ~15s and ~2min after the device
+/// becomes verified. Two passes because the UI cache is filled as rooms render:
+/// pass 1 covers what the startup restore already put there, pass 2 catches
+/// rooms whose slices landed later (on a slow host a single room's timeline
+/// build can take 45s+).
+const GOSSIP_SWEEP_PASS_GAPS: &[Duration] = &[Duration::from_secs(15), Duration::from_secs(105)];
+
+/// Stuck megolm sessions per room. Pure, so the grouping is testable without a
+/// live cache handle. UTDs with no session id (non-megolm) are omitted — there
+/// is no key to ask for.
+fn utd_sessions_by_room(
+    cache: &HashMap<String, Vec<TimelineItem>>,
+) -> HashMap<String, std::collections::BTreeSet<String>> {
+    let mut out: HashMap<String, std::collections::BTreeSet<String>> = HashMap::new();
+    for (room_id, items) in cache {
+        for item in items {
+            if let MessageContent::UnableToDecrypt {
+                session_id: Some(sid),
+                ..
+            } = &item.content
+            {
+                out.entry(room_id.clone()).or_default().insert(sid.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Re-attempt decryption of every stuck session in every cached room, so the
+/// crypto machine asks our other devices for the keys.
+///
+/// This exists because the SDK's automatic key requests are gated on having at
+/// least one verified own device (`GossipMachine::should_request_key` ->
+/// `is_any_verified`). Every decryption failure *before* verification therefore
+/// requested nothing, and afterwards only sessions that something re-attempts
+/// get a request — which in practice meant just the room the user had open (via
+/// `TimelineWindow::reconcile_stuck_utds`). Every other room sat waiting on the
+/// key backup: minutes of ladder (`BACKUP_RETRY_SCHEDULE`) against a backup the
+/// peer may not have uploaded to yet, with the SDK's own per-session download
+/// blacklisting each 404 for 24 hours.
+///
+/// Each re-attempt that still fails auto-creates a deduped `m.room_key_request`;
+/// our peers answer it (`automatic-room-key-forwarding` is on in every build),
+/// and the forwarded key lands on the redecryptor's room-key stream, which
+/// resolves the bubbles. Nothing here polls or loops: it is one nudge per stuck
+/// session, and requests already in the crypto store are no-ops.
+async fn run_utd_gossip_sweep(client: &Client, cache: &TimelineCacheRef) {
+    use matrix_sdk::event_cache::DecryptionRetryRequest;
+    use matrix_sdk::ruma::RoomId;
+
+    let mut requested: std::collections::HashSet<(String, String)> =
+        std::collections::HashSet::new();
+    for (pass, gap) in GOSSIP_SWEEP_PASS_GAPS.iter().enumerate() {
+        tokio::time::sleep(*gap).await;
+        let by_room = utd_sessions_by_room(&*cache.read().await);
+        let mut rooms = 0usize;
+        let mut sessions = 0usize;
+        for (room_id, sids) in by_room {
+            let Ok(parsed) = RoomId::parse(&room_id) else {
+                continue;
+            };
+            // Only sessions this sweep has not already nudged: pass 2 is a
+            // top-up for late-rendering rooms, not a repeat.
+            let fresh: std::collections::BTreeSet<String> = sids
+                .into_iter()
+                .filter(|sid| requested.insert((room_id.clone(), sid.clone())))
+                .collect();
+            if fresh.is_empty() {
+                continue;
+            }
+            rooms += 1;
+            sessions += fresh.len();
+            client
+                .event_cache()
+                .request_decryption(DecryptionRetryRequest {
+                    room_id: parsed,
+                    utd_session_ids: fresh,
+                    refresh_info_session_ids: std::collections::BTreeSet::new(),
+                });
+        }
+        if sessions > 0 {
+            info!(
+                "[keys] gossip sweep pass {}: nudged {sessions} stuck session(s) in {rooms} room(s)",
+                pass + 1
+            );
+        }
+    }
+}
+
+/// Run [`run_utd_gossip_sweep`] whenever this device becomes verified.
+///
+/// Own subscription rather than a hook in `spawn_device_verified_watch` so the
+/// multi-minute pass schedule can never delay that watcher's callbacks. Covers
+/// both the live flip and a session that starts already verified with UTDs left
+/// over from last time (the initial `get()`).
+fn spawn_utd_gossip_sweep(
+    client: Client,
+    cache: TimelineCacheRef,
+    runtime_handle: &tokio::runtime::Handle,
+) -> tokio::task::JoinHandle<()> {
+    runtime_handle.spawn(async move {
+        use matrix_sdk::encryption::VerificationState;
+
+        let mut sub = client.encryption().verification_state();
+        let mut state = sub.get();
+        let mut swept = false;
+        loop {
+            match state {
+                // Sweeping parks this task for the length of the pass schedule;
+                // the subscriber holds the latest value, so a state change during
+                // it is picked up on the next read rather than lost.
+                VerificationState::Verified if !swept => {
+                    swept = true;
+                    run_utd_gossip_sweep(&client, &cache).await;
+                }
+                // Re-arm: a device that gets unverified and verified again has a
+                // fresh backlog to chase.
+                VerificationState::Unverified => swept = false,
+                _ => {}
+            }
+            let Some(next) = sub.next().await else {
+                return;
+            };
+            state = next;
+        }
+    })
 }
 
 /// Log-only. Reports whether a UTD can *ever* resolve on this device.
@@ -2595,21 +2757,34 @@ fn spawn_key_readiness_probe(
         // everything still stuck costs time proportional to what remains, so it
         // crawls at first and visibly accelerates as it empties.
         let started = std::time::Instant::now();
+        // Two consecutive clean ticks over a NON-EMPTY cache before declaring
+        // success. A single `items == 0` is not evidence: the cache is filled as
+        // the UI renders rooms, so an early tick — or one taken while a slow room
+        // is still building its timeline — sees zero stuck items simply because it
+        // sees no items. That produced "all cached rooms decrypted after 105s"
+        // in a session where 109 sessions were still stuck.
+        let mut clean_streak = 0usize;
         for _ in 0..KEY_READINESS_PROBE_TICKS {
             let enabled = backups.are_enabled().await;
-            let (rooms, sessions, items) = utd_totals(&cache).await;
+            let totals = utd_totals(&cache).await;
             info!(
-                "[keys] t={}s backup={:?} usable={} recovery={:?} rooms_with_utd={} utd_sessions={} utd_items={} failed_decrypts={}",
+                "[keys] t={}s backup={:?} usable={} recovery={:?} rooms_with_utd={} utd_sessions={} utd_items={} populated_rooms={} failed_decrypts={}",
                 started.elapsed().as_secs(),
                 backups.state(),
                 enabled,
                 client.encryption().recovery().state(),
-                rooms,
-                sessions,
-                items,
+                totals.rooms,
+                totals.sessions,
+                totals.items,
+                totals.populated_rooms,
                 crate::log_noise::suppressed_count()
             );
-            if enabled && items == 0 {
+            if enabled && totals.items == 0 && totals.populated_rooms > 0 {
+                clean_streak += 1;
+            } else {
+                clean_streak = 0;
+            }
+            if clean_streak >= KEY_READINESS_CLEAN_TICKS {
                 info!(
                     "[keys] all cached rooms decrypted after {}s",
                     started.elapsed().as_secs()
@@ -4141,6 +4316,91 @@ mod tests {
         assert!(undecrypted_session_ids(&cache, room)
             .await
             .is_subset(&requested));
+    }
+
+    fn utd_item(event_id: &str, session_id: Option<&str>) -> TimelineItem {
+        make_timeline_item(
+            event_id,
+            MessageContent::UnableToDecrypt {
+                body: String::new(),
+                cause: 0,
+                utd_state: 0,
+                session_id: session_id.map(str::to_owned),
+            },
+            false,
+        )
+    }
+
+    #[test]
+    fn gossip_sweep_groups_stuck_sessions_per_room() {
+        let mut cache: HashMap<String, Vec<TimelineItem>> = HashMap::new();
+        cache.insert(
+            "!a:example.org".to_string(),
+            vec![
+                text_item("$plain", false),
+                utd_item("$1", Some("sess-A")),
+                utd_item("$2", Some("sess-A")), // same session -> one request
+                utd_item("$3", Some("sess-B")),
+                utd_item("$4", None), // non-megolm: no key to ask for
+            ],
+        );
+        cache.insert(
+            "!b:example.org".to_string(),
+            vec![utd_item("$5", Some("sess-C"))],
+        );
+        // Fully decrypted rooms must not appear at all — an empty request set
+        // would be a pointless round trip through the redecryptor.
+        cache.insert(
+            "!c:example.org".to_string(),
+            vec![text_item("$plain", false)],
+        );
+
+        let by_room = utd_sessions_by_room(&cache);
+        assert_eq!(by_room.len(), 2);
+        assert_eq!(
+            by_room["!a:example.org"],
+            ["sess-A".to_string(), "sess-B".to_string()]
+                .into_iter()
+                .collect()
+        );
+        assert_eq!(
+            by_room["!b:example.org"],
+            ["sess-C".to_string()].into_iter().collect()
+        );
+    }
+
+    #[test]
+    fn utd_totals_separate_nothing_stuck_from_nothing_rendered() {
+        // An empty cache must never read as "all decrypted": that is the
+        // vacuous success the probe used to report while a slow room was still
+        // building its timeline.
+        let empty: HashMap<String, Vec<TimelineItem>> = HashMap::new();
+        assert_eq!(utd_totals_of(&empty), UtdTotals::default());
+
+        // A room present but with no items yet is equally not evidence.
+        let mut restoring: HashMap<String, Vec<TimelineItem>> = HashMap::new();
+        restoring.insert("!a:example.org".to_string(), Vec::new());
+        assert_eq!(utd_totals_of(&restoring).populated_rooms, 0);
+
+        let mut cache: HashMap<String, Vec<TimelineItem>> = HashMap::new();
+        cache.insert(
+            "!a:example.org".to_string(),
+            vec![
+                text_item("$plain", false),
+                utd_item("$1", Some("sess-A")),
+                utd_item("$2", Some("sess-A")),
+                utd_item("$3", None), // counted as an item, not as a session
+            ],
+        );
+        cache.insert(
+            "!b:example.org".to_string(),
+            vec![text_item("$plain", false)],
+        );
+        let totals = utd_totals_of(&cache);
+        assert_eq!(totals.rooms, 1);
+        assert_eq!(totals.sessions, 1);
+        assert_eq!(totals.items, 3);
+        assert_eq!(totals.populated_rooms, 2);
     }
 
     #[test]

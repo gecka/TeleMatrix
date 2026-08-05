@@ -1113,8 +1113,15 @@ fn init_tracing() {
         use tracing_subscriber::util::SubscriberInitExt as _;
         use tracing_subscriber::Layer as _;
 
+        // `matrix_sdk_crypto::gossiping` at debug: room-key/secret request traffic
+        // between our own devices is otherwise invisible (the answerer's "Serving a
+        // room key request" is INFO, the requester's receipts are DEBUG), which makes
+        // "decryption is slow" undiagnosable — silence reads identically to a peer
+        // that never answered. One module, low volume.
         let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            tracing_subscriber::EnvFilter::new("warn,telematrix_protocol=debug")
+            tracing_subscriber::EnvFilter::new(
+                "warn,telematrix_protocol=debug,matrix_sdk_crypto::gossiping=debug",
+            )
         });
         let _ = tracing_subscriber::registry()
             .with(filter)
