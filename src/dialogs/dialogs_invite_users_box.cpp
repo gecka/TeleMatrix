@@ -33,6 +33,7 @@
 #include "ui/painter.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -591,10 +592,9 @@ InviteUsersBox::InviteUsersBox(
             _chipBar->inputField()->setFocus();
         });
 
-    _resultsScroll = new QScrollArea(_panel);
+    _resultsScroll = new ::Ui::ScrollArea(_panel);
     _resultsScroll->setFrameShape(QFrame::NoFrame);
     _resultsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    _resultsScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     _resultsScroll->setWidgetResizable(true);
     _resultsScroll->setWidget(_resultsInner);
     _resultsScroll->setVisible(false);

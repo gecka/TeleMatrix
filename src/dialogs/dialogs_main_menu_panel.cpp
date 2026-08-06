@@ -17,6 +17,7 @@
 #include "ui/painter.h"
 #include "ui/style/icon_provider.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/scroll_area.h"
 
 #include <QCoreApplication>
 #include <QEvent>
@@ -819,8 +820,7 @@ DialogsMainMenuPanel::DialogsMainMenuPanel(
     // The account switcher slides out under the cover, as in tdesktop: the other
     // accounts, then "Add Account" while there is room for one more.
     _accountsWrap = new QWidget(this);
-    _accountsWrap->setAutoFillBackground(true);
-    _accountsWrap->setPalette(palette());
+    _accountsWrap->setAutoFillBackground(false);
     auto *accountsLayout = new QVBoxLayout(_accountsWrap);
     accountsLayout->setContentsMargins(0, 0, 0, 0);
     accountsLayout->setSpacing(0);
@@ -847,21 +847,17 @@ DialogsMainMenuPanel::DialogsMainMenuPanel(
     };
     _header = header;
 
-    auto *rowsScroll = new QScrollArea(this);
+    // Transparent throughout, so the panel's own background (refreshed on theme
+    // change) shows through. Baking st::windowBg into a palette here froze the
+    // rows area at whatever theme was current at construction.
+    auto *rowsScroll = new ::Ui::ScrollArea(this);
     rowsScroll->setFrameShape(QFrame::NoFrame);
     rowsScroll->setWidgetResizable(true);
     rowsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    rowsScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    rowsScroll->setAutoFillBackground(true);
-    auto scrollPal = rowsScroll->palette();
-    scrollPal.setColor(QPalette::Window, st::windowBg);
-    rowsScroll->setPalette(scrollPal);
-    rowsScroll->viewport()->setAutoFillBackground(true);
-    rowsScroll->viewport()->setPalette(scrollPal);
+    rowsScroll->setAutoFillBackground(false);
 
     auto *rowsContainer = new QWidget(rowsScroll);
-    rowsContainer->setAutoFillBackground(true);
-    rowsContainer->setPalette(scrollPal);
+    rowsContainer->setAutoFillBackground(false);
 
     auto *rowsLayout = new QVBoxLayout(rowsContainer);
     rowsLayout->setContentsMargins(0, 0, 0, 0);

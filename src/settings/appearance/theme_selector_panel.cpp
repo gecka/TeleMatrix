@@ -31,6 +31,7 @@
 #include "ui/style/runtime_scale.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -433,10 +434,9 @@ ThemeSelectorPanel::ThemeSelectorPanel(AppController *controller, QWidget *paren
 
     _inner = new ThemeSelectorInner(_themeManager, nullptr);
 
-    _scroll = new QScrollArea(this);
+    _scroll = new ::Ui::ScrollArea(this);
     _scroll->setFrameShape(QFrame::NoFrame);
     _scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    _scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     _scroll->setWidgetResizable(true);
     _scroll->setWidget(_inner);
     makeScrollTransparent(_scroll);

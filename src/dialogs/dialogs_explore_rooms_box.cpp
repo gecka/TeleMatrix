@@ -35,6 +35,7 @@
 #include "ui/painter.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -547,10 +548,9 @@ DialogsExploreRoomsBox::DialogsExploreRoomsBox(
 
     _inner = new ExploreRoomListInner(nullptr);
 
-    _scroll = new QScrollArea(_panel);
+    _scroll = new ::Ui::ScrollArea(_panel);
     _scroll->setFrameShape(QFrame::NoFrame);
     _scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    _scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     _scroll->setWidgetResizable(true);
     _scroll->setFixedHeight(kListMinHeight);
     _scroll->setWidget(_inner);

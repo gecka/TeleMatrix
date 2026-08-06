@@ -28,6 +28,7 @@
 #include "ui/painter.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -253,10 +254,9 @@ DialogsLeaveSpaceBox::DialogsLeaveSpaceBox(
         _inner->setRooms(_rooms);
         _inner->setSelected(_selected);
 
-        auto *scroll = new QScrollArea(_panel);
+        auto *scroll = new ::Ui::ScrollArea(_panel);
         scroll->setFrameShape(QFrame::NoFrame);
         scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         scroll->setWidgetResizable(true);
         scroll->setFixedHeight(qMin(_inner->height(), st::boxMaxListHeight));
         scroll->setWidget(_inner);

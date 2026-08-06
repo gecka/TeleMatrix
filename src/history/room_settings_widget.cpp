@@ -21,6 +21,7 @@
 #include "ui/painter.h"
 #include "ui/empty_userpic.h"
 #include "ui/toast_widget.h"
+#include "ui/widgets/scroll_area.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -594,6 +595,10 @@ public:
         _edit->setLineWrapMode(QTextEdit::WidgetWidth);
         _edit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         _edit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        // Painted bar, so a long topic doesn't summon the platform's native one.
+        auto *topicBar = new ::Ui::ThinScrollBar(_edit);
+        topicBar->setFixedWidth(::Ui::ThinScrollBar::kDefaultWidth);
+        _edit->setVerticalScrollBar(topicBar);
         _edit->document()->setDocumentMargin(0);
         ::Ui::EmojiObjects::Install(_edit);
         auto f = _edit->font();
@@ -1575,7 +1580,7 @@ QVector<Ui::InternalChoiceEntry> notifModeChoices() {
 } // namespace
 
 void RoomSettingsWidget::setupGeneralPage() {
-    auto *scrollArea = new QScrollArea(this);
+    auto *scrollArea = new ::Ui::ScrollArea(this);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -1766,7 +1771,7 @@ void RoomSettingsWidget::setupMembersPage() {
 
     // --- Scrolling, virtualized members list ---
 
-    auto *scrollArea = new QScrollArea(_membersPage);
+    auto *scrollArea = new ::Ui::ScrollArea(_membersPage);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -1784,7 +1789,7 @@ void RoomSettingsWidget::setupMembersPage() {
 }
 
 void RoomSettingsWidget::setupSecurityPage() {
-    auto *scrollArea = new QScrollArea(this);
+    auto *scrollArea = new ::Ui::ScrollArea(this);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);

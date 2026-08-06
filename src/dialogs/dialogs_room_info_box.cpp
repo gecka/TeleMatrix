@@ -34,6 +34,7 @@
 #include "ui/painter.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -367,7 +368,7 @@ DialogsRoomInfoBox::DialogsRoomInfoBox(
         topicLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
         // Cap the height; a very long topic scrolls rather than growing the card off-screen.
-        auto *scroll = new QScrollArea(_panel);
+        auto *scroll = new ::Ui::ScrollArea(_panel);
         scroll->setFrameShape(QFrame::NoFrame);
         scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         scroll->setWidgetResizable(true);

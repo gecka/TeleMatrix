@@ -32,6 +32,7 @@
 #include "ui/focus_restore.h"
 #include "ui/painter.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -486,10 +487,9 @@ HistoryForwardDialog::HistoryForwardDialog(
     const int listH = _inner->sizeHint().height();
     const int scrollH = qMin(listH, st::boxMaxListHeight);
 
-    _scroll = new QScrollArea(_panel);
+    _scroll = new ::Ui::ScrollArea(_panel);
     _scroll->setFrameShape(QFrame::NoFrame);
     _scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    _scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     _scroll->setWidgetResizable(true);
     _scroll->setFixedHeight(scrollH);
     _scroll->setWidget(_inner);

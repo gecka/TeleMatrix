@@ -27,6 +27,7 @@
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
 #include "ui/widgets/input_fields.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -73,6 +74,10 @@ public:
         setFrameShape(QFrame::NoFrame);
         setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        // Painted bar, so a long topic doesn't summon the platform's native one.
+        auto *bar = new ::Ui::ThinScrollBar(this);
+        bar->setFixedWidth(::Ui::ThinScrollBar::kDefaultWidth);
+        setVerticalScrollBar(bar);
         setLineWrapMode(QPlainTextEdit::WidgetWidth);
         setPlaceholderText(placeholder);
         setAttribute(Qt::WA_MacShowFocusRect, false);

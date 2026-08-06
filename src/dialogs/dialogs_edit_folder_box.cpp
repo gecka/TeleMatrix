@@ -37,6 +37,7 @@
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/close_button.h"
 #include "ui/widgets/input_fields.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -439,10 +440,9 @@ DialogsEditFolderBox::DialogsEditFolderBox(
 
     // Included-chats preview.
     _preview = new IncludedChatsInner(nullptr);
-    _scroll = new QScrollArea(_panel);
+    _scroll = new ::Ui::ScrollArea(_panel);
     _scroll->setFrameShape(QFrame::NoFrame);
     _scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    _scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     _scroll->setWidgetResizable(true);
     _scroll->setWidget(_preview);
     _scroll->setAutoFillBackground(false);

@@ -4752,10 +4752,9 @@ void HistoryWidget::showInvitePanel(const RoomSummary &room) {
     // Scroll area so a long room topic scrolls instead of being clipped by the fixed panel region.
     // Kept transparent so the chat background shows through; the card sits centred inside and only
     // scrolls once it is taller than the available space.
-    auto *scroll = new QScrollArea(_invitePanel);
+    auto *scroll = new ::Ui::ScrollArea(_invitePanel);
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scroll->setWidgetResizable(true);
     scroll->setAutoFillBackground(false);
     if (auto *vp = scroll->viewport()) {

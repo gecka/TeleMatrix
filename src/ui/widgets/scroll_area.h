@@ -96,6 +96,31 @@ private:
     QRect _bar;
 };
 
+/// Thin capsule scrollbar for QAbstractScrollArea subclasses that cannot be
+/// swapped for ScrollArea (text edits and the like), so they don't fall back to
+/// the platform's native bar. Painted with live st:: colors, never a stylesheet,
+/// so it follows theme changes.
+///
+/// Install with `edit->setVerticalScrollBar(new ThinScrollBar(edit))`; the
+/// widget takes ownership. Width is set by the caller (kDefaultWidth suits the
+/// flat input fields).
+class ThinScrollBar : public QScrollBar {
+    Q_OBJECT
+
+public:
+    explicit ThinScrollBar(QWidget *parent = nullptr);
+
+    static constexpr int kDefaultWidth = 7;
+
+protected:
+    void paintEvent(QPaintEvent *e) override;
+    void enterEvent(QEnterEvent *e) override;
+    void leaveEvent(QEvent *e) override;
+
+private:
+    bool _hovered = false;
+};
+
 /// ScrollArea with a custom overlay scrollbar.
 /// Hides Qt's native scrollbar. Provides lib_ui-compatible API.
 class ScrollArea : public QScrollArea {

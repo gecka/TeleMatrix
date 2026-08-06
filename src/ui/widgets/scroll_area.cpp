@@ -335,6 +335,62 @@ void ScrollBar::wheelEvent(QWheelEvent *e) {
     QApplication::sendEvent(_connected, e);
 }
 
+// ─── ThinScrollBar ───────────────────────────────────────────
+
+ThinScrollBar::ThinScrollBar(QWidget *parent)
+    : QScrollBar(Qt::Vertical, parent) {
+    setMouseTracking(true);
+}
+
+void ThinScrollBar::paintEvent(QPaintEvent *) {
+    if (minimum() >= maximum()) {
+        return; // Nothing to scroll: leave fully transparent.
+    }
+    constexpr int kMarginTop = 3;
+    constexpr int kMarginRight = 2;
+    constexpr int kMarginBottom = 3;
+    constexpr int kMinHandle = 20;
+
+    const auto trackHeight = height() - kMarginTop - kMarginBottom;
+    const auto handleWidth = width() - kMarginRight;
+    if (trackHeight <= 0 || handleWidth <= 0) {
+        return;
+    }
+
+    const auto range = maximum() - minimum();
+    const auto span = range + pageStep();
+    auto handleHeight = (span > 0)
+        ? int(qint64(trackHeight) * pageStep() / span)
+        : trackHeight;
+    handleHeight = std::min(std::max(handleHeight, kMinHandle), trackHeight);
+
+    const auto travel = trackHeight - handleHeight;
+    const auto handleTop = kMarginTop
+        + ((range > 0) ? int(qint64(travel) * (value() - minimum()) / range) : 0);
+
+    const auto &fill = _hovered ? st::scrollBarBgOver : st::scrollBarBg;
+    const auto radius = handleWidth / 2.0;
+
+    QPainter p(this);
+    PainterHighQualityEnabler hq(p);
+    p.setPen(Qt::NoPen);
+    p.setBrush(fill);
+    p.drawRoundedRect(
+        QRectF(0, handleTop, handleWidth, handleHeight), radius, radius);
+}
+
+void ThinScrollBar::enterEvent(QEnterEvent *e) {
+    _hovered = true;
+    update();
+    QScrollBar::enterEvent(e);
+}
+
+void ThinScrollBar::leaveEvent(QEvent *e) {
+    _hovered = false;
+    update();
+    QScrollBar::leaveEvent(e);
+}
+
 // ─── ScrollArea ──────────────────────────────────────────────
 
 ScrollArea::ScrollArea(QWidget *parent)

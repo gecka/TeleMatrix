@@ -24,6 +24,7 @@
 #include "ui/painter.h"
 #include "ui/style/icon_provider.h"
 #include "ui/widgets/close_button.h"
+#include "ui/widgets/scroll_area.h"
 
 namespace TeleMatrix {
 
@@ -407,10 +408,9 @@ DialogsFoldersBox::DialogsFoldersBox(QWidget *parent)
 
     _inner = new FolderManagerInner(nullptr);
 
-    _scroll = new QScrollArea(_panel);
+    _scroll = new ::Ui::ScrollArea(_panel);
     _scroll->setFrameShape(QFrame::NoFrame);
     _scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    _scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     _scroll->setWidgetResizable(true);
     _scroll->setWidget(_inner);
     makeScrollTransparent(_scroll);
