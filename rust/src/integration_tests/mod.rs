@@ -14,6 +14,7 @@
 mod common;
 
 mod backup_prefetch;
+mod gossip_sweep;
 mod room_directory;
 mod rooms_list;
 mod session_invalidation;

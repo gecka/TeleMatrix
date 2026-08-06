@@ -4,7 +4,7 @@
 // or later, with an OpenSSL linking exception. See the LICENSE and LEGAL
 // files in the project root for full terms.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -1571,11 +1571,8 @@ impl MatrixProtocol {
         // this device is verified — the SDK's automatic requests are gated on
         // being verified, so the whole pre-verification backlog would otherwise
         // only ever be chased through the key backup. Aborted with the session.
-        self.session_tasks.register(spawn_utd_gossip_sweep(
-            client.clone(),
-            self.timeline.cache.clone(),
-            &self.runtime_handle,
-        ));
+        self.session_tasks
+            .register(spawn_utd_gossip_sweep(client.clone(), &self.runtime_handle));
 
         // Open the local FTS search index up front. Both the backfill worker below
         // and live indexing (timeline_cache_service) no-op silently against a
@@ -2554,8 +2551,28 @@ const KEY_READINESS_PROBE_INTERVAL: Duration = Duration::from_secs(15);
 /// 40 minutes of ticks — a post-verification backlog is the slow case we are
 /// trying to time, so the probe has to outlive it.
 const KEY_READINESS_PROBE_TICKS: usize = 160;
-/// Consecutive all-clear ticks before the probe declares the account decrypted.
+/// Consecutive quiet ticks before the probe concludes. Two, so at least one real
+/// [`KEY_READINESS_PROBE_INTERVAL`] window is observed (the first tick fires
+/// immediately and measures nothing).
 const KEY_READINESS_CLEAN_TICKS: usize = 2;
+
+/// Whether a probe tick shows nothing left to chase: the backup is reachable,
+/// no cached item is stuck, and no new decryption failed since the last tick.
+///
+/// The failure delta is what makes this work with an empty cache. A session
+/// where the user never opens a room has no cached items to tally, so "no items
+/// stuck" is vacuous — but [`crate::log_noise::failed_decrypt_count`] still
+/// rises on every failed decrypt anywhere in the process (even with
+/// `TM_LOG_ALL_UTD_WARNINGS=1`, which only re-enables the log lines), so a flat
+/// counter plus a usable backup does mean idle.
+fn probe_tick_is_quiet(
+    backup_enabled: bool,
+    totals: UtdTotals,
+    failures: u64,
+    last_failures: u64,
+) -> bool {
+    backup_enabled && totals.items == 0 && failures == last_failures
+}
 
 /// UTD tallies across the whole UI cache.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -2605,52 +2622,112 @@ async fn utd_totals(cache: &TimelineCacheRef) -> UtdTotals {
 }
 
 /// Gaps between gossip-sweep passes, i.e. ~15s and ~2min after the device
-/// becomes verified. Two passes because the UI cache is filled as rooms render:
-/// pass 1 covers what the startup restore already put there, pass 2 catches
-/// rooms whose slices landed later (on a slow host a single room's timeline
-/// build can take 45s+).
+/// becomes verified. Two passes for the same reason the backup key sweep has a
+/// schedule (see `spawn_backup_bulk_key_prefetch`): `client.rooms()` only holds
+/// the rooms sliding sync has materialized so far, and right after a
+/// verification the client is still filling that in, so a single pass would
+/// permanently skip every room that shows up afterwards.
 const GOSSIP_SWEEP_PASS_GAPS: &[Duration] = &[Duration::from_secs(15), Duration::from_secs(105)];
 
-/// Stuck megolm sessions per room. Pure, so the grouping is testable without a
-/// live cache handle. UTDs with no session id (non-megolm) are omitted — there
-/// is no key to ask for.
-fn utd_sessions_by_room(
-    cache: &HashMap<String, Vec<TimelineItem>>,
-) -> HashMap<String, std::collections::BTreeSet<String>> {
-    let mut out: HashMap<String, std::collections::BTreeSet<String>> = HashMap::new();
-    for (room_id, items) in cache {
-        for item in items {
-            if let MessageContent::UnableToDecrypt {
-                session_id: Some(sid),
-                ..
-            } = &item.content
-            {
-                out.entry(room_id.clone()).or_default().insert(sid.clone());
+/// The megolm sessions of the undecryptable events among `events`. Pure, so the
+/// reduction is testable without a store. Events without a session id
+/// (non-megolm) are omitted — there is no key to ask for.
+fn megolm_session_ids(
+    events: &[matrix_sdk::deserialized_responses::TimelineEvent],
+) -> BTreeSet<String> {
+    events
+        .iter()
+        .filter(|event| event.kind.is_utd())
+        .filter_map(|event| event.kind.session_id().map(str::to_owned))
+        .collect()
+}
+
+/// Stuck megolm sessions per room, read from the SDK's persistent event-cache
+/// store rather than from anything the UI has rendered.
+///
+/// The store is the only source that covers rooms the user never opened. Two
+/// SDK facts make the query exact:
+/// - sliding sync persists events for every joined room it sees, with no
+///   timeline involved, so the rows exist whether or not the room was opened;
+/// - the stored `event_type` is the *raw* event type, and the redecryptor
+///   rewrites the row on a successful decrypt — so filtering on
+///   `m.room.encrypted` yields exactly the events that are still stuck.
+///
+/// Deliberately store-level: it never instantiates a `RoomEventCache`, so it
+/// takes neither the client-global `by_room` write lock (the source of the
+/// multi-second `backfill: slow room.event_cache()` stalls) nor a subscriber
+/// whose drop would queue the auto-shrink that panics the SDK (see
+/// `backfill_blank_preview`). Cost scales with the stuck backlog, not table
+/// size (the query rides the store's `(room_id, event_type, session_id)`
+/// index), so a fully decrypted account pays ~nothing per pass.
+pub(crate) async fn stuck_sessions_from_store(
+    client: &Client,
+) -> HashMap<String, BTreeSet<String>> {
+    // `EventCacheStoreLockState` is an alias for this enum; matrix-sdk imports it
+    // privately but re-exports matrix-sdk-common wholesale, so the variants are
+    // nameable without a direct matrix-sdk-base dependency. The store trait needs
+    // no import at all — the guard derefs to a `dyn EventCacheStore`, which
+    // carries its own methods.
+    use matrix_sdk::cross_process_lock::MappedCrossProcessLockState as LockState;
+
+    let mut out: HashMap<String, BTreeSet<String>> = HashMap::new();
+    let guard = match client.event_cache_store().lock().await {
+        // `Dirty` only means another process wrote since we last held the lock,
+        // which is irrelevant for a read that goes straight to the store; the
+        // SDK's own UTD query treats both the same and does not clear the flag.
+        Ok(LockState::Clean(guard) | LockState::Dirty(guard)) => guard,
+        Err(e) => {
+            warn!("[keys] gossip sweep: could not lock the event-cache store: {e}");
+            return out;
+        }
+    };
+    // Sequential on purpose: this runs in the background right after a
+    // verification, when the crypto store and the sync path are already
+    // contending for SQLite on what may be a slow host.
+    for room in client.rooms() {
+        if room.state() != matrix_sdk::RoomState::Joined || room.is_space() {
+            continue;
+        }
+        let room_id = room.room_id();
+        match guard
+            .get_room_events(room_id, Some("m.room.encrypted"), None)
+            .await
+        {
+            Ok(events) => {
+                let sessions = megolm_session_ids(&events);
+                if !sessions.is_empty() {
+                    out.insert(room_id.to_string(), sessions);
+                }
             }
+            Err(e) => warn!("[keys] gossip sweep: reading stuck events for {room_id} failed: {e}"),
         }
     }
     out
 }
 
-/// Re-attempt decryption of every stuck session in every cached room, so the
+/// Re-attempt decryption of every stuck session in every joined room, so the
 /// crypto machine asks our other devices for the keys.
 ///
 /// This exists because the SDK's automatic key requests are gated on having at
 /// least one verified own device (`GossipMachine::should_request_key` ->
 /// `is_any_verified`). Every decryption failure *before* verification therefore
 /// requested nothing, and afterwards only sessions that something re-attempts
-/// get a request — which in practice meant just the room the user had open (via
-/// `TimelineWindow::reconcile_stuck_utds`). Every other room sat waiting on the
-/// key backup: minutes of ladder (`BACKUP_RETRY_SCHEDULE`) against a backup the
-/// peer may not have uploaded to yet, with the SDK's own per-session download
-/// blacklisting each 404 for 24 hours.
+/// get a request. Every room nothing re-attempted sat waiting on the key backup:
+/// minutes of ladder (`BACKUP_RETRY_SCHEDULE`) against a backup the peer may not
+/// have uploaded to yet, with the SDK's own per-session download blacklisting
+/// each 404 for 24 hours.
 ///
 /// Each re-attempt that still fails auto-creates a deduped `m.room_key_request`;
 /// our peers answer it (`automatic-room-key-forwarding` is on in every build),
 /// and the forwarded key lands on the redecryptor's room-key stream, which
 /// resolves the bubbles. Nothing here polls or loops: it is one nudge per stuck
 /// session, and requests already in the crypto store are no-ops.
-async fn run_utd_gossip_sweep(client: &Client, cache: &TimelineCacheRef) {
+///
+/// Division of labour with [`TimelineWindow::reconcile_stuck_utds`]: this owns
+/// *coverage* (every joined room, one nudge, at the verified flip), that one
+/// owns *liveness* in the room the user has open (a redecryption trigger the SDK
+/// dropped, retried on a backoff). Neither subsumes the other.
+async fn run_utd_gossip_sweep(client: &Client) {
     use matrix_sdk::event_cache::DecryptionRetryRequest;
     use matrix_sdk::ruma::RoomId;
 
@@ -2658,7 +2735,8 @@ async fn run_utd_gossip_sweep(client: &Client, cache: &TimelineCacheRef) {
         std::collections::HashSet::new();
     for (pass, gap) in GOSSIP_SWEEP_PASS_GAPS.iter().enumerate() {
         tokio::time::sleep(*gap).await;
-        let by_room = utd_sessions_by_room(&*cache.read().await);
+        let by_room = stuck_sessions_from_store(client).await;
+        let scanned = by_room.len();
         let mut rooms = 0usize;
         let mut sessions = 0usize;
         for (room_id, sids) in by_room {
@@ -2666,8 +2744,8 @@ async fn run_utd_gossip_sweep(client: &Client, cache: &TimelineCacheRef) {
                 continue;
             };
             // Only sessions this sweep has not already nudged: pass 2 is a
-            // top-up for late-rendering rooms, not a repeat.
-            let fresh: std::collections::BTreeSet<String> = sids
+            // top-up for rooms sliding sync materialized late, not a repeat.
+            let fresh: BTreeSet<String> = sids
                 .into_iter()
                 .filter(|sid| requested.insert((room_id.clone(), sid.clone())))
                 .collect();
@@ -2681,15 +2759,15 @@ async fn run_utd_gossip_sweep(client: &Client, cache: &TimelineCacheRef) {
                 .request_decryption(DecryptionRetryRequest {
                     room_id: parsed,
                     utd_session_ids: fresh,
-                    refresh_info_session_ids: std::collections::BTreeSet::new(),
+                    refresh_info_session_ids: BTreeSet::new(),
                 });
         }
-        if sessions > 0 {
-            info!(
-                "[keys] gossip sweep pass {}: nudged {sessions} stuck session(s) in {rooms} room(s)",
-                pass + 1
-            );
-        }
+        // Logged even when nothing was nudged: "found nothing" and "never ran"
+        // are the two outcomes this sweep has historically been confused for.
+        info!(
+            "[keys] gossip sweep pass {}: nudged {sessions} stuck session(s) in {rooms} room(s) ({scanned} room(s) with stuck events)",
+            pass + 1
+        );
     }
 }
 
@@ -2701,7 +2779,6 @@ async fn run_utd_gossip_sweep(client: &Client, cache: &TimelineCacheRef) {
 /// over from last time (the initial `get()`).
 fn spawn_utd_gossip_sweep(
     client: Client,
-    cache: TimelineCacheRef,
     runtime_handle: &tokio::runtime::Handle,
 ) -> tokio::task::JoinHandle<()> {
     runtime_handle.spawn(async move {
@@ -2717,7 +2794,7 @@ fn spawn_utd_gossip_sweep(
                 // it is picked up on the next read rather than lost.
                 VerificationState::Verified if !swept => {
                     swept = true;
-                    run_utd_gossip_sweep(&client, &cache).await;
+                    run_utd_gossip_sweep(&client).await;
                 }
                 // Re-arm: a device that gets unverified and verified again has a
                 // fresh backlog to chase.
@@ -2741,6 +2818,15 @@ fn spawn_utd_gossip_sweep(
 /// (2) the backup key is here but the backup does not hold those sessions; (3) keys
 /// are arriving, just slowly. Only (3) is a speed problem, and only this tells them
 /// apart.
+///
+/// Known blind spots, accepted for a log-only probe:
+/// - `failed_decrypts` is process-global (one tracing subscriber), so with
+///   several accounts syncing, a sibling account's decrypt failures keep this
+///   account's delta moving — the probe then errs toward running longer, never
+///   toward a false success.
+/// - `utd_items` only sees the UI cache; evicting a stuck room's window
+///   (resident-window cap) removes its items without decrypting anything. The
+///   "cached" qualifier in the conclusion message is load-bearing.
 fn spawn_key_readiness_probe(
     client: Client,
     cache: TimelineCacheRef,
@@ -2757,16 +2843,25 @@ fn spawn_key_readiness_probe(
         // everything still stuck costs time proportional to what remains, so it
         // crawls at first and visibly accelerates as it empties.
         let started = std::time::Instant::now();
-        // Two consecutive clean ticks over a NON-EMPTY cache before declaring
-        // success. A single `items == 0` is not evidence: the cache is filled as
-        // the UI renders rooms, so an early tick — or one taken while a slow room
-        // is still building its timeline — sees zero stuck items simply because it
-        // sees no items. That produced "all cached rooms decrypted after 105s"
-        // in a session where 109 sessions were still stuck.
+        // Conclude on consecutive QUIET ticks (see `probe_tick_is_quiet`), not on
+        // a bare `items == 0`. Two failure modes to avoid, both observed:
+        //   - claiming success vacuously: the cache fills as the UI renders rooms,
+        //     so an early tick sees zero stuck items only because it sees no items
+        //     ("all cached rooms decrypted after 105s" while 109 sessions were
+        //     stuck);
+        //   - never concluding: gating success on a non-empty cache meant a
+        //     session where no room is opened could not satisfy it at all, so the
+        //     probe ran its full 40 minutes restating that nothing was wrong.
+        // The failure-counter delta covers both — it moves whether or not any
+        // room has been rendered.
         let mut clean_streak = 0usize;
+        let initial_failures = crate::log_noise::failed_decrypt_count();
+        let mut last_failures = initial_failures;
+        let mut ever_had_utds = false;
         for _ in 0..KEY_READINESS_PROBE_TICKS {
             let enabled = backups.are_enabled().await;
             let totals = utd_totals(&cache).await;
+            let failures = crate::log_noise::failed_decrypt_count();
             info!(
                 "[keys] t={}s backup={:?} usable={} recovery={:?} rooms_with_utd={} utd_sessions={} utd_items={} populated_rooms={} failed_decrypts={}",
                 started.elapsed().as_secs(),
@@ -2777,18 +2872,35 @@ fn spawn_key_readiness_probe(
                 totals.sessions,
                 totals.items,
                 totals.populated_rooms,
-                crate::log_noise::suppressed_count()
+                failures
             );
-            if enabled && totals.items == 0 && totals.populated_rooms > 0 {
+            ever_had_utds |= totals.items > 0;
+            if probe_tick_is_quiet(enabled, totals, failures, last_failures) {
                 clean_streak += 1;
             } else {
                 clean_streak = 0;
             }
+            last_failures = failures;
             if clean_streak >= KEY_READINESS_CLEAN_TICKS {
-                info!(
-                    "[keys] all cached rooms decrypted after {}s",
-                    started.elapsed().as_secs()
-                );
+                // Distinct wording per what was actually measured: watching
+                // cached UTDs disappear, watching a failure burst die down with
+                // nothing rendered, or observing nothing at all. Only claim
+                // "since start" when the counter really never moved — the quiet
+                // check itself only proves the last two ticks were flat.
+                let secs = started.elapsed().as_secs();
+                if ever_had_utds {
+                    info!("[keys] all cached rooms decrypted after {secs}s");
+                } else if failures > initial_failures {
+                    info!(
+                        "[keys] decryption quiet after {secs}s ({} failure(s) earlier this session, nothing cached stuck)",
+                        failures - initial_failures
+                    );
+                } else {
+                    info!(
+                        "[keys] nothing stuck to report after {secs}s (populated_rooms={}, no decryption failures since start)",
+                        totals.populated_rooms
+                    );
+                }
                 return;
             }
             tokio::time::sleep(KEY_READINESS_PROBE_INTERVAL).await;
@@ -4332,41 +4444,52 @@ mod tests {
     }
 
     #[test]
-    fn gossip_sweep_groups_stuck_sessions_per_room() {
-        let mut cache: HashMap<String, Vec<TimelineItem>> = HashMap::new();
-        cache.insert(
-            "!a:example.org".to_string(),
-            vec![
-                text_item("$plain", false),
-                utd_item("$1", Some("sess-A")),
-                utd_item("$2", Some("sess-A")), // same session -> one request
-                utd_item("$3", Some("sess-B")),
-                utd_item("$4", None), // non-megolm: no key to ask for
-            ],
-        );
-        cache.insert(
-            "!b:example.org".to_string(),
-            vec![utd_item("$5", Some("sess-C"))],
-        );
-        // Fully decrypted rooms must not appear at all — an empty request set
-        // would be a pointless round trip through the redecryptor.
-        cache.insert(
-            "!c:example.org".to_string(),
-            vec![text_item("$plain", false)],
-        );
+    fn gossip_sweep_collects_megolm_sessions_and_skips_the_rest() {
+        use matrix_sdk::deserialized_responses::{
+            TimelineEvent, UnableToDecryptInfo, UnableToDecryptReason,
+        };
+        use matrix_sdk::ruma::events::AnySyncTimelineEvent;
+        use matrix_sdk::ruma::serde::Raw;
 
-        let by_room = utd_sessions_by_room(&cache);
-        assert_eq!(by_room.len(), 2);
+        // The store hands back whole events; only the kind matters here, so the
+        // raw JSON just has to deserialize.
+        let raw = || {
+            Raw::<AnySyncTimelineEvent>::from_json_string(
+                r#"{"type":"m.room.encrypted","event_id":"$e:example.org",
+                    "sender":"@a:example.org","origin_server_ts":0,"content":{}}"#
+                    .to_owned(),
+            )
+            .expect("valid json")
+        };
+        let utd = |session_id: Option<&str>| {
+            TimelineEvent::from_utd(
+                raw(),
+                UnableToDecryptInfo {
+                    session_id: session_id.map(str::to_owned),
+                    reason: UnableToDecryptReason::MissingMegolmSession {
+                        withheld_code: None,
+                    },
+                },
+            )
+        };
+
+        let sessions = megolm_session_ids(&[
+            utd(Some("sess-A")),
+            utd(Some("sess-A")), // same session -> one request
+            utd(Some("sess-B")),
+            utd(None),                            // non-megolm: no key to ask for
+            TimelineEvent::from_plaintext(raw()), // already decrypted
+        ]);
         assert_eq!(
-            by_room["!a:example.org"],
+            sessions,
             ["sess-A".to_string(), "sess-B".to_string()]
                 .into_iter()
                 .collect()
         );
-        assert_eq!(
-            by_room["!b:example.org"],
-            ["sess-C".to_string()].into_iter().collect()
-        );
+
+        // A room with nothing stuck yields nothing, so the sweep can skip it
+        // instead of making a pointless round trip through the redecryptor.
+        assert!(megolm_session_ids(&[TimelineEvent::from_plaintext(raw())]).is_empty());
     }
 
     #[test]
@@ -4401,6 +4524,36 @@ mod tests {
         assert_eq!(totals.sessions, 1);
         assert_eq!(totals.items, 3);
         assert_eq!(totals.populated_rooms, 2);
+    }
+
+    #[test]
+    fn probe_concludes_on_an_idle_account_but_not_a_busy_one() {
+        let empty = UtdTotals::default();
+        let stuck = UtdTotals {
+            rooms: 1,
+            sessions: 1,
+            items: 3,
+            populated_rooms: 1,
+        };
+        let rendered_clean = UtdTotals {
+            populated_rooms: 2,
+            ..UtdTotals::default()
+        };
+
+        // The regression this fixes: an empty cache with a usable backup and a
+        // flat failure counter is idle, and must be allowed to conclude. Gating
+        // on populated_rooms > 0 made this tick un-concludable, so the probe ran
+        // its full 40 minutes on a session where nothing was wrong.
+        assert!(probe_tick_is_quiet(true, empty, 0, 0));
+        assert!(probe_tick_is_quiet(true, rendered_clean, 7, 7));
+
+        // Failures still arriving: not idle, even with nothing in the cache to
+        // show for them (the un-opened-room case).
+        assert!(!probe_tick_is_quiet(true, empty, 8, 7));
+
+        // Something stuck on screen, or no backup to recover from: keep watching.
+        assert!(!probe_tick_is_quiet(true, stuck, 7, 7));
+        assert!(!probe_tick_is_quiet(false, empty, 7, 7));
     }
 
     #[test]
