@@ -12,7 +12,7 @@ use anyhow::{anyhow, Result};
 use matrix_sdk::room::RoomMember;
 use matrix_sdk::ruma::events::room::power_levels::RoomPowerLevels;
 use matrix_sdk::ruma::events::SyncStateEvent;
-use matrix_sdk::ruma::{Int, OwnedUserId};
+use matrix_sdk::ruma::{Int, OwnedUserId, UserId};
 use matrix_sdk::{Client, Room, RoomMemberships, RoomState};
 use tokio::sync::RwLock;
 
@@ -63,11 +63,16 @@ impl RoomMemberService {
         room_id: &str,
         notification_overrides: Arc<RwLock<HashMap<String, RoomNotificationMode>>>,
     ) -> Result<RoomSettingsSnapshot> {
-        let display_name = room
-            .display_name()
-            .await
-            .map(|dn| dn.to_string())
-            .unwrap_or_default();
+        // A name we just set wins over the store while it lags (see the override
+        // block in room_summary_service), so the settings header does not snap
+        // back to the old name right after being edited.
+        let display_name = crate::room_summary_service::room_display_name(
+            &room,
+            room.display_name()
+                .await
+                .map(|dn| dn.to_string())
+                .unwrap_or_default(),
+        );
 
         let canonical_alias = room.canonical_alias().map(|a| a.to_string());
 
@@ -645,7 +650,7 @@ impl RoomMemberService {
             .map_err(|e| anyhow!("Failed to search user directory: {e}"))?;
 
         let limited = response.limited;
-        let results = response
+        let mut results: Vec<UserProfile> = response
             .results
             .into_iter()
             .filter(|user| Some(user.user_id.as_ref()) != own_user_id.as_deref())
@@ -657,7 +662,87 @@ impl RoomMemberService {
                 avatar_url: user.avatar_url.map(|url| url.to_string()),
             })
             .collect();
+
+        // Exact match first: it is what the user typed.
+        if let Some(uid) = Self::exact_id_candidate(search_term, own_user_id.as_deref(), &results) {
+            results.insert(0, Self::resolve_exact_user(&client, uid).await);
+        }
         Ok((results, limited))
+    }
+
+    /// A well-formed user ID worth resolving through the profile endpoint
+    /// because the directory did not return it.
+    ///
+    /// The directory is not an index of all users: Synapse only lists someone
+    /// who is in a published room or already shares one with us
+    /// (`user_directory.search_all_users` is off by default, including on
+    /// matrix.org). So searching for a real account you have never met finds
+    /// nothing, which reads as "no such user". `/profile/{user_id}` carries no
+    /// such restriction.
+    ///
+    /// Pure, so the guards are testable without a client.
+    fn exact_id_candidate(
+        search_term: &str,
+        own_user_id: Option<&UserId>,
+        results: &[UserProfile],
+    ) -> Option<OwnedUserId> {
+        // Only a COMPLETE id: a bare localpart is a search, not a target.
+        let uid = UserId::parse(search_term).ok()?;
+        // `parse` alone is far too lax to mean "someone typed a user id": with
+        // matrix-sdk's compat flags it admits spaces, emoji, an empty localpart
+        // (`@:server`) and unbounded length — each of which would fire a
+        // federation-bound profile fetch and then offer a dead-end row. The
+        // historical grammar (printable ASCII minus `:`, 255-byte cap) is the
+        // widest set of ids that can actually exist on a server.
+        if uid.localpart().is_empty() || uid.validate_historical().is_err() {
+            return None;
+        }
+        if Some(uid.as_ref()) == own_user_id {
+            return None;
+        }
+        if results.iter().any(|user| user.user_id == uid.as_str()) {
+            return None;
+        }
+        Some(uid)
+    }
+
+    /// The profile for an exact-id hit, or a bare-id placeholder.
+    ///
+    /// Offered even when the fetch fails, because a failure does not mean the
+    /// account is absent — the profile may be restricted, or federation with
+    /// their server may be down — and inviting or DMing an id we cannot resolve
+    /// is legal and usually works. Withholding the row would leave no way to
+    /// reach a user the directory refuses to admit exists.
+    async fn resolve_exact_user(client: &Client, uid: OwnedUserId) -> UserProfile {
+        // Tightly bounded: this await sits between the directory response and
+        // the search results reaching the UI, and the SDK's own config retries
+        // a dead federation target for up to ~90s. Missing the name is fine —
+        // the row falls back to the localpart — stalling the search is not.
+        let profile = tokio::time::timeout(
+            Duration::from_secs(5),
+            client.account().fetch_user_profile_of(&uid),
+        )
+        .await
+        .ok()
+        .and_then(Result::ok);
+        let display_name = profile
+            .as_ref()
+            .and_then(|p| p.get("displayname"))
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| uid.localpart().to_string());
+        let avatar_url = profile
+            .as_ref()
+            .and_then(|p| p.get("avatar_url"))
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        UserProfile {
+            user_id: uid.to_string(),
+            display_name,
+            avatar_url,
+        }
     }
 
     pub(crate) async fn set_user_ignored(
@@ -747,6 +832,86 @@ impl RoomMemberService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn profile(user_id: &str) -> UserProfile {
+        UserProfile {
+            user_id: user_id.to_string(),
+            display_name: "whoever".to_string(),
+            avatar_url: None,
+        }
+    }
+
+    #[test]
+    fn a_complete_id_the_directory_missed_is_offered() {
+        let own = <&UserId>::try_from("@me:matrix.org").unwrap();
+
+        // The reported bug: a real account that shares no room with us is not
+        // in the directory, so the search comes back empty and the app looked
+        // like it was saying the user does not exist.
+        assert_eq!(
+            RoomMemberService::exact_id_candidate("@supergecka:matrix.org", Some(own), &[]),
+            Some("@supergecka:matrix.org".try_into().unwrap())
+        );
+        // Whitespace is trimmed by the caller before this point.
+        assert_eq!(
+            RoomMemberService::exact_id_candidate(
+                "@supergecka:matrix.org",
+                Some(own),
+                &[profile("@someone-else:matrix.org")]
+            ),
+            Some("@supergecka:matrix.org".try_into().unwrap())
+        );
+    }
+
+    #[test]
+    fn partial_input_stays_a_directory_search() {
+        let own = <&UserId>::try_from("@me:matrix.org").unwrap();
+        // No server part: the user is still typing, or searching by name. A
+        // profile lookup is impossible and the row would be a lie. The last
+        // two PARSE under matrix-sdk's compat flags but fail the historical
+        // grammar — no such account can exist, so no row and no fetch.
+        for term in [
+            "supergecka",
+            "@supergecka",
+            "super gecka",
+            "",
+            "@:matrix.org",
+            "@super gecka:matrix.org",
+            "@\u{1F600}:matrix.org",
+        ] {
+            assert_eq!(
+                RoomMemberService::exact_id_candidate(term, Some(own), &[]),
+                None,
+                "{term:?} must not be treated as an exact id"
+            );
+        }
+        // Historical (pre-spec) ids DO exist on old servers and must survive
+        // the tightened gate.
+        assert!(
+            RoomMemberService::exact_id_candidate("@Upper.Case:matrix.org", Some(own), &[])
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn no_duplicate_and_no_self() {
+        let own = <&UserId>::try_from("@me:matrix.org").unwrap();
+        // Already returned by the directory: prepending would duplicate it.
+        assert_eq!(
+            RoomMemberService::exact_id_candidate(
+                "@supergecka:matrix.org",
+                Some(own),
+                &[profile("@supergecka:matrix.org")]
+            ),
+            None
+        );
+        // Our own id is filtered out of directory results; the fallback must
+        // not smuggle it back in.
+        assert_eq!(
+            RoomMemberService::exact_id_candidate("@me:matrix.org", Some(own), &[]),
+            None
+        );
+    }
 
     fn member(name: &str, power: i64) -> RoomMemberInfo {
         RoomMemberInfo {

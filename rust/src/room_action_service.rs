@@ -311,6 +311,9 @@ impl RoomActionService {
             .await
             .map_err(|e| anyhow!("Failed to upload room avatar for {room_id}: {e}"))?;
         let mxc_url = response.content_uri.to_string();
+        // The server has not thumbnailed this yet; without this its 404s would
+        // be classified permanent and the avatar could never load.
+        crate::media_transfer_service::note_recent_upload(&mxc_url);
 
         use matrix_sdk::ruma::events::room::avatar::RoomAvatarEventContent;
         let mut avatar_content = RoomAvatarEventContent::new();

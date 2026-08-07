@@ -247,10 +247,12 @@ pub(crate) async fn evaluate_and_emit(
     };
 
     let is_direct = room.direct_targets_length() > 0;
-    let room_display_name = room
-        .cached_display_name()
-        .map(|name| name.to_string())
-        .unwrap_or_default();
+    let room_display_name = crate::room_summary_service::room_display_name(
+        room,
+        room.cached_display_name()
+            .map(|name| name.to_string())
+            .unwrap_or_default(),
+    );
     let mode = sdk_mode_to_app(room.notification_mode().await);
 
     // Pre-show read-elsewhere gate (A2): a read receipt from another device can
@@ -464,10 +466,12 @@ pub(crate) async fn notify_room_latest_event(room: &Room, callback: &Notificatio
         _ => (sender_id.as_str().to_string(), String::new()),
     };
     let is_direct = room.direct_targets_length() > 0;
-    let room_display_name = room
-        .cached_display_name()
-        .map(|name| name.to_string())
-        .unwrap_or_default();
+    let room_display_name = crate::room_summary_service::room_display_name(
+        room,
+        room.cached_display_name()
+            .map(|name| name.to_string())
+            .unwrap_or_default(),
+    );
     let timestamp_secs = event_ms / 1000;
 
     match callback.lock() {

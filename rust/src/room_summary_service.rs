@@ -89,6 +89,154 @@ fn space_membership() -> &'static StdRwLock<HashMap<String, Vec<String>>> {
     MEMBERSHIP.get_or_init(|| StdRwLock::new(HashMap::new()))
 }
 
+// ─── Room state we set ourselves, held until the local store agrees ─────────
+//
+// Setting a room's avatar, name or topic only sends the state event; the store
+// learns the new value from sync. Under sliding sync a state event that IS the
+// room's latest event arrives inside the `timeline`, which matrix-sdk
+// deliberately does not read state from ("Don't read state events from the
+// `timeline` field, because they might be incomplete or staled already",
+// `msc4186/mod.rs`), and `required_state` carries state as of timeline *start*.
+// So in a quiet room the stored value can stay stale indefinitely — across
+// restarts — until some later event pushes the change behind the timeline
+// window, and every summary rebuild keeps serving the old value to the app.
+//
+// Each override retires as soon as the store reports OUR value, i.e. once the
+// change we made has demonstrably landed. Trade-off, accepted deliberately: a
+// change someone else makes while ours is pending is masked until ours lands or
+// the app restarts. The alternative (retire on any store movement) was tried and
+// is unsound — the store also moves backwards, which served stale values.
+// Process-global for the same reason as `space_membership` (no plumbing through
+// every summary call site), keyed per `own_user_id|room_id`: with two of our
+// accounts in the SAME room each store lags independently, and a room-id key
+// would let whichever caught up first retire the other's override back to its
+// stale store. Known trade-off left as-is: account lifecycle events clear every
+// map, so adding or removing an account drops other accounts' pending
+// overrides — display degrades to pre-fix (stale until sync), never worse.
+
+/// `None` in the value is a deliberate avatar removal, not "unknown".
+fn avatar_overrides() -> &'static StdRwLock<HashMap<String, Option<String>>> {
+    static OVERRIDES: OnceLock<StdRwLock<HashMap<String, Option<String>>>> = OnceLock::new();
+    OVERRIDES.get_or_init(|| StdRwLock::new(HashMap::new()))
+}
+
+fn name_overrides() -> &'static StdRwLock<HashMap<String, String>> {
+    static OVERRIDES: OnceLock<StdRwLock<HashMap<String, String>>> = OnceLock::new();
+    OVERRIDES.get_or_init(|| StdRwLock::new(HashMap::new()))
+}
+
+fn topic_overrides() -> &'static StdRwLock<HashMap<String, String>> {
+    static OVERRIDES: OnceLock<StdRwLock<HashMap<String, String>>> = OnceLock::new();
+    OVERRIDES.get_or_init(|| StdRwLock::new(HashMap::new()))
+}
+
+fn override_key(room: &Room) -> String {
+    format!("{}|{}", room.own_user_id(), room.room_id())
+}
+
+/// The value to serve, and whether the override can be dropped.
+///
+/// Pure so the precedence and the retire condition are testable without a room.
+fn resolved_override<T: Clone + PartialEq>(held: Option<&T>, stored: T) -> (T, bool) {
+    match held {
+        // Retire ONLY once the store reports our own value.
+        //
+        // An earlier version retired as soon as the store moved off the value it
+        // had when we set ours, reasoning that any movement proved sync was
+        // healthy again. It is not: the store also moves BACKWARDS. Observed
+        // when deleting an avatar and immediately uploading a new one — the
+        // delete's empty-avatar event was applied after the upload's, so the
+        // store went new-url -> empty, the override retired, and the rooms list
+        // served the stale empty value. Only our own value coming back proves
+        // the change we made has actually landed.
+        Some(value) if *value == stored => (stored, true),
+        Some(value) => (value.clone(), false),
+        None => (stored, false),
+    }
+}
+
+/// Serve `stored` unless we are holding a value for this room, retiring the
+/// override once the store moves.
+fn consult_override<T: Clone + PartialEq>(
+    overrides: &'static StdRwLock<HashMap<String, T>>,
+    key: &str,
+    stored: T,
+) -> T {
+    let held = overrides.read().ok().and_then(|map| map.get(key).cloned());
+    let (value, retire) = resolved_override(held.as_ref(), stored);
+    if retire {
+        if let Ok(mut map) = overrides.write() {
+            // Re-check under the write lock: a new override set between the read
+            // and here must not be discarded by this retire.
+            if map.get(key) == held.as_ref() {
+                map.remove(key);
+            }
+        }
+    }
+    value
+}
+
+/// Record an avatar we just set (or removed, with `None`) for a room.
+pub(crate) fn set_avatar_override(room: &Room, url: Option<String>) {
+    if let Ok(mut overrides) = avatar_overrides().write() {
+        overrides.insert(override_key(room), url);
+    }
+}
+
+/// Record a room name we just set.
+///
+/// An empty name *clears* `m.room.name`, after which the displayed name becomes
+/// a members-derived fallback we cannot predict — an override would never match
+/// it and the room would read as blank forever. So drop any override instead and
+/// accept the store's lag for that one case.
+pub(crate) fn set_name_override(room: &Room, name: &str) {
+    if let Ok(mut overrides) = name_overrides().write() {
+        let key = override_key(room);
+        if name.is_empty() {
+            overrides.remove(&key);
+        } else {
+            overrides.insert(key, name.to_string());
+        }
+    }
+}
+
+/// Record a room topic we just set. An empty topic is a legitimate value here
+/// (the stored topic reads back as empty too), so it is held like any other.
+pub(crate) fn set_topic_override(room: &Room, topic: &str) {
+    if let Ok(mut overrides) = topic_overrides().write() {
+        overrides.insert(override_key(room), topic.to_string());
+    }
+}
+
+/// Drop every held value; called with the rest of the session state on logout.
+pub(crate) fn clear_room_state_overrides() {
+    for map in [name_overrides(), topic_overrides()] {
+        if let Ok(mut overrides) = map.write() {
+            overrides.clear();
+        }
+    }
+    if let Ok(mut overrides) = avatar_overrides().write() {
+        overrides.clear();
+    }
+}
+
+/// This room's avatar, preferring one we set ourselves over a lagging store.
+pub(crate) fn room_avatar_url(room: &Room) -> Option<String> {
+    let stored = room.avatar_url().map(|u| u.to_string());
+    consult_override(avatar_overrides(), &override_key(room), stored)
+}
+
+/// This room's display name, preferring one we set ourselves.
+pub(crate) fn room_display_name(room: &Room, stored: String) -> String {
+    consult_override(name_overrides(), &override_key(room), stored)
+}
+
+/// This room's topic, preferring one we set ourselves.
+pub(crate) fn room_topic(room: &Room) -> String {
+    let stored = room.topic().unwrap_or_default();
+    consult_override(topic_overrides(), &override_key(room), stored)
+}
+
 fn space_ids_for_room(room_id: &str) -> Vec<String> {
     space_membership()
         .read()
@@ -374,11 +522,14 @@ impl RoomSummaryService {
         presence_snapshot: &HashMap<String, u32>,
     ) -> Result<RoomSummary> {
         let room_id = room.room_id().to_string();
-        // Use cached display name (instant, no network) with fallback.
-        let display_name = room
-            .cached_display_name()
-            .map(|dn| dn.to_string())
-            .unwrap_or_else(|| room_id.clone());
+        // Use cached display name (instant, no network) with fallback. A name we
+        // just set wins over the store while it lags — see the override block.
+        let display_name = room_display_name(
+            room,
+            room.cached_display_name()
+                .map(|dn| dn.to_string())
+                .unwrap_or_else(|| room_id.clone()),
+        );
 
         // Use sync is_direct check (instant, reads cached DM targets).
         let is_direct = room.direct_targets_length() > 0;
@@ -522,7 +673,7 @@ impl RoomSummaryService {
             inviter_user_id: String::new(),
             inviter_display_name: String::new(),
             inviter_avatar_url: String::new(),
-            room_topic: room.topic().unwrap_or_default(),
+            room_topic: room_topic(room),
         })
     }
 
@@ -649,6 +800,9 @@ impl RoomSummaryService {
     /// color selection.
     async fn resolve_room_list_avatar(room: &Room, is_direct: bool) -> (Option<String>, String) {
         let room_id = room.room_id().to_string();
+        // An avatar we just set wins over the store, which can lag for a long
+        // time under sliding sync — see `avatar_overrides`.
+        let room_avatar = room_avatar_url(room);
 
         // For DMs, seed the placeholder colour from the peer's user id. We read
         // it from direct_targets() (m.direct account data) which is instant and
@@ -660,8 +814,8 @@ impl RoomSummaryService {
             let targets = room.direct_targets();
             if let Some(peer) = targets.iter().next() {
                 let peer_id = peer.to_string();
-                if room.avatar_url().is_some() {
-                    return (room.avatar_url().map(|u| u.to_string()), peer_id);
+                if room_avatar.is_some() {
+                    return (room_avatar, peer_id);
                 }
                 // No room avatar: use the peer's profile avatar from the local
                 // store (get_member_no_sync — cached, no network/timeout). Stays
@@ -680,8 +834,7 @@ impl RoomSummaryService {
         }
 
         // Room avatar (or no avatar for non-DM).
-        let avatar_url = room.avatar_url().map(|u| u.to_string());
-        (avatar_url, room_id)
+        (room_avatar, room_id)
     }
 
     /// Extract last event info from the room's latest event value.
@@ -1078,13 +1231,10 @@ impl RoomSummaryService {
     }
 }
 
+/// The badge number for a room's timeline slices. One formula for the whole
+/// app — see [`UnreadCountService`] for why it is server-first.
 pub(crate) fn room_unread_count(room: &Room) -> u32 {
-    let server_unread = room.unread_notification_counts().notification_count;
-    let client_unread = room.num_unread_messages();
-    client_unread
-        .max(server_unread)
-        .try_into()
-        .unwrap_or(u32::MAX)
+    UnreadCountService::room_counts_from_sdk(room).unread_count
 }
 
 #[cfg(test)]
@@ -1616,6 +1766,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn override_wins_until_our_change_lands() {
+        let old = || Some("mxc://server/old".to_string());
+        let new = || Some("mxc://server/new".to_string());
+
+        // No override: the store is the only source.
+        assert_eq!(resolved_override(None, old()), (old(), false));
+
+        // The reported bug: we set a new value, the store still reports the old
+        // one (a state event delivered in the timeline is never read as state),
+        // so every rebuild served the stale one — across restarts.
+        let ours = new();
+        assert_eq!(resolved_override(Some(&ours), old()), (new(), false));
+
+        // Our value came back: the change landed — retire.
+        assert_eq!(resolved_override(Some(&ours), new()), (new(), true));
+
+        // The store moving to some OTHER value must NOT retire. Observed with
+        // delete-then-upload: the delete's empty-avatar event was applied after
+        // the upload's, so the store went new -> empty. Retiring on any movement
+        // served that empty value and the avatar vanished.
+        assert_eq!(resolved_override(Some(&ours), None), (new(), false));
+
+        // Avatar removal is an override to None, not "unknown" — it must beat
+        // the still-stored URL, and retire once the store agrees.
+        let removed = Some(None);
+        assert_eq!(resolved_override(removed.as_ref(), old()), (None, false));
+        assert_eq!(resolved_override(removed.as_ref(), None), (None, true));
+
+        // Same helper carries names and topics; an emptied topic is a real
+        // value that overrides and then retires like any other.
+        let cleared_topic = Some(String::new());
+        assert_eq!(
+            resolved_override(cleared_topic.as_ref(), "old topic".to_string()),
+            (String::new(), false)
+        );
+        assert_eq!(
+            resolved_override(cleared_topic.as_ref(), String::new()),
+            (String::new(), true)
+        );
+    }
     #[test]
     fn merge_sticky_previews_restores_and_resorts() {
         let prior = [summary("!a:x", "alpha", 100), summary("!b:x", "beta", 50)];

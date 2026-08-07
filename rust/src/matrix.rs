@@ -467,6 +467,33 @@ impl MatrixProtocol {
         );
     }
 
+    /// Rebuild one room's summary through the override-aware path and push it
+    /// to C++.
+    ///
+    /// Needed right after recording a state override (avatar/name/topic): the
+    /// sync echo of our own state event can land BEFORE the override is
+    /// recorded, in which case the diff-driven refresh already rebuilt the row
+    /// without it — and the room now being quiet, nothing else would ever
+    /// rebuild it, leaving the override unconsulted and the display stale.
+    async fn refresh_room_summary_now(&self, client: &Client, room_id: &str) {
+        let overrides = self.room_list.notification_overrides.read().await.clone();
+        let presence = self.presence_typing.presence_snapshot();
+        let context = RoomSummaryRefreshContext {
+            timeline_cache: &self.timeline.cache,
+            rooms_cache: &self.room_list.rooms,
+            notification_overrides: &overrides,
+            presence_snapshot: &presence,
+            local_cache: &self.local_cache,
+        };
+        let mut changed = std::collections::HashSet::new();
+        changed.insert(room_id.to_string());
+        let _ = RoomSummaryService::refresh_rooms_cache_by_ids(client, &changed, &context).await;
+        let cb = lock_matrix_mutex(&self.room_list.callback, "room_list_callback");
+        if let Some(callback) = cb.as_ref() {
+            callback();
+        }
+    }
+
     fn timeline_changed_factory() -> TimelineChangedFactory {
         Arc::new(TimelineUpdateService::make_on_changed_callback)
     }
@@ -1923,6 +1950,7 @@ impl MatrixProtocol {
         // its own, so a stale claim would silently disable retries for that room.
         self.backup_retry_rooms.clear();
         self.backup_prefetched_rooms.clear();
+        crate::room_summary_service::clear_room_state_overrides();
         self.session_lifecycle.clear_media_sources();
         let store_passphrase = self.session_lifecycle.prepare_restore_session(
             &info.homeserver,
@@ -2051,6 +2079,7 @@ impl MatrixProtocol {
         // its own, so a stale claim would silently disable retries for that room.
         self.backup_retry_rooms.clear();
         self.backup_prefetched_rooms.clear();
+        crate::room_summary_service::clear_room_state_overrides();
 
         // Stream server holds the access token; stop it with the session. Take the
         // handle out from under the lock first, then stop (which awaits the download
@@ -2284,6 +2313,7 @@ impl MatrixProtocol {
         // its own, so a stale claim would silently disable retries for that room.
         self.backup_retry_rooms.clear();
         self.backup_prefetched_rooms.clear();
+        crate::room_summary_service::clear_room_state_overrides();
     }
 }
 
@@ -3099,6 +3129,7 @@ impl ProtocolClient for MatrixProtocol {
         // its own, so a stale claim would silently disable retries for that room.
         self.backup_retry_rooms.clear();
         self.backup_prefetched_rooms.clear();
+        crate::room_summary_service::clear_room_state_overrides();
         // Defence in depth: a flow left over from a previous session pins its
         // Client, and the wipe below would then run against open sqlite handles
         // — the same Windows failure logout's reset closes. Unreachable today
@@ -3336,22 +3367,48 @@ impl ProtocolClient for MatrixProtocol {
     ) -> Result<String> {
         let client = self.require_client().await?;
         let room = self.get_room(room_id).await?;
-        RoomActionService::upload_room_avatar(client, room, room_id, data, content_type).await
+        let mxc_url = RoomActionService::upload_room_avatar(
+            client.clone(),
+            room.clone(),
+            room_id,
+            data,
+            content_type,
+        )
+        .await?;
+        // Serve this URL until the store catches up; the state event we just
+        // sent can take a long time to come back as *state* under sliding sync.
+        crate::room_summary_service::set_avatar_override(&room, Some(mxc_url.clone()));
+        self.refresh_room_summary_now(&client, room_id).await;
+        Ok(mxc_url)
     }
 
     async fn delete_room_avatar(&self, room_id: &str) -> Result<()> {
+        let client = self.require_client().await?;
         let room = self.get_room(room_id).await?;
-        RoomActionService::delete_room_avatar(room, room_id).await
+        RoomActionService::delete_room_avatar(room.clone(), room_id).await?;
+        crate::room_summary_service::set_avatar_override(&room, None);
+        self.refresh_room_summary_now(&client, room_id).await;
+        Ok(())
     }
 
     async fn set_room_name(&self, room_id: &str, name: &str) -> Result<()> {
+        let client = self.require_client().await?;
         let room = self.get_room(room_id).await?;
-        RoomActionService::set_room_name(room, room_id, name).await
+        RoomActionService::set_room_name(room.clone(), room_id, name).await?;
+        // Serve this name until the store catches up; the state event we just
+        // sent can take a long time to come back as *state* under sliding sync.
+        crate::room_summary_service::set_name_override(&room, name);
+        self.refresh_room_summary_now(&client, room_id).await;
+        Ok(())
     }
 
     async fn set_room_topic(&self, room_id: &str, topic: &str) -> Result<()> {
+        let client = self.require_client().await?;
         let room = self.get_room(room_id).await?;
-        RoomActionService::set_room_topic(room, room_id, topic).await
+        RoomActionService::set_room_topic(room.clone(), room_id, topic).await?;
+        crate::room_summary_service::set_topic_override(&room, topic);
+        self.refresh_room_summary_now(&client, room_id).await;
+        Ok(())
     }
 
     async fn leave_room(&self, room_id: &str) -> Result<()> {
@@ -3481,15 +3538,21 @@ impl ProtocolClient for MatrixProtocol {
             if room.state() != matrix_sdk::RoomState::Joined || !room.is_space() {
                 continue;
             }
-            let name = room
-                .cached_display_name()
-                .map(|dn| dn.to_string())
-                .unwrap_or_else(|| room.room_id().to_string());
+            // Spaces are edited through the same settings paths as rooms, and
+            // their store lags the same way — consult the same overrides, or a
+            // space rename stays stale on the rail while settings shows the new
+            // name.
+            let name = crate::room_summary_service::room_display_name(
+                &room,
+                room.cached_display_name()
+                    .map(|dn| dn.to_string())
+                    .unwrap_or_else(|| room.room_id().to_string()),
+            );
             spaces.push(crate::types::SpaceInfo {
                 room_id: room.room_id().to_string(),
                 name,
-                avatar_url: room.avatar_url().map(|u| u.to_string()),
-                topic: room.topic().unwrap_or_default(),
+                avatar_url: crate::room_summary_service::room_avatar_url(&room),
+                topic: crate::room_summary_service::room_topic(&room),
                 member_count: room.joined_members_count(),
                 canonical_alias: room.canonical_alias().map(|a| a.to_string()),
             });
@@ -4003,6 +4066,7 @@ impl ProtocolClient for MatrixProtocol {
         // its own, so a stale claim would silently disable retries for that room.
         self.backup_retry_rooms.clear();
         self.backup_prefetched_rooms.clear();
+        crate::room_summary_service::clear_room_state_overrides();
         // Same defence in depth as `login` above.
         self.verification.reset_context().await;
         self.verification.abort_banner_watchers();
