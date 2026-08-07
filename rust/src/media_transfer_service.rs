@@ -75,6 +75,39 @@ pub(crate) fn is_permanent_http_status(status: u16) -> bool {
     status == 404
 }
 
+/// mxc urls this process uploaded, with when. A homeserver answers 404 for a
+/// thumbnail it has not generated yet, so for a short window after upload a 404
+/// is "not ready", not "gone" — see the thumbnail branch in `resolve_avatar`.
+fn recent_uploads() -> &'static std::sync::RwLock<HashMap<String, Instant>> {
+    static UPLOADS: std::sync::OnceLock<std::sync::RwLock<HashMap<String, Instant>>> =
+        std::sync::OnceLock::new();
+    UPLOADS.get_or_init(|| std::sync::RwLock::new(HashMap::new()))
+}
+
+/// Generous enough to cover thumbnailing on a loaded server, short enough that a
+/// genuinely dead url returns to the one-request-per-dead-avatar path.
+const RECENT_UPLOAD_GRACE: Duration = Duration::from_secs(600);
+
+/// Record an mxc we just uploaded, so its 404s are treated as "not ready yet".
+pub(crate) fn note_recent_upload(mxc_url: &str) {
+    if let Ok(mut uploads) = recent_uploads().write() {
+        uploads.retain(|_, at| at.elapsed() < RECENT_UPLOAD_GRACE);
+        uploads.insert(mxc_url.to_string(), Instant::now());
+    }
+}
+
+fn is_recent_upload(mxc_url: &str) -> bool {
+    recent_uploads()
+        .read()
+        .ok()
+        .and_then(|uploads| {
+            uploads
+                .get(mxc_url)
+                .map(|at| at.elapsed() < RECENT_UPLOAD_GRACE)
+        })
+        .unwrap_or(false)
+}
+
 /// Classify a typed matrix-sdk error (e.g. from `get_media_content`) as permanent.
 fn matrix_error_is_permanent(e: &matrix_sdk::Error) -> bool {
     e.as_client_api_error()
@@ -195,12 +228,20 @@ impl MediaTransferService {
             .await
             {
                 Ok(Ok(data)) if !data.is_empty() => Ok(Some(data)),
-                // A 404 means the media is gone. The full-download fallback would
-                // just 404 again, so report it permanent now — otherwise every
-                // dead avatar costs TWO requests (thumbnail + full download), and
-                // scrolling back through a big federated room whose avatars have
-                // expired on the homeserver floods the download lane with 404s.
-                Ok(Err(e)) if matrix_error_is_permanent(&e) => Err(e),
+                // A thumbnail 404 usually means the media is gone, and reporting
+                // it permanent here saves a second doomed request — scrolling a
+                // big federated room whose avatars have expired would otherwise
+                // flood the lane with 404 pairs.
+                //
+                // But it does NOT mean gone for media uploaded moments ago: the
+                // server has not generated the thumbnail yet and answers 404
+                // while the ORIGINAL is perfectly fetchable. Treating that as
+                // permanent suppressed all retries, so a just-changed room
+                // avatar showed the letter placeholder forever. Freshly uploaded
+                // urls therefore fall through to the full download, which needs
+                // no server-side generation; everything else keeps the
+                // one-request-per-dead-avatar behaviour.
+                Ok(Err(e)) if matrix_error_is_permanent(&e) && !is_recent_upload(mxc_url) => Err(e),
                 // Empty, transient error or timeout: the full media may still be
                 // fetchable, so fall through to the download path (which backs off).
                 _ => Ok(None),
