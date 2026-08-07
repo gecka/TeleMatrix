@@ -87,6 +87,9 @@ private:
     bool _userIdCopyHovered = false;
     bool _ignoreUpdatePending = false;
     bool _powerLevelUpdatePending = false;
+    // A power level we set ourselves, held across profile-details refetches
+    // until the local store reports the same value (see userPowerLevelSet).
+    bool _powerLevelOverrideActive = false;
     bool _directRoomPending = false;
     bool _detailsFetchFinished = false;
     bool _detailsReady = false;

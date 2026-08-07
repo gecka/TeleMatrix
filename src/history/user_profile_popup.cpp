@@ -275,8 +275,21 @@ UserProfilePopup::UserProfilePopup(
                 // resets the shield to Unverified and the action row reverts from
                 // "Withdraw verification" back to "Verify User".
                 const auto knownTrust = _details.trustState;
+                // Same shape for a power level we set ourselves: keep it until the
+                // store catches up, then let the response win again.
+                const auto optimisticPower = _details.powerLevel;
+                const auto optimisticRole = _details.role;
+                const bool holdPower = _powerLevelOverrideActive;
                 _details = details;
                 _details.trustState = knownTrust;
+                if (holdPower) {
+                    if (details.powerLevel == optimisticPower) {
+                        _powerLevelOverrideActive = false;
+                    } else {
+                        _details.powerLevel = optimisticPower;
+                        _details.role = optimisticRole;
+                    }
+                }
                 if (_details.roomId.isEmpty()) {
                     _details.roomId = _roomId;
                 }
@@ -358,6 +371,14 @@ UserProfilePopup::UserProfilePopup(
             if (success) {
                 _details.powerLevel = powerLevel;
                 _details.role = roleForPowerLevel(powerLevel);
+                // Hold this against the refetch below. `update_power_levels` only
+                // sends the state event; the local store learns the new level from
+                // sync, and under sliding sync a state event that IS the room's
+                // latest event arrives in the timeline, which matrix-sdk does not
+                // read state from — so the store can lag for a long time. Without
+                // the shield the details response overwrites the value we just set
+                // with the old one and it never recovers.
+                _powerLevelOverrideActive = true;
                 _bridge->getUserProfileDetailsAsync(_roomId, _userId);
             }
             buildActions();
