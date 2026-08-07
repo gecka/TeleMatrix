@@ -298,6 +298,7 @@ private:
         const QVector<TimelineItem> &messages) const;
     [[nodiscard]] static QString formatLastSeenTimestamp(qint64 ts);
     void refreshLastSeenSubtitle();
+    void refreshMemberCountSubtitle();
     /// Update unread count, down button badge, and notify chat list.
     void updateUnreadCount(int count, bool syncToStore = true);
 	[[nodiscard]] static bool countsTowardsUnread(const TimelineItem &item);
@@ -622,6 +623,9 @@ private:
     QTimer *_typingDotTimer = nullptr;
     HistoryTypingState _typingState;
     QString _cachedSubtitle; // subtitle to restore when typing ends
+    // One-shot: the next loadRoom must not divert to the invite panel, because
+    // we just accepted and the cached summary has not caught up yet.
+    bool _skipInvitePanelForNextLoad = false;
     void refreshTypingSubtitle();
 
     // Top bar quick menu (tracked for toggle-on-click behavior).

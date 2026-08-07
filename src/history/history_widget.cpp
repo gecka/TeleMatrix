@@ -1085,6 +1085,13 @@ public:
         }
     }
 
+    void setRoomName(const QString &name) {
+        if (_name != name) {
+            _name = name;
+            update();
+        }
+    }
+
     void setMemberSyncing(bool syncing) {
         if (_memberSyncing == syncing) {
             return;
@@ -2251,6 +2258,16 @@ HistoryWidget::HistoryWidget(
             if (_topBar) {
                 _topBar->setMemberSyncing(
                     inProgress && !_currentRoomIsDirect && !isSavedMessagesRoom());
+            }
+        });
+
+    // Keep the open room's "N members" honest: a join or leave refreshes the
+    // Rust summary and lands here as a rooms snapshot, and setCachedRooms has
+    // already run by the time this fires.
+    connect(_bridge, &ProtocolBridge::roomsReady,
+        this, [this](quint64, bool success, const QVector<RoomSummary> &) {
+            if (success) {
+                refreshMemberCountSubtitle();
             }
         });
 
@@ -3710,6 +3727,16 @@ void HistoryWidget::setupMessageList() {
         if (success && roomId == _currentRoomId) {
             hideInvitePanel();
             showChatControls(true);
+            // showInvitePanel already claimed _currentRoomId, so loadRoom would
+            // read this as a same-room refresh and skip the switching-room
+            // block — leaving the invite's "Invited by …" subtitle, and the
+            // room name, direct flag and mute state, all unset. Accepting is a
+            // first entry into the room, so let it run as one. The cached
+            // summary still says Invite until the join comes back round through
+            // the room list, so the invite-panel branch has to be suppressed
+            // for this one load or it would bounce straight back to the panel.
+            _skipInvitePanelForNextLoad = true;
+            _currentRoomId.clear();
             loadRoom(roomId);
         }
     });
@@ -7142,6 +7169,47 @@ void HistoryWidget::refreshLastSeenSubtitle() {
     }
 }
 
+// The room name and "N members" are otherwise rendered once, in loadRoomData's
+// switching-room block, and frozen for the rest of the visit — so a rename, or
+// someone joining (or leaving) the room you are looking at, never changed the
+// header. The summary itself is fresh: state and membership events refresh the
+// Rust summary cache and land here as a rooms snapshot.
+void HistoryWidget::refreshMemberCountSubtitle() {
+    if (!_topBar || !_bridge || _previewMode || _isInvitedRoom || _currentRoomId.isEmpty()) {
+        return;
+    }
+    const auto rooms = _bridge->cachedRooms();
+    const auto it = std::find_if(rooms.begin(), rooms.end(),
+        [this](const RoomSummary &room) { return room.roomId == _currentRoomId; });
+    if (it == rooms.end()) return;
+
+    // The name applies to every room kind — a group rename and a DM peer's
+    // display-name change both land here. setRoomName is a no-op when equal.
+    if (!it->displayName.isEmpty()) {
+        _topBar->setRoomName(it->displayName);
+    }
+
+    // DMs show presence/last-seen instead (refreshLastSeenSubtitle owns those),
+    // Saved Messages has a bare title.
+    if (_currentRoomIsDirect
+        || _currentRoomId == _bridge->savedMessagesRoomId()) {
+        return;
+    }
+
+    // Same expression as the switching-room block, so the string (and its
+    // plural form) stays identical.
+    const auto memberCount = qMax(quint64(1), it->memberCount);
+    const auto subtitle = tr("%n member(s)", "", int(memberCount));
+    if (subtitle == _cachedSubtitle) return;
+
+    _cachedSubtitle = subtitle;
+    // While someone is typing the subtitle belongs to the typing indicator;
+    // the restore path picks up the new _cachedSubtitle when typing ends.
+    if (!_typingState.hasIncomingUsers()) {
+        _topBar->setSubtitle(_cachedSubtitle);
+    }
+}
+
 void HistoryWidget::refreshTypingSubtitle() {
     if (!_typingState.hasIncomingUsers() || !_topBar) return;
     _topBar->setTypingText(
@@ -8252,8 +8320,10 @@ void HistoryWidget::loadRoom(const QString &roomId) {
     const bool switchingRoom = (_currentRoomId != roomId);
     const auto previousTop = _scroll->scrollTop();
 
-    // Check if this is an invited room.
-    if (switchingRoom) {
+    // Check if this is an invited room. Consumed unconditionally so a load that
+    // never reaches the check cannot leave the flag armed for a later one.
+    const bool skipInvitePanel = std::exchange(_skipInvitePanelForNextLoad, false);
+    if (switchingRoom && !skipInvitePanel) {
         const auto rooms = _bridge->cachedRooms();
         for (const auto &room : rooms) {
             if (room.roomId == roomId
