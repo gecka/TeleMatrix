@@ -1,6 +1,7 @@
 # TeleMatrix
 
 [![CI](https://github.com/gecka/TeleMatrix/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gecka/TeleMatrix/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/gecka/TeleMatrix)](https://github.com/gecka/TeleMatrix/releases/latest)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-blue)
 ![Built with](https://img.shields.io/badge/built%20with-Qt%206%20%C2%B7%20Rust-41cd52)
@@ -12,10 +13,33 @@ Telegram Desktop interface — with a Rust back end built on
 [`matrix-rust-sdk`](https://github.com/matrix-org/matrix-rust-sdk), linked in as a
 static library over a small C FFI.
 
-> **macOS is the primary, actively‑tested platform**; Windows
-> (MSVC/NSIS) and Linux (DEB/RPM/AppImage) build & packaging paths exist and are kept
-> portable. This is an independent project and is not affiliated with Telegram,
+> This is an independent project and is not affiliated with Telegram,
 > Telegram FZ‑LLC, or The Matrix.org Foundation.
+
+---
+
+<p align="center">
+  <img src=".github/assets/screenshot.png" width="820" alt="TeleMatrix chat window">
+</p>
+
+---
+
+## Download
+
+**[Download the latest release](https://github.com/gecka/TeleMatrix/releases/latest)** —
+pick the file for your platform:
+
+| Platform | File |
+| --- | --- |
+| macOS (Apple Silicon + Intel) | `TeleMatrix-<version>-universal.dmg` |
+| Windows 10/11 (x64) | `TeleMatrix-<version>-win64.exe` |
+| Linux (portable) | `TeleMatrix-<version>-x86_64.AppImage` |
+| Debian / Ubuntu | `telematrix_<version>_amd64.deb` |
+| Fedora / RHEL | `telematrix-<version>-1.x86_64.rpm` |
+
+That link always resolves to the newest **stable** build. Beta and other
+pre‑release builds are listed on the
+[Releases page](https://github.com/gecka/TeleMatrix/releases).
 
 ---
 
@@ -36,6 +60,8 @@ static library over a small C FFI.
 - **Chat organization** — folders and joined spaces sit side by side in the left rail,
   reorderable together. Folders are native Matrix room‑list **sections** (`m.tag`), so a
   section made in Element shows up here and vice versa.
+- **Themes** — named palettes, each with matching day and night variants,
+  switchable from the main menu.
 - **Multiple accounts** — up to six accounts signed in at once, all syncing in the
   background, each with its own encrypted stores and secrets. Switch from the main menu
   or with `Ctrl/⌘+Shift+1…6`.
@@ -54,6 +80,31 @@ static library over a small C FFI.
 
 Build‑time toolchain requirements (Qt 6.10.1, rustc 1.96.0, gcc ≥ 12, FFmpeg) are covered
 in [`BUILDING.md`](BUILDING.md).
+
+---
+
+## Privacy
+
+**Nothing about you or your usage is tracked, monitored, or collected.** There is no
+analytics, no telemetry, no crash reporting, and no "phone home" — and no TeleMatrix
+server for any of it to reach, because this project ships a client, not a service.
+
+A few details:
+
+- **Link previews are fetched by your homeserver, not by your computer.** The client asks
+  the homeserver's `preview_url` endpoint, so pasting a link never exposes your IP address
+  to the linked site.
+- **Media is only ever fetched from your homeserver** — avatars, images, files, video. The
+  inline video player streams through a proxy bound to `127.0.0.1`, which is local to your
+  machine and never listens on the network.
+- **An update check tells GitHub very little.** It is a plain request for a fixed file, with
+  a constant `TeleMatrix-Updater` user agent and no query parameters, so it carries neither
+  your version nor your operating system; the comparison happens on your machine after the
+  file arrives. GitHub sees what it sees for any anonymous download: an IP address. Choose
+  *Never check for updates* and the app makes no automatic requests at all.
+
+Where your data rests, rather than where it travels, is covered below in
+[Local storage & data](#local-storage--data).
 
 ---
 
@@ -97,31 +148,6 @@ every store passphrase are held in a *secret backend*, chosen on first run:
 
 On sign‑out the secret backend is cleared and the encrypted stores are removed, so a
 logged‑out install retains no readable data.
-
----
-
-## Privacy
-
-**Nothing about you or your usage is tracked, monitored, or collected.** There is no
-analytics, no telemetry, no crash reporting, and no "phone home" — and no TeleMatrix
-server for any of it to reach, because this project ships a client, not a service.
-
-A few details:
-
-- **Link previews are fetched by your homeserver, not by your computer.** The client asks
-  the homeserver's `preview_url` endpoint, so pasting a link never exposes your IP address
-  to the linked site.
-- **Media is only ever fetched from your homeserver** — avatars, images, files, video. The
-  inline video player streams through a proxy bound to `127.0.0.1`, which is local to your
-  machine and never listens on the network.
-- **An update check tells GitHub very little.** It is a plain request for a fixed file, with
-  a constant `TeleMatrix-Updater` user agent and no query parameters, so it carries neither
-  your version nor your operating system; the comparison happens on your machine after the
-  file arrives. GitHub sees what it sees for any anonymous download: an IP address. Choose
-  *Never check for updates* and the app makes no automatic requests at all.
-
-Where your data rests, rather than where it travels, is covered above in
-[Local storage & data](#local-storage--data).
 
 ---
 
