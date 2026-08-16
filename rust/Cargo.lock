@@ -521,6 +521,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 
 [[package]]
+name = "bytemuck"
+version = "1.25.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95832e849adfb21180ccb6826a99da14e5d266ae5c2e668e1602cf234f153797"
+
+[[package]]
 name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1263,9 +1269,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4790c03df183c2b46665c1a58118c04fd3e3976ec2fe16a0aa00e00c9eea7754"
 dependencies = [
  "futures-core",
- "imbl",
+ "imbl 6.1.0",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "eyeball-im"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cf0c52231b6a6c3e262e5d69cbb425506abcce15bdd4c235fbb0d2a62ff64a2"
+dependencies = [
+ "futures-core",
+ "imbl 7.0.1",
+ "tokio",
 ]
 
 [[package]]
@@ -1275,9 +1292,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "809fa2e8e59c25a41f5b2440aa937f1e84df6ae48b707e65f69ce259b1c44bda"
 dependencies = [
  "arrayvec",
- "eyeball-im",
+ "eyeball-im 0.8.0",
  "futures-core",
- "imbl",
+ "imbl 6.1.0",
  "pin-project-lite",
  "smallvec",
 ]
@@ -1968,6 +1985,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "imbl"
+version = "7.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43ea8d4c37ee560727e824d62804183624d371e632019b0e9e3532bce64a33e5"
+dependencies = [
+ "archery",
+ "bitmaps",
+ "equivalent",
+ "imbl-sized-chunks",
+ "rand_core 0.9.5",
+ "rand_xoshiro",
+ "version_check",
+ "wide",
+]
+
+[[package]]
 name = "imbl-sized-chunks"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2439,12 +2472,12 @@ dependencies = [
  "cfg-if",
  "event-listener",
  "eyeball",
- "eyeball-im",
+ "eyeball-im 0.8.0",
  "futures-core",
  "futures-util",
  "gloo-timers",
  "http",
- "imbl",
+ "imbl 6.1.0",
  "indexmap",
  "itertools 0.14.0",
  "js_int",
@@ -2496,7 +2529,7 @@ dependencies = [
  "bitflags",
  "decancer",
  "eyeball",
- "eyeball-im",
+ "eyeball-im 0.8.0",
  "futures-util",
  "growable-bloom-filter",
  "http",
@@ -2520,12 +2553,12 @@ version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b9d1e0fee0f090180ef9457034adc547e80de9e6e3eb2e63aaac68a8476f836"
 dependencies = [
- "eyeball-im",
+ "eyeball-im 0.8.0",
  "futures-core",
  "futures-executor",
  "futures-util",
  "gloo-timers",
- "imbl",
+ "imbl 6.1.0",
  "ruma",
  "serde",
  "serde_json",
@@ -2724,13 +2757,13 @@ dependencies = [
  "chrono",
  "emojis",
  "eyeball",
- "eyeball-im",
+ "eyeball-im 0.8.0",
  "eyeball-im-util",
  "futures-core",
  "futures-util",
  "fuzzy-matcher",
  "growable-bloom-filter",
- "imbl",
+ "imbl 6.1.0",
  "indexmap",
  "itertools 0.14.0",
  "matrix-sdk",
@@ -4042,6 +4075,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
+name = "safe_arch"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96b02de82ddbe1b636e6170c21be622223aea188ef2e139be0a5b219ec215323"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "salsa20"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4518,7 +4560,7 @@ dependencies = [
  "ctr",
  "dirs",
  "eyeball",
- "eyeball-im",
+ "eyeball-im 0.9.0",
  "ffmpeg-next",
  "filetime",
  "futures-util",
@@ -5351,6 +5393,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22cfaf3c063993ff62e73cb4311efde4db1efb31ab78a3e5c457939ad5cc0bed"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "wide"
+version = "0.7.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce5da8ecb62bcd8ec8b7ea19f69a51275e91299be594ea5cc6ef7819e16cd03"
+dependencies = [
+ "bytemuck",
+ "safe_arch",
 ]
 
 [[package]]
