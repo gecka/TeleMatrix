@@ -22,7 +22,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 futures-util = "0.3"
-eyeball-im = "0.8"
+eyeball-im = "0.9"
 # Base SharedObservable, used to receive media-upload byte progress from the SDK
 # (matrix-sdk uses the same eyeball 0.8 internally).
 eyeball = "0.8"
