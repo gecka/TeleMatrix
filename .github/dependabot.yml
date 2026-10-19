@@ -32,10 +32,16 @@ updates:
     schedule:
       interval: weekly
     groups:
+      # matrix-sdk exposes eyeball-im types in its API, so they move as one unit.
+      # The exclude is load-bearing: dependabot ranks an update-types group as more
+      # specific than a patterns-only one, so without it rust-minor-patch claims these
+      # crates, fails to bump each one alone, and drops them without a word — which is
+      # how matrix-sdk 0.19 went a month without a PR.
       matrix-sdk:
-        patterns: ['matrix-sdk*']
+        patterns: ['matrix-sdk*', 'eyeball*']
       rust-minor-patch:
         update-types: [minor, patch]
+        exclude-patterns: ['matrix-sdk*', 'eyeball*']
     ignore:
       # RustCrypto generation lock. aes/ctr/cipher/hkdf/sha2 are pinned to the versions
       # matrix-sdk-crypto and vodozemac already pull, so the artifact carries one copy of
