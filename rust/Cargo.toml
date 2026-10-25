@@ -38,7 +38,7 @@ matrix-sdk-crypto = "0.18"
 # Render QrVerification::to_qr_code() to a module grid. Same crate (0.14) the SDK's
 # qrcode feature already pulls, so versions unify.
 qrcode = { version = "0.14", default-features = false }
-dirs = "6"
+dirs = "7"
 rusqlite = { version = "0.37", features = ["bundled-sqlcipher"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
