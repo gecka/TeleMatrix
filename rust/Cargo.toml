@@ -75,7 +75,7 @@ filetime = "0.2"
 # Auto-update (update_service.rs): verify the ed25519/minisign signature on a
 # downloaded release asset against the embedded public key. Verify-only and
 # zero-dependency — the signing half never ships in the app, it lives in CI.
-minisign-verify = "0.2"
+minisign-verify = "0.3"
 # Semver compare for "is the release newer than what's running", including
 # pre-release ordering (1.1.0-beta.1 < 1.1.0). Already in the tree transitively.
 semver = "1"
